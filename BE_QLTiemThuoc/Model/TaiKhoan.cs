@@ -2,7 +2,7 @@
 using System.ComponentModel.DataAnnotations;
 
 
-namespace BE_QLTiemThuoc.Models
+namespace BE_QLTiemThuoc.Model
 {
     public class TaiKhoan
     {

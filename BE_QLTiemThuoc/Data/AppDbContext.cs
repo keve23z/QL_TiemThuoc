@@ -1,12 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Reflection.Emit;
 using Microsoft.EntityFrameworkCore;
-using BE_QLTiemThuoc.Models;
-<<<<<<< HEAD
+
 using BE_QLTiemThuoc.Model.Thuoc;
-=======
 using BE_QLTiemThuoc.Model;
->>>>>>> ae4a37bae24b21896a21fc63faeed420286e298c
 
 namespace BE_QLTiemThuoc.Data
 {

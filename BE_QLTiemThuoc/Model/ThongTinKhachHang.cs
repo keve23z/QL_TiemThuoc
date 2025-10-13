@@ -1,4 +1,4 @@
-﻿namespace BE_QLTiemThuoc.Models 
+﻿namespace BE_QLTiemThuoc.Model
 { 
     public class ThongTinKhachHang
     {
