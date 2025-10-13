@@ -1,6 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using BE_QLTiemThuoc.Data;
-using BE_QLTiemThuoc.Models;
+using BE_QLTiemThuoc.Model;
 using Microsoft.EntityFrameworkCore;
 
 namespace BE_QLTiemThuoc.Controllers

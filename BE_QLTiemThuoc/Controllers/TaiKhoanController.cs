@@ -1,10 +1,10 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using BE_QLTiemThuoc.Data;
-using BE_QLTiemThuoc.Models;
 using Microsoft.EntityFrameworkCore;
 using System.Net.Mail;
 using System.Net;
 using Microsoft.AspNetCore.Identity.Data;
+using BE_QLTiemThuoc.Model;
 
 namespace BE_QLTiemThuoc.Controllers
 {
