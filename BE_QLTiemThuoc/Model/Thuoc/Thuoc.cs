@@ -1,16 +1,15 @@
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
-namespace BE_QLTiemThuoc.Model
+
+namespace BE_QLTiemThuoc.Model.Thuoc
 {
+    [Table("Thuoc")]
     public class Thuoc
     {
         [Key]
         public string MaThuoc { get; set; }
 
         public string MaLoaiThuoc { get; set; }
-
-        // Remove or comment out this property if it does not exist in your database
-        // public string LoaiThuoc { get; set; }
 
         [Required]
         public string TenThuoc { get; set; }

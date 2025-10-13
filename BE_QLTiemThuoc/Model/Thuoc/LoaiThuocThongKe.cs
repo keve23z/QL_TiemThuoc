@@ -1,4 +1,4 @@
-﻿namespace BE_QLTiemThuoc.Model
+﻿namespace BE_QLTiemThuoc.Model.Thuoc
 {
     public class LoaiThuocThongKe
     {

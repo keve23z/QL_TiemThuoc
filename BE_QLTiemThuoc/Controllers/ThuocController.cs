@@ -6,6 +6,11 @@ using BE_QLTiemThuoc.Services;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+<<<<<<< HEAD
+using System.ComponentModel.DataAnnotations;
+using BE_QLTiemThuoc.Model.Thuoc;
+=======
+>>>>>>> ae4a37bae24b21896a21fc63faeed420286e298c
 
 namespace BE_QLTiemThuoc.Controllers
 {
@@ -79,7 +84,18 @@ namespace BE_QLTiemThuoc.Controllers
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
                 var result = await _context.Thuoc
+<<<<<<< HEAD
+                    .Select(t => new 
+                    {
+                        t.MaThuoc,
+                        t.MaLoaiThuoc,
+                        t.TenThuoc,
+                        t.UrlAnh,
+                        t.DonGiaSi
+                    })
+=======
                     //.Include(t => t.LoaiThuoc) // Bật nếu muốn lấy thông tin loại thuốc
+>>>>>>> ae4a37bae24b21896a21fc63faeed420286e298c
                     .ToListAsync();
                 return result;
             });
@@ -87,6 +103,33 @@ namespace BE_QLTiemThuoc.Controllers
             return Ok(response);
         }
 
+<<<<<<< HEAD
+        // GET: api/Thuoc/ByLoai/{maLoaiThuoc}
+        [HttpGet("ByLoai/{maLoaiThuoc}")]
+        public async Task<IActionResult> GetThuocByLoai(string maLoaiThuoc)
+        {
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                var thuocList = await _context.Thuoc
+                    .Where(t => t.MaLoaiThuoc == maLoaiThuoc)
+                    .Select(t => new
+                    {
+                        t.MaThuoc,
+                        t.MaLoaiThuoc,
+                        t.TenThuoc,
+                        t.UrlAnh,
+                        t.DonGiaSi
+                    })
+                    .ToListAsync();
+
+                return thuocList;
+            });
+
+            return Ok(response);
+        }
+
+=======
+>>>>>>> ae4a37bae24b21896a21fc63faeed420286e298c
         // POST: api/Thuoc
         [HttpPost]
         public async Task<IActionResult> PostThuoc([FromBody] Thuoc thuoc)
