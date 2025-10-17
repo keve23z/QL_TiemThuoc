@@ -1,0 +1,68 @@
+﻿@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>@ViewData["Title"] - User</title>
+
+    <!-- favicon -->
+    <link rel="icon" type="image/x-icon" href="~/assets_user/img/logo/favicon.png">
+
+    <!-- css -->
+    <link rel="stylesheet" href="~/assets_user/css/bootstrap.min.css">
+    <link rel="stylesheet" href="~/assets_user/css/all-fontawesome.min.css">
+    <link rel="stylesheet" href="~/assets_user/css/animate.min.css">
+    <link rel="stylesheet" href="~/assets_user/css/magnific-popup.min.css">
+    <link rel="stylesheet" href="~/assets_user/css/owl.carousel.min.css">
+    <link rel="stylesheet" href="~/assets_user/css/jquery-ui.min.css">
+    <link rel="stylesheet" href="~/assets_user/css/nice-select.min.css">
+    <link rel="stylesheet" href="~/assets_user/css/style.css">
+</head>
+
+<body>
+
+    <!-- preloader -->
+    <div class="preloader">
+        <div class="loader-ripple">
+            <div></div><div></div>
+        </div>
+    </div>
+    <!-- preloader end -->
+    <!-- header + navbar -->
+    @Html.Partial("UserSH/_UserHeader")
+
+    <!-- Nội dung trang con -->
+    <main class="main">
+        @RenderBody()
+    </main>
+
+    <!-- footer -->
+    @Html.Partial("UserSH/_UserFooter")
+
+    <!-- scroll-top -->
+    <a href="#" id="scroll-top"><i class="far fa-arrow-up-from-arc"></i></a>
+
+    <!-- js -->
+    <script src="~/assets_user/js/jquery-3.7.1.min.js"></script>
+    <script src="~/assets_user/js/modernizr.min.js"></script>
+    <script src="~/assets_user/js/bootstrap.bundle.min.js"></script>
+    <script src="~/assets_user/js/imagesloaded.pkgd.min.js"></script>
+    <script src="~/assets_user/js/jquery.magnific-popup.min.js"></script>
+    <script src="~/assets_user/js/isotope.pkgd.min.js"></script>
+    <script src="~/assets_user/js/jquery.appear.min.js"></script>
+    <script src="~/assets_user/js/jquery.easing.min.js"></script>
+    <script src="~/assets_user/js/owl.carousel.min.js"></script>
+    <script src="~/assets_user/js/counter-up.js"></script>
+    <script src="~/assets_user/js/jquery-ui.min.js"></script>
+    <script src="~/assets_user/js/jquery.nice-select.min.js"></script>
+    <script src="~/assets_user/js/countdown.min.js"></script>
+    <script src="~/assets_user/js/wow.min.js"></script>
+    <script src="~/assets_user/js/main.js"></script>
+
+</body>
+</html>

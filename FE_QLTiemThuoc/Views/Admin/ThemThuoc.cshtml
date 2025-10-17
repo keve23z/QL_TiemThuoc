@@ -1,0 +1,867 @@
+﻿@{
+    ViewData["Title"] = "Quản lý Thuốc";
+    // Layout intentionally omitted here because this file is now used as a partial
+    // The layout is provided by the parent view (Views/Admin/ThemThuoc.cshtml shim)
+    var editThuoc = ViewBag.EditThuoc as FE_QLTiemThuoc.Models.ThuocViewModel;
+    var thuocList = ViewBag.ThuocList as List<FE_QLTiemThuoc.Models.ThuocViewModel>;
+    var loaiList = ViewBag.LoaiList as List<FE_QLTiemThuoc.Models.LoaiThuoc>;
+}
+
+<div class="container-fluid mt-4">
+    <div class="row">
+    <div class="col-12">
+            <!-- Search / Filter card -->
+            <style>
+                /* page-scoped tweaks for the Thuốc filter row */
+                /* unify typography and spacing */
+                .thuoc-filter-card .form-label,
+                .thuoc-filter-card .card-title {
+                    font-size: 0.95rem;
+                    line-height: 1.2;
+                    color: #222;
+                    margin-bottom: 0.35rem;
+                    display: block;
+                }
+                .thuoc-filter-card form.row { align-items: center; }
+                .thuoc-filter-card .form-select,
+                .thuoc-filter-card .form-control,
+                .thuoc-filter-card .btn {
+                    height: 46px;
+                    box-sizing: border-box;
+                    width: 100%;
+                    font-size: 0.95rem;
+                    line-height: 1.2;
+                    padding-top: .45rem;
+                    padding-bottom: .45rem;
+                }
+                /* reduce left padding inside the card so it sits closer to sidebar */
+                .thuoc-filter-card .card-body { padding: 0.75rem 0.9rem; }
+                /* cap select column so it's narrower like the input area */
+                .thuoc-filter-card .col-md-2 { max-width: 220px; }
+                /* ensure select's label aligns visually with the search heading if a heading is present */
+                .thuoc-filter-card .col-md-2 .form-label { padding-top: 0; margin-bottom: 0.35rem; }
+                /* Reduce gap between action buttons in table rows */
+                #thuocTable .d-flex.gap-2 { gap: 0.35rem !important; }
+                #thuocTable .d-flex.gap-2 .btn { padding-left: .6rem; padding-right: .6rem; }
+            </style>
+
+            <!-- Fallback small script: expose run functions so buttons work even if main script failed to initialize -->
+            <script>
+                window._runFilter = function () {
+                    try {
+                        // If main applyFilters exists, use it
+                        if (window.applyFilters) { window.applyFilters(); return; }
+                        // Otherwise perform DOM-only filter here
+                        var q = (document.getElementById('thuocSearch')?.value || '').trim().toLowerCase();
+                        var loai = (document.getElementById('thuocLoaiFilter')?.value || '').trim();
+                        var rows = document.querySelectorAll('#thuocTable tbody tr');
+                        var matched = 0;
+                        Array.from(rows).forEach(function (tr) {
+                            var td0 = (tr.children[0] && tr.children[0].textContent || '').trim().toLowerCase();
+                            var td2 = (tr.children[2] && tr.children[2].textContent || '').trim().toLowerCase();
+                            var td5 = (tr.children[5] && tr.children[5].textContent || '').trim().toLowerCase();
+                            var matchQ = false;
+                            if (!q) matchQ = true;
+                            else { if (td0.indexOf(q) !== -1) matchQ = true; if (td2.indexOf(q) !== -1) matchQ = true; if (td5.indexOf(q) !== -1) matchQ = true; }
+                            var matchLoai = true;
+                            if (loai) { var loaiText = (tr.children[1] && tr.children[1].textContent || '').trim(); matchLoai = loaiText === loai; }
+                            var show = (matchQ && matchLoai);
+                            tr.style.display = show ? '' : 'none';
+                            if (show) matched++;
+                        });
+                        var panel = document.getElementById('thuocDebugPanel');
+                        var out = document.getElementById('thuocDebugOutput');
+                        if (panel) panel.style.display = 'none';
+                        if (out) out.innerHTML = '<div>Matched: ' + matched + ' / ' + rows.length + '</div>';
+                    } catch (e) { console && console.error && console.error(e); }
+                };
+                window._runDebug = function () {
+                    try {
+                        if (window.applyFilters) { window.applyFilters(); }
+                        // build matched list
+                        var rows = document.querySelectorAll('#thuocTable tbody tr');
+                        var q = (document.getElementById('thuocSearch')?.value || '').trim().toLowerCase();
+                        var loai = (document.getElementById('thuocLoaiFilter')?.value || '').trim();
+                        var matched = [];
+                        rows.forEach(function (tr) {
+                            var text = (tr.textContent || '').toLowerCase();
+                            var matchQ = (!q) || (text.indexOf(q) !== -1);
+                            var matchLoai = true;
+                            if (loai) { var loaiText = (tr.children[1] && tr.children[1].textContent || '').trim(); matchLoai = loaiText === loai; }
+                            if (matchQ && matchLoai) matched.push({ Ma: tr.getAttribute('data-mathuoc') || (tr.children[0] && tr.children[0].textContent || '').trim(), Ten: (tr.children[2] && tr.children[2].textContent || '').trim() });
+                        });
+                        var panel = document.getElementById('thuocDebugPanel');
+                        var out = document.getElementById('thuocDebugOutput');
+                        if (panel) panel.style.display = matched.length ? 'block' : 'block';
+                        if (out) out.innerHTML = matched.length ? '<pre>' + JSON.stringify(matched, null, 2) + '</pre>' : '<em>No matches</em>';
+                    } catch (e) { console && console.error && console.error(e); }
+                };
+            </script>
+
+            <div class="card mb-3 thuoc-filter-card">
+                <div class="card-body">
+                    <style>
+                        /* Compact action buttons to save horizontal space */
+                        .btn-action {
+                            padding: .18rem .45rem; /* smaller tappable area to reduce row height */
+                            font-size: .82rem;
+                            line-height: 1;
+                            border-radius: .35rem;
+                        }
+                        /* Column sizing: make image and name larger, actions smaller */
+                        #thuocTable th:nth-child(1), #thuocTable td:nth-child(1) { width: 80px; }
+                        #thuocTable th:nth-child(2), #thuocTable td:nth-child(2) { width: 120px; }
+                        /* allow the Tên thuốc to take more space and wrap into multiple lines if needed */
+                        #thuocTable th:nth-child(3), #thuocTable td:nth-child(3) {
+                            min-width: 260px;
+                            max-width: 1200px;
+                            white-space: normal; /* allow wrap */
+                        }
+                        /* Giá sỉ smaller */
+                        #thuocTable th:nth-child(4), #thuocTable td:nth-child(4) { width: 100px; }
+                        /* Enlarge image column */
+                        #thuocTable th:nth-child(5), #thuocTable td:nth-child(5) { width: 110px; }
+                        /* Description column keep moderate width */
+                        #thuocTable td:nth-child(6) { max-width: 340px; white-space: normal; overflow: hidden; text-overflow: ellipsis; }
+                        /* Shrink actions column and make buttons share space so they never overlap */
+                        #thuocTable th:nth-child(7), #thuocTable td:nth-child(7) { width: 90px; }
+
+                        /* Larger image preview and containment (slightly reduced to shrink rows) */
+                        #thuocTable td:nth-child(5) img { width: 56px; height: 56px; object-fit: contain; display: block; margin: 0 auto; }
+
+                        /* Ensure buttons have spacing and don't overlap; each button flexes to fit */
+                        #thuocTable .action-group { display: flex; gap: .35rem; justify-content: flex-end; }
+                        #thuocTable .action-group .btn { flex: 1 1 auto; min-width: 42px; padding: .16rem .32rem; }
+
+                        /* Responsive: stack buttons on very small screens */
+                        @@media (max-width: 576px) {
+                            #thuocTable .action-group { flex-direction: column; align-items: stretch; }
+                            #thuocTable th:nth-child(7), #thuocTable td:nth-child(7) { width: auto; }
+                        }
+                        /* Compact table rows: even smaller padding and font-size to reduce height */
+                        #thuocTable td, #thuocTable th { padding-top: .32rem; padding-bottom: .32rem; vertical-align: middle; }
+                        #thuocTable td { font-size: .90rem; line-height: 1.05; }
+                    </style>
+                    <style>
+                        /* Make the Loại select and search input visually identical */
+                        #thuocFilterForm #thuocLoaiFilter, #thuocFilterForm #thuocSearch {
+                            height: 46px;
+                            padding: .45rem .75rem;
+                            box-sizing: border-box;
+                            line-height: 1.2;
+                            font-size: 0.95rem;
+                            border-radius: 6px;
+                        }
+                        /* On some browsers select uses different appearance; normalize */
+                        #thuocFilterForm #thuocLoaiFilter { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
+                    </style>
+                    <form id="thuocFilterForm" class="row gx-2 align-items-center">
+                            <div class="col-md-2">
+                                <label class="form-label small mb-1" for="thuocLoaiFilter">Loại hàng</label>
+                                <select id="thuocLoaiFilter" class="form-select">
+                                    <option value="">Tất cả</option>
+                                    @foreach (var l in loaiList ?? new List<FE_QLTiemThuoc.Models.LoaiThuoc>())
+                                    {
+                                        <option value="@l.MaLoaiThuoc">@l.TenLoaiThuoc</option>
+                                    }
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label small mb-1" for="thuocSearch">Tìm kiếm</label>
+                                <input type="text" id="thuocSearch" class="form-control" placeholder="Tìm theo tên hoặc mã hoặc mô tả..." />
+                            </div>
+                            <div class="col-md-2 d-grid">
+                                <button type="button" id="applySearchBtn" class="btn btn-primary" onclick="window._runFilter();">Tìm</button>
+                            </div>
+                            <div class="col-md-2 d-grid">
+                                <button type="button" class="btn btn-primary">Thêm mới</button>
+                            </div>
+                            
+                    </form>
+                </div>
+            </div>
+
+            <!-- Debug panel removed in production -->
+
+            <!-- List card (card grid style) -->
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <strong>Danh sách thuốc</strong>
+                    <small class="text-muted">Bảng danh sách</small>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table id="thuocTable" class="table w-100 thead-primary table-hover align-middle">
+                            <thead>
+                                <tr>
+                                    <th style="width:90px">Mã thuốc</th>
+                                    <th style="width:140px">Loại</th>
+                                    <th>Tên thuốc</th>
+                                    <th style="width:120px">Giá sỉ</th>
+                                    <th style="width:100px">Ảnh</th>
+                                    <th>Mô tả</th>
+                                    <th style="width:110px">Thao tác</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var item in thuocList ?? new List<FE_QLTiemThuoc.Models.ThuocViewModel>())
+                                {
+                                    var tenLoai = loaiList?.FirstOrDefault(l => string.Equals((l.MaLoaiThuoc ?? "").Trim(), (item.MaLoaiThuoc ?? "").Trim(), StringComparison.OrdinalIgnoreCase))?.TenLoaiThuoc;
+                                    <tr data-mathuoc="@item.MaThuoc" data-maloai="@item.MaLoaiThuoc">
+                                        <td>@item.MaThuoc</td>
+                                        <td>@(!string.IsNullOrEmpty(tenLoai) ? tenLoai : item.MaLoaiThuoc)</td>
+                                        <td>@item.TenThuoc</td>
+                                        <td>@item.DonGiaSi.ToString("N0") đ</td>
+                                        <td>
+                                            @if (!string.IsNullOrEmpty(item.UrlAnh))
+                                            {
+                                                <img src="/assets_user/img/product/@item.UrlAnh" alt="Ảnh" width="60" height="60" style="object-fit:contain;border-radius:0;" />
+                                            }
+                                        </td>
+                                        <td class="text-truncate">@item.MoTa</td>
+                                        <td>
+                                            <div class="d-flex align-items-center action-group">
+                                                <button class="btn btn-sm btn-warning btn-edit btn-action me-2" data-mathuoc="@item.MaThuoc">Sửa</button>
+                                                <button class="btn btn-sm btn-info btn-details btn-action" data-mathuoc="@item.MaThuoc">Xem</button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                        <!-- Pagination controls inserted here -->
+                        <nav id="thuocPagerNav" aria-label="Page navigation" class="mt-3">
+                            <ul id="thuocPager" class="pagination pagination-sm justify-content-end mb-0"></ul>
+                        </nav>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal: Thuoc details (horizontal layout: image left, details right) -->
+<div class="modal fade" id="thuocDetailModal" tabindex="-1" aria-labelledby="thuocDetailModalLabel" aria-hidden="true">
+    <!-- widened modal: keep modal-xl and increase max-width for more horizontal space -->
+    <div class="modal-dialog modal-xl modal-dialog-centered" style="max-width:1200px;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="thuocDetailModalLabel">Chi tiết thuốc</h5>
+                <!-- Use an explicit X so it always renders as expected -->
+                <button type="button" class="modal-close-x" data-bs-dismiss="modal" aria-label="Close">&times;</button>
+            </div>
+            <div class="modal-body">
+                <style>
+                    /* Simpler grid-based layout for reliability */
+                    #thuocDetailModal .modal-body { font-size: 1rem; }
+                    /* style explicit close X button to match look and be visible */
+                    #thuocDetailModal .modal-close-x { background: transparent; border: 1px solid #444; border-radius: 3px; width: 28px; height: 18px; line-height: 14px; text-align: center; font-size: 14px; color: #222; }
+                    #thuocDetailModal .modal-close-x:hover { background: #f8f9fa; }
+                    /* ensure image stays contained and does not overlap form fields */
+                    #thuocDetailModal .detail-img { max-width: 100%; height: auto; object-fit: contain; display: none; max-height: 360px; }
+                    /* ensure injected inputs/selects fill their columns */
+                    #thuocDetailModal .form-control, #thuocDetailModal .form-select, #thuocDetailModal .form-control-plaintext { width: 100% !important; }
+                    #thuocDetailModal .form-control-sm, #thuocDetailModal .form-select-sm { width: 100% !important; }
+                    #thuocDetailModal .detail-ten { font-size: 1.5rem; font-weight: 600; }
+                    #thuocDetailModal .detail-meta { color: #6c757d; margin-bottom: 0.5rem; }
+                    #thuocDetailModal .detail-row { margin-bottom: 0.5rem; color: #212529; }
+                    #thuocDetailModal .detail-mota { white-space: pre-wrap; color: #212529; }
+                    @@media (max-width: 767px) {
+                        #thuocDetailModal .detail-ten { font-size: 1.2rem; }
+                    }
+                    /* add extra spacing on the right of supplier box so it doesn't touch modal border */
+                    #thuocDetailModal .detail-ncc { padding-right: 1rem; }
+                    #thuocDetailModal .detail-ncc .form-select, #thuocDetailModal .detail-ncc .edit-ncc { width: 100%; }
+                    /* compact image controls */
+                    #thuocDetailModal .import-external-btn, #thuocDetailModal .upload-file-btn { line-height: 1; }
+                    #thuocDetailModal .edit-urlanh-file { padding: .25rem .5rem; }
+                    #thuocDetailModal .detail-urlanh small { display: inline-block; margin-left: .4rem; }
+                </style>
+
+                <!-- Top section: image (left) + small fields (right) -->
+                <div class="row mb-3 top-section align-items-start">
+                    <div class="col-md-4 text-center">
+                        <img class="detail-img img-fluid mb-2" src="" alt="Ảnh thuốc" />
+                    </div>
+                    <div class="col-md-8">
+                        <h5 class="detail-ten mb-2">&nbsp;</h5>
+
+                        <div class="row g-2 mb-2">
+                            <div class="col-sm-4">
+                                <label class="form-label small mb-1">Mã:</label>
+                                <div class="detail-ma form-control-plaintext"></div>
+                            </div>
+                            <div class="col-sm-4">
+                                <label class="form-label small mb-1">Loại:</label>
+                                <div class="detail-loai form-control-plaintext"></div>
+                            </div>
+                            <div class="col-sm-4">
+                                <label class="form-label small mb-1">Đơn vị (MaLoaiDonVi):</label>
+                                <div class="detail-maloaidonvi form-control-plaintext"></div>
+                            </div>
+                        </div>
+
+                        <div class="row g-2 mb-2">
+                            <div class="col-sm-4">
+                                <label class="form-label small mb-1">Giá sỉ:</label>
+                                <div class="detail-gia form-control-plaintext"></div>
+                            </div>
+                            <div class="col-sm-4">
+                                <label class="form-label small mb-1">Giá lẻ:</label>
+                                <div class="detail-gia-le form-control-plaintext"></div>
+                            </div>
+                            <div class="col-sm-4">
+                                <label class="form-label small mb-1">Số lượng:</label>
+                                <div class="detail-soluong form-control-plaintext"></div>
+                            </div>
+                        </div>
+
+                        <div class="row g-2 mb-2">
+                            <div class="col-sm-6">
+                                <label class="form-label small mb-1">Nhà cung cấp:</label>
+                                <div class="detail-ncc form-control-plaintext"></div>
+                            </div>
+                            <div class="col-sm-6">
+                                <label class="form-label small mb-1">Url ảnh:</label>
+                                <div class="detail-urlanh form-control-plaintext"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom section: descriptive fields (starts below the top section) -->
+                <div class="bottom-section">
+                    <div class="row g-2 mb-2">
+                        <div class="col-sm-6">
+                            <label class="form-label small mb-1"><strong>Thành phần:</strong></label>
+                            <div class="detail-thanhphan form-control-plaintext ms-2"></div>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label small mb-1"><strong>Công dụng:</strong></label>
+                            <div class="detail-congdung form-control-plaintext ms-2"></div>
+                        </div>
+                    </div>
+
+                    <div class="row g-2 mb-2">
+                        <div class="col-sm-6">
+                            <label class="form-label small mb-1"><strong>Cách dùng:</strong></label>
+                            <div class="detail-cachdung form-control-plaintext ms-2"></div>
+                        </div>
+                        <div class="col-sm-6">
+                            <label class="form-label small mb-1"><strong>Lưu ý:</strong></label>
+                            <div class="detail-luuy form-control-plaintext ms-2"></div>
+                        </div>
+                    </div>
+
+                    <div class="row g-2 mb-2 align-items-start">
+                        <div class="col-sm-6">
+                            <label class="form-label small mb-1"><strong>Mô tả:</strong></label>
+                            <div class="detail-mota form-control-plaintext ms-2"></div>
+                        </div>
+                        <div class="col-sm-6 d-flex justify-content-end align-items-start">
+                            <div>
+                                <button type="button" id="thuocSaveBtn" class="btn btn-primary" style="display:none; margin-right:.5rem">Lưu</button>
+                                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    // indicate main script ran
+    try { var badge = document.getElementById('jsStatusBadge'); if (badge) { badge.textContent = 'JS OK'; badge.style.background = '#28a745'; } } catch(e) {}
+    // build LOAI_MAP (MaLoai -> TenLoai) for client-side lookups
+    var LOAI_MAP = {};
+    try {
+        LOAI_MAP = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(loaiList?.ToDictionary(l => l.MaLoaiThuoc ?? "", l => l.TenLoaiThuoc ?? "") ?? new Dictionary<string,string>()));
+    } catch (e) { LOAI_MAP = {}; }
+
+    var thuocTableEl = document.getElementById('thuocTable');
+    var tableContainer = thuocTableEl ? (thuocTableEl.tBodies[0] || thuocTableEl) : document;
+
+    // delegated click for Edit / View
+    tableContainer.addEventListener('click', function (ev) {
+        var btn = ev.target.closest('.btn-edit, .btn-details');
+        if (!btn) return;
+        ev.stopPropagation();
+        var maThuoc = btn.getAttribute('data-mathuoc') || btn.closest('tr')?.getAttribute('data-mathuoc');
+        if (!maThuoc) return;
+
+        // If Edit button clicked, open modal in edit mode (inputs) and show Save button
+        if (btn.classList.contains('btn-edit')) {
+            fetch('https://localhost:7283/api/Thuoc/' + maThuoc)
+                .then(function (res) { if (!res.ok) throw new Error(res.statusText || 'API error'); return res.json(); })
+                .then(function (response) {
+                    if (response.status === 1 && response.data) {
+                        var t = response.data;
+                        var modal = document.getElementById('thuocDetailModal');
+                        if (!modal) return;
+
+                        function setHtml(selector, html) { var el = modal.querySelector(selector); if (el) el.innerHTML = html; }
+
+                        setHtml('.modal-title', 'Chỉnh sửa thuốc');
+                        setHtml('.detail-ten', '<input class="form-control form-control-sm edit-ten" value="' + (t.tenThuoc || '') + '" />');
+                        setHtml('.detail-ma', '<input class="form-control form-control-sm edit-ma" value="' + (t.maThuoc || '') + '" disabled />');
+                        // build a select dropdown of Loại from LOAI_MAP for user to choose
+                        (function(){
+                            var sel = '<select class="form-select form-select-sm edit-loai">';
+                            sel += '<option value="">-- Chọn loại --</option>';
+                            try {
+                                for (var code in LOAI_MAP) {
+                                    if (!Object.prototype.hasOwnProperty.call(LOAI_MAP, code)) continue;
+                                    var name = LOAI_MAP[code] || code;
+                                    var selected = (code === (t.maLoaiThuoc || '')) ? ' selected' : '';
+                                    sel += '<option value="' + code + '"' + selected + '>' + name + '</option>';
+                                }
+                            } catch (e) {
+                                // fallback to simple input
+                                sel = '<input class="form-control form-control-sm edit-loai" value="' + (t.maLoaiThuoc || '') + '" />';
+                            }
+                            sel += '</select>';
+                            setHtml('.detail-loai', sel);
+                        })();
+                        setHtml('.detail-gia', '<input class="form-control form-control-sm edit-gia" value="' + (typeof t.donGiaSi !== 'undefined' ? t.donGiaSi : '') + '" />');
+                        setHtml('.detail-gia-le', '<input class="form-control form-control-sm edit-gia-le" value="' + (typeof t.donGiaLe !== 'undefined' ? t.donGiaLe : '') + '" />');
+                        setHtml('.detail-soluong', '<input class="form-control form-control-sm edit-soluong" value="' + (typeof t.soLuong !== 'undefined' ? t.soLuong : '') + '" />');
+                        // build supplier select by fetching NCC list; fallback to input on error
+                        (function () {
+                            var placeholder = '<input class="form-control form-control-sm edit-ncc" value="' + (t.maNCC || '') + '" />';
+                            try {
+                                fetch('https://localhost:7283/api/NhaCungCap')
+                                    .then(function (r) { if (!r.ok) throw new Error('NCC fetch failed'); return r.json(); })
+                                    .then(function (json) {
+                                        var arr = (json && json.data) ? json.data : json;
+                                        if (!Array.isArray(arr) || arr.length === 0) {
+                                            setHtml('.detail-ncc', placeholder);
+                                            return;
+                                        }
+                                        var sel = '<select class="form-select form-select-sm edit-ncc">';
+                                        sel += '<option value="">-- Chọn nhà cung cấp --</option>';
+                                        for (var i = 0; i < arr.length; i++) {
+                                            var n = arr[i];
+                                            var code = n.MaNCC || n.maNCC || '';
+                                            var name = n.TenNCC || n.tenNCC || code;
+                                            var selAttr = (code === (t.maNCC || '')) ? ' selected' : '';
+                                            sel += '<option value="' + code + '"' + selAttr + '>' + name + '</option>';
+                                        }
+                                        sel += '</select>';
+                                        setHtml('.detail-ncc', sel);
+                                    }).catch(function (e) { console.error(e); setHtml('.detail-ncc', placeholder); });
+                            } catch (e) { console.error(e); setHtml('.detail-ncc', placeholder); }
+                        })();
+                        // MaLoaiDonVi and UrlAnh inputs
+                        setHtml('.detail-maloaidonvi', '<input class="form-control form-control-sm edit-maloaidonvi" value="' + (t.maLoaiDonVi || '') + '" />');
+                        // Image chooser: choose existing image or upload a new one
+                        var imageSelectorHtml = '';
+                        imageSelectorHtml += '<div class="d-flex align-items-center gap-3 mb-2">';
+                        imageSelectorHtml += '  <div class="form-check form-check-inline">';
+                        imageSelectorHtml += '    <input class="form-check-input img-choice" type="radio" name="imgChoice" id="imgChoiceExisting" value="existing" checked />';
+                        imageSelectorHtml += '    <label class="form-check-label small" for="imgChoiceExisting">Ảnh đã có</label>';
+                        imageSelectorHtml += '  </div>';
+                        imageSelectorHtml += '  <div class="form-check form-check-inline">';
+                        imageSelectorHtml += '    <input class="form-check-input img-choice" type="radio" name="imgChoice" id="imgChoiceUpload" value="upload" />';
+                        imageSelectorHtml += '    <label class="form-check-label small" for="imgChoiceUpload">Upload ảnh</label>';
+                        imageSelectorHtml += '  </div>';
+                        imageSelectorHtml += '</div>';
+                        imageSelectorHtml += '<div class="image-existing-area mb-1">';
+                        imageSelectorHtml += '  <select class="form-select form-select-sm edit-urlanh-select" style="max-width:260px;">';
+                        imageSelectorHtml += '    <option value="">(Chọn ảnh)</option>';
+                        imageSelectorHtml += '  </select>';
+                        imageSelectorHtml += '</div>';
+                        imageSelectorHtml += '<div class="image-upload-area mb-1" style="display:none">';
+                        imageSelectorHtml += '  <div class="d-flex align-items-center gap-2">';
+                        imageSelectorHtml += '    <input type="file" accept="image/*" class="form-control form-control-sm edit-urlanh-file" style="max-width:260px; padding:.28rem .5rem;" />';
+                        imageSelectorHtml += '    <button class="btn btn-sm btn-outline-secondary upload-file-btn" type="button" style="padding:.28rem .6rem;">Upload</button>';
+                        imageSelectorHtml += '    <small class="text-muted ms-2" style="font-size:.85rem">Kích thước tối ưu: 800x800</small>';
+                        imageSelectorHtml += '  </div>';
+                        imageSelectorHtml += '</div>';
+                        imageSelectorHtml += '<input type="hidden" class="edit-urlanh" value="' + (t.urlAnh || '') + '" />';
+                        setHtml('.detail-urlanh', imageSelectorHtml);
+                        setHtml('.detail-thanhphan', '<textarea class="form-control form-control-sm edit-thanhphan">' + (t.thanhPhan || '') + '</textarea>');
+                        setHtml('.detail-congdung', '<textarea class="form-control form-control-sm edit-congdung">' + (t.congDung || '') + '</textarea>');
+                        setHtml('.detail-cachdung', '<textarea class="form-control form-control-sm edit-cachdung">' + (t.cachDung || '') + '</textarea>');
+                        setHtml('.detail-luuy', '<textarea class="form-control form-control-sm edit-luuy">' + (t.luuY || '') + '</textarea>');
+                        setHtml('.detail-mota', '<textarea class="form-control form-control-sm edit-mota">' + (t.moTa || '') + '</textarea>');
+
+                        var img = modal.querySelector('.detail-img');
+                        if (img) {
+                            if (t.urlAnh) { img.src = '/assets_user/img/product/' + t.urlAnh; img.style.display = 'block'; }
+                            else { img.style.display = 'none'; }
+                        }
+
+                        // populate image select by calling API
+                        (function populateImages() {
+                            var select = modal.querySelector('.edit-urlanh-select');
+                            var hidden = modal.querySelector('.edit-urlanh');
+                            if (!select) return;
+                            select.innerHTML = '<option value="">(Chọn ảnh có sẵn)</option>';
+                            function parseApiResponse(res) {
+                                return res.text().then(function (txt) {
+                                    if (!txt) return { ok: res.ok, body: null, text: '' };
+                                    try { var j = JSON.parse(txt); return { ok: res.ok, body: j, text: null }; } catch (e) { return { ok: res.ok, body: null, text: txt }; }
+                                });
+                            }
+
+                            fetch('https://localhost:7283/api/Images/List').then(function (r) { return parseApiResponse(r); })
+                                .then(function (resp) {
+                                    var res = resp.body || (resp.text ? resp.text : null);
+                                    var arr = (resp.body && resp.body.data) ? resp.body.data : (Array.isArray(res) ? res : null) || (Array.isArray(resp.body) ? resp.body : null);
+                                    if (!Array.isArray(arr)) return;
+                                    arr.forEach(function (n) {
+                                        var opt = document.createElement('option'); opt.value = n; opt.textContent = n;
+                                        if (n === (t.urlAnh || '')) opt.selected = true;
+                                        select.appendChild(opt);
+                                    });
+                                    // when selecting, update hidden input and preview
+                                    select.addEventListener('change', function () {
+                                        hidden.value = select.value || '';
+                                        if (hidden.value) { img.src = '/assets_user/img/product/' + hidden.value; img.style.display = 'block'; }
+                                    });
+                                    // radio toggle behaviour: existing vs upload
+                                    var radios = modal.querySelectorAll('.img-choice');
+                                    var existingArea = modal.querySelector('.image-existing-area');
+                                    var uploadArea = modal.querySelector('.image-upload-area');
+                                    function updateImageAreas() {
+                                        var val = modal.querySelector('.img-choice:checked')?.value || 'existing';
+                                        if (existingArea) existingArea.style.display = (val === 'existing') ? '' : 'none';
+                                        if (uploadArea) uploadArea.style.display = (val === 'upload') ? '' : 'none';
+                                    }
+                                    radios.forEach(function (r) { r.addEventListener('change', updateImageAreas); });
+                                    // initial set
+                                    updateImageAreas();
+                                }).catch(function (e) { console.error(e); });
+
+                            // file upload handler (local file picker)
+                            var uploadBtn = modal.querySelector('.upload-file-btn');
+                            var fileInput = modal.querySelector('.edit-urlanh-file');
+                            if (uploadBtn && fileInput) {
+                                uploadBtn.addEventListener('click', function () {
+                                    var f = fileInput.files && fileInput.files[0];
+                                    if (!f) { alert('Chọn file ảnh trước khi upload'); return; }
+                                    uploadBtn.disabled = true; uploadBtn.textContent = 'Đang upload...';
+                                    var fd = new FormData(); fd.append('file', f);
+                                    fetch('https://localhost:7283/api/Images/UploadFile', { method: 'POST', body: fd })
+                                        .then(function (r) { return parseApiResponse(r); })
+                                        .then(function (resp) {
+                                            uploadBtn.disabled = false; uploadBtn.textContent = 'Upload';
+                                            var fileName = null;
+                                            if (resp.body && resp.body.status === 1 && resp.body.data) fileName = resp.body.data;
+                                            else if (resp.body && resp.body.data === null && typeof resp.body === 'object' && resp.body !== null) fileName = resp.body;
+                                            else if (resp.text) {
+                                                try { var maybe = JSON.parse(resp.text); if (maybe && maybe.data) fileName = maybe.data; else if (typeof maybe === 'string') fileName = maybe; } catch (e) { /* ignore */ }
+                                            }
+                                            if (!fileName) { alert('Upload thất bại hoặc không có body trả về'); return; }
+                                            var opt = document.createElement('option'); opt.value = fileName; opt.textContent = fileName; opt.selected = true; select.appendChild(opt);
+                                            hidden.value = fileName;
+                                            img.src = '/assets_user/img/product/' + fileName; img.style.display = 'block';
+                                            // after upload switch to existing image mode and select the new image
+                                            var radioExisting = modal.querySelector('#imgChoiceExisting');
+                                            if (radioExisting) { radioExisting.checked = true; updateImageAreas(); }
+                                        }).catch(function (e) { uploadBtn.disabled = false; uploadBtn.textContent = 'Upload'; console.error(e); alert('Upload lỗi: ' + (e && e.message ? e.message : e)); });
+                                });
+                            }
+                        })();
+
+                        var saveBtn = document.getElementById('thuocSaveBtn'); if (saveBtn) saveBtn.style.display = '';
+                        var modalObj = new bootstrap.Modal(modal); modalObj.show();
+                    }
+                }).catch(function (e) { console.error(e); });
+
+            return;
+        }
+
+        // Otherwise treat as details/view (read-only). Hide save button.
+        var saveBtnHide = document.getElementById('thuocSaveBtn'); if (saveBtnHide) saveBtnHide.style.display = 'none';
+        fetch('https://localhost:7283/api/Thuoc/' + maThuoc)
+            .then(function (res) { if (!res.ok) throw new Error(res.statusText || 'API error'); return res.json(); })
+            .then(function (response) {
+                if (response.status === 1 && response.data) {
+                    var t = response.data;
+                    var modal = document.getElementById('thuocDetailModal');
+
+                    function safeSetText(selector, value) {
+                        if (!modal) return;
+                        var el = modal.querySelector(selector);
+                        if (!el) return;
+                        el.textContent = (value === null || typeof value === 'undefined') ? '' : value;
+                        el.style.display = '';
+                    }
+
+                    if (modal) {
+                        safeSetText('.modal-title', t.tenThuoc || 'Chi tiết thuốc');
+                        safeSetText('.detail-ten', t.tenThuoc || '');
+                        safeSetText('.detail-ma', t.maThuoc || '');
+                        safeSetText('.detail-loai', (t.maLoaiThuoc && LOAI_MAP[t.maLoaiThuoc]) ? LOAI_MAP[t.maLoaiThuoc] : (t.maLoaiThuoc || ''));
+                        safeSetText('.detail-gia', (typeof t.donGiaSi !== 'undefined') ? (t.donGiaSi.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + ' đ') : '');
+                        safeSetText('.detail-gia-le', (typeof t.donGiaLe !== 'undefined') ? (t.donGiaLe.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + ' đ') : '');
+                        safeSetText('.detail-soluong', (typeof t.soLuong !== 'undefined') ? t.soLuong : '');
+                        safeSetText('.detail-ncc', t.tenNCC || t.TenNCC || t.tenNcc || t.TenNcc || t.maNCC || '');
+                        safeSetText('.detail-thanhphan', t.thanhPhan || '');
+                        safeSetText('.detail-congdung', t.congDung || '');
+                        safeSetText('.detail-cachdung', t.cachDung || '');
+                        safeSetText('.detail-luuy', t.luuY || '');
+                        safeSetText('.detail-mota', t.moTa || '');
+                        var img = modal.querySelector('.detail-img');
+                        if (img) {
+                            if (t.urlAnh) { img.src = '/assets_user/img/product/' + t.urlAnh; img.style.display = 'block'; }
+                            else { img.style.display = 'none'; }
+                        }
+                    }
+                    var modalObj = new bootstrap.Modal(document.getElementById('thuocDetailModal'));
+                    modalObj.show();
+                }
+            }).catch(function (e) { console.error(e); });
+    });
+
+    // Save handler for inline modal edit
+    var saveBtn = document.getElementById('thuocSaveBtn');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', function () {
+            var modal = document.getElementById('thuocDetailModal');
+            if (!modal) return;
+            var ma = modal.querySelector('.edit-ma')?.value || modal.querySelector('.detail-ma')?.textContent;
+            if (!ma) { alert('Không xác định mã thuốc'); return; }
+            // determine chosen image source: existing or uploaded
+            var imgChoice = modal.querySelector('.img-choice:checked')?.value || 'existing';
+            var chosenUrlAnh = '';
+            if (imgChoice === 'existing') {
+                chosenUrlAnh = modal.querySelector('.edit-urlanh-select')?.value || modal.querySelector('.edit-urlanh')?.value || '';
+            } else {
+                // upload chosen: rely on hidden input set after a successful upload
+                chosenUrlAnh = modal.querySelector('.edit-urlanh')?.value || '';
+            }
+
+            var payload = {
+                maThuoc: ma,
+                tenThuoc: modal.querySelector('.edit-ten')?.value || modal.querySelector('.detail-ten')?.textContent || '',
+                maLoaiThuoc: modal.querySelector('.edit-loai')?.value || '',
+                maLoaiDonVi: modal.querySelector('.edit-maloaidonvi')?.value || modal.querySelector('.detail-maloaidonvi')?.textContent || '',
+                donGiaSi: parseFloat((modal.querySelector('.edit-gia')?.value || '0').toString().replace(/,/g, '')) || 0,
+                donGiaLe: parseFloat((modal.querySelector('.edit-gia-le')?.value || '0').toString().replace(/,/g, '')) || 0,
+                soLuong: parseInt(modal.querySelector('.edit-soluong')?.value || 0) || 0,
+                maNCC: modal.querySelector('.edit-ncc')?.value || '',
+                urlAnh: chosenUrlAnh || modal.querySelector('.detail-urlanh')?.textContent || '',
+                thanhPhan: modal.querySelector('.edit-thanhphan')?.value || '',
+                congDung: modal.querySelector('.edit-congdung')?.value || '',
+                cachDung: modal.querySelector('.edit-cachdung')?.value || '',
+                luuY: modal.querySelector('.edit-luuy')?.value || '',
+                moTa: modal.querySelector('.edit-mota')?.value || ''
+            };
+
+            // client-side validation: ensure required fields (use camelCase keys from payload)
+            if (!payload.tenThuoc || payload.tenThuoc.trim() === '') {
+                alert('Tên thuốc là bắt buộc. Vui lòng nhập tên thuốc.');
+                return;
+            }
+            if (!payload.urlAnh || payload.urlAnh.trim() === '') {
+                if (imgChoice === 'upload') {
+                    alert('Bạn đã chọn upload nhưng chưa upload file. Vui lòng chọn file và bấm Upload trước khi lưu.');
+                } else {
+                    alert('Url ảnh là bắt buộc. Vui lòng chọn một ảnh từ danh sách.');
+                }
+                return;
+            }
+            if (!payload.maLoaiDonVi || payload.maLoaiDonVi.trim() === '') {
+                alert('Mã loại đơn vị (MaLoaiDonVi) là bắt buộc. Vui lòng nhập.');
+                return;
+            }
+
+            // send PUT and handle non-200 responses gracefully
+            fetch('https://localhost:7283/api/Thuoc/' + encodeURIComponent(ma), {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            }).then(function (res) {
+                if (res.ok) {
+                    return res.json().then(function (json) { return { ok: true, body: json }; });
+                }
+                // try to parse JSON error body, otherwise text
+                return res.text().then(function (txt) {
+                    try { var j = JSON.parse(txt); return { ok: false, body: j, text: null }; } catch (e) { return { ok: false, body: null, text: txt }; }
+                });
+            }).then(function (result) {
+                if (result.ok && result.body && result.body.status === 1) {
+                    window.location.reload();
+                    return;
+                }
+                // show server-provided message if available
+                var msg = 'Không rõ';
+                if (result.body && result.body.message) msg = result.body.message;
+                else if (result.text) msg = result.text;
+                else if (result.body && result.body.errors) msg = JSON.stringify(result.body.errors);
+                alert('Lưu thất bại: ' + msg);
+                console.error('PUT /api/Thuoc error:', result);
+            }).catch(function (e) { console.error(e); alert('Lỗi khi lưu: ' + (e && e.message ? e.message : e)); });
+        });
+    }
+
+    // Layout split: top section (image + basic info) and bottom section (descriptive fields).
+    // No manual JS adjustment is required because the bottom section naturally flows below the top section.
+
+    // image preview when UrlAnh input changed (if user types new name)
+    var urlAnhInput = document.getElementById('UrlAnhInput');
+    if (urlAnhInput) {
+        urlAnhInput.addEventListener('input', function () {
+            var fileName = urlAnhInput.value.trim();
+            var imagePreview = document.getElementById('ImagePreview');
+            if (fileName && imagePreview) { imagePreview.src = '/assets_user/img/product/' + fileName; imagePreview.style.display = 'block'; }
+            else if (imagePreview) { imagePreview.style.display = 'none'; }
+        });
+    }
+
+    // Not using DataTables on this page to avoid relying on jQuery/assets that may fail to load.
+    // We'll perform simple DOM-based filtering + client-side pagination (10 items per page).
+    var dataTable = null;
+    var pageSize = 10;
+    var currentPage = 1;
+    var filteredRows = []; // array of TR elements that match current filter
+
+    function renderPager(totalPages) {
+        var pager = document.getElementById('thuocPager');
+        if (!pager) return;
+        pager.innerHTML = '';
+        if (totalPages <= 1) {
+            // hide pager nav if single page
+            document.getElementById('thuocPagerNav').style.display = 'none';
+            return;
+        }
+        document.getElementById('thuocPagerNav').style.display = '';
+
+        // prev
+        var liPrev = document.createElement('li'); liPrev.className = 'page-item' + (currentPage === 1 ? ' disabled' : '');
+        var aPrev = document.createElement('a'); aPrev.className = 'page-link'; aPrev.href = '#'; aPrev.innerText = '‹';
+        aPrev.addEventListener('click', function (e) { e.preventDefault(); if (currentPage > 1) showPage(currentPage - 1); });
+        liPrev.appendChild(aPrev); pager.appendChild(liPrev);
+
+        // pages (show up to 7 page buttons: first/last + neighbors)
+        var start = Math.max(1, currentPage - 3);
+        var end = Math.min(totalPages, currentPage + 3);
+        for (var p = start; p <= end; p++) {
+            var li = document.createElement('li'); li.className = 'page-item' + (p === currentPage ? ' active' : '');
+            var a = document.createElement('a'); a.className = 'page-link'; a.href = '#'; a.innerText = p;
+            (function (pageNum) { a.addEventListener('click', function (e) { e.preventDefault(); showPage(pageNum); }); })(p);
+            li.appendChild(a); pager.appendChild(li);
+        }
+
+        // next
+        var liNext = document.createElement('li'); liNext.className = 'page-item' + (currentPage === totalPages ? ' disabled' : '');
+        var aNext = document.createElement('a'); aNext.className = 'page-link'; aNext.href = '#'; aNext.innerText = '›';
+        aNext.addEventListener('click', function (e) { e.preventDefault(); if (currentPage < totalPages) showPage(currentPage + 1); });
+        liNext.appendChild(aNext); pager.appendChild(liNext);
+    }
+
+    function showPage(page) {
+        if (!filteredRows) return;
+        var rows = Array.from(document.querySelectorAll('#thuocTable tbody tr'));
+        var total = filteredRows.length;
+        var totalPages = Math.max(1, Math.ceil(total / pageSize));
+        if (page < 1) page = 1; if (page > totalPages) page = totalPages;
+        currentPage = page;
+
+        // hide all rows first
+        rows.forEach(function (r) { r.style.display = 'none'; });
+
+        // compute slice of rows to show
+        var start = (currentPage - 1) * pageSize;
+        var end = start + pageSize;
+        var slice = filteredRows.slice(start, end);
+        slice.forEach(function (r) { r.style.display = ''; });
+
+        renderPager(totalPages);
+    }
+
+    // applyFilters reads elements at call time and uses DOM-only filtering (no DataTables)
+    function applyFilters() {
+        var q = (document.getElementById('thuocSearch').value || '').trim().toLowerCase();
+        var loai = (document.getElementById('thuocLoaiFilter').value || '').trim().toLowerCase();
+
+        var rows = Array.from(document.querySelectorAll('#thuocTable tbody tr'));
+        var visibleItems = [];
+        filteredRows = rows.filter(function (tr) {
+            var ma = (tr.children[0] && tr.children[0].textContent || '').trim().toLowerCase();
+            var ten = (tr.children[2] && tr.children[2].textContent || '').trim().toLowerCase();
+            var mota = (tr.children[5] && tr.children[5].textContent || '').trim().toLowerCase();
+            var combined = (ma + ' ' + ten + ' ' + mota);
+            var rowMaloai = (tr.getAttribute('data-maloai') || '').toString().trim().toLowerCase();
+            var matchQ = !q || combined.indexOf(q) !== -1;
+            var matchLoai = !loai || (rowMaloai && rowMaloai === loai) || ((tr.children[1] && tr.children[1].textContent || '').trim().toLowerCase() === loai);
+            var show = matchQ && matchLoai;
+            if (show) visibleItems.push({ Ma: tr.getAttribute('data-mathuoc'), Ten: (tr.children[2] && tr.children[2].textContent || '').trim() });
+            return show;
+        });
+
+        // update debug output if present (harmless if removed)
+        var debugOutput = document.getElementById('thuocDebugOutput');
+        if (debugOutput) debugOutput.innerHTML = '<div>Matched: ' + filteredRows.length + ' / ' + rows.length + '</div>' + (visibleItems.length ? '<pre>' + JSON.stringify(visibleItems, null, 2) + '</pre>' : '');
+
+        // show first page
+        currentPage = 1;
+        showPage(1);
+        // after rendering page, truncate long descriptions on visible rows
+        truncateDescriptions();
+    }
+
+    // Truncate description cell (6th column) to maxWords words and set full text as title
+    function truncateDescriptions(maxWords) {
+        maxWords = maxWords || 15;
+        var rows = Array.from(document.querySelectorAll('#thuocTable tbody tr'));
+        rows.forEach(function (tr) {
+            var td = tr.children[5];
+            if (!td) return;
+            var full = td.getAttribute('data-full-desc') || td.textContent || '';
+            // store original full text in data attribute once
+            if (!td.getAttribute('data-full-desc')) td.setAttribute('data-full-desc', full.trim());
+            full = td.getAttribute('data-full-desc');
+            var words = full.split(/\s+/).filter(Boolean);
+            if (words.length > maxWords) {
+                var shortText = words.slice(0, maxWords).join(' ') + '...';
+                td.textContent = shortText;
+                td.title = full;
+            } else {
+                td.textContent = full;
+                td.title = '';
+            }
+        });
+    }
+
+    // wire listeners
+    var searchInput = document.getElementById('thuocSearch');
+    if (searchInput) searchInput.addEventListener('input', applyFilters);
+    var loaiFilter = document.getElementById('thuocLoaiFilter');
+    if (loaiFilter) loaiFilter.addEventListener('change', applyFilters);
+    var applyBtn = document.getElementById('applySearchBtn');
+    if (applyBtn) applyBtn.addEventListener('click', applyFilters);
+    // expose and also add debug button listener
+    window.applyFilters = applyFilters;
+    var debugBtn = document.getElementById('debugCheckBtn');
+    var debugPanel = document.getElementById('thuocDebugPanel');
+    var debugOutput = document.getElementById('thuocDebugOutput');
+    if (debugBtn) debugBtn.addEventListener('click', function () {
+        applyFilters();
+        // show debug panel and print matched items
+        var rows = document.querySelectorAll('#thuocTable tbody tr');
+        var q = (document.getElementById('thuocSearch')?.value || '').trim().toLowerCase();
+        var loai = (document.getElementById('thuocLoaiFilter')?.value || '').trim();
+        var matched = [];
+        rows.forEach(function (tr) {
+            var text = (tr.textContent || '').toLowerCase();
+            var matchQ = (!q) || (text.indexOf(q) !== -1);
+            var matchLoai = true;
+            if (loai) { var loaiText = (tr.children[1] && tr.children[1].textContent || '').trim(); matchLoai = loaiText === loai; }
+            if (matchQ && matchLoai) matched.push({ Ma: tr.getAttribute('data-mathuoc') || (tr.children[0] && tr.children[0].textContent || '').trim(), Ten: (tr.children[2] && tr.children[2].textContent || '').trim() });
+        });
+        if (debugPanel) debugPanel.style.display = matched.length ? 'block' : 'none';
+        if (debugOutput) debugOutput.innerHTML = matched.length ? '<pre>' + JSON.stringify(matched, null, 2) + '</pre>' : '<em>No matches</em>';
+    });
+
+    // initial filter (no-op if empty)
+    applyFilters();
+});
+</script>
+}

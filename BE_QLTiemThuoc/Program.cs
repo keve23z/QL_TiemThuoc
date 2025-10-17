@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using BE_QLTiemThuoc.Data;
 using System;
 
@@ -35,9 +35,16 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
+/*
+# chuyển vào thư mục project (tùy chọn)
+Set-Location -Path "i:\Ky_06_2025_2026\KhoaLuan\DoAn\QLTiemThuoc\BE_QLTiemThuoc"
+dotnet run --launch-profile "https"
 
+Set-Location -Path "i:\Ky_06_2025_2026\KhoaLuan\DoAn\QLTiemThuoc\FE_QLTiemThuoc"
+dotnet run --launch-profile "https"
+*/
 app.UseHttpsRedirection();
-app.UseCors(MyAllowSpecificOrigins); // <- CHÈN Ở ĐÂY
+app.UseCors(MyAllowSpecificOrigins);
 app.UseAuthorization();
 
 app.MapControllers();

@@ -602,7 +602,7 @@
                 <div class="category-slider owl-carousel owl-theme wow fadeInUp" data-wow-delay=".25s">
                     @if (Model != null)
                     {
-                        foreach (var category in Model)
+                        foreach (var category in Model.Take(6))
                         {
                             string tenLoai = category.TryGetProperty("tenLoaiThuoc", out var tenLoaiProp) ? tenLoaiProp.GetString() : "Không xác định";
                             int soLuong = category.TryGetProperty("soLuongThuoc", out var soLuongProp) ? soLuongProp.GetInt32() : 0;

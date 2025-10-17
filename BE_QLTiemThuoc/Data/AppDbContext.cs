@@ -14,7 +14,10 @@ namespace BE_QLTiemThuoc.Data
         public DbSet<TaiKhoan> TaiKhoans { get; set; }
         public DbSet<KhachHang> KhachHangs { get; set; }
         public DbSet<Thuoc> Thuoc { get; set; } // Add this DbSet for Thuoc
+        public DbSet<NhaCungCap> NhaCungCaps { get; set; }
         public DbSet<LoaiThuoc> LoaiThuoc { get; set; }
+        public DbSet<LoaiDonVi> LoaiDonVi { get; set; }
+    public DbSet<NhomLoai> NhomLoai { get; set; }
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);

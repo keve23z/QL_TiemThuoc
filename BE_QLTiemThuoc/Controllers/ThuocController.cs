@@ -28,31 +28,33 @@ namespace BE_QLTiemThuoc.Controllers
         {
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
-                var result = await _context.Thuoc
+                // 1. Thống kê số lượng thuốc theo mã loại
+                var thuocGroup = await _context.Thuoc
                     .GroupBy(t => t.MaLoaiThuoc)
                     .Select(g => new
                     {
                         MaLoaiThuoc = g.Key,
                         SoLuongThuoc = g.Count()
                     })
-                    .OrderByDescending(x => x.SoLuongThuoc)
-                    .Take(6)
                     .ToListAsync();
 
+                // 2. Lấy toàn bộ loại thuốc
                 var loaiThuocList = await _context.LoaiThuoc.ToListAsync();
 
-                var thongKeList = result
-                    .Select(x =>
+                // 3. Join thủ công để đảm bảo loại nào cũng có
+                var thongKeList = loaiThuocList
+                    .Select(loai =>
                     {
-                        var loai = loaiThuocList.FirstOrDefault(l => l.MaLoaiThuoc == x.MaLoaiThuoc);
+                        var thuocInfo = thuocGroup.FirstOrDefault(x => x.MaLoaiThuoc == loai.MaLoaiThuoc);
                         return new LoaiThuocThongKe
                         {
-                            MaLoaiThuoc = x.MaLoaiThuoc,
-                            TenLoaiThuoc = loai?.TenLoaiThuoc ?? "",
-                            Icon = loai?.Icon ?? "",
-                            SoLuongThuoc = x.SoLuongThuoc
+                            MaLoaiThuoc = loai.MaLoaiThuoc,
+                            TenLoaiThuoc = loai.TenLoaiThuoc,
+                            Icon = loai.Icon,
+                            SoLuongThuoc = thuocInfo?.SoLuongThuoc ?? 0 // nếu không có thuốc thì 0
                         };
                     })
+                    .OrderByDescending(x => x.SoLuongThuoc)
                     .ToList();
 
                 return thongKeList;
@@ -60,6 +62,7 @@ namespace BE_QLTiemThuoc.Controllers
 
             return Ok(response);
         }
+
 
         // GET: api/Thuoc/LoaiThuoc
         [HttpGet("LoaiThuoc")]
@@ -81,24 +84,54 @@ namespace BE_QLTiemThuoc.Controllers
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
                 var result = await _context.Thuoc
-
-                    .Select(t => new 
+                    .Select(t => new
                     {
                         t.MaThuoc,
                         t.MaLoaiThuoc,
                         t.TenThuoc,
+                        t.MoTa,
                         t.UrlAnh,
                         t.DonGiaSi
                     })
-
                     .ToListAsync();
+
                 return result;
             });
 
             return Ok(response);
         }
 
+        // GET: api/ListThuocDetail
+        [HttpGet("ListThuocDetail")]
+        public async Task<IActionResult> GetListThuocDetail()
+        {
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                var result = await _context.Thuoc
+                    .Select(t => new {
+                        t.MaThuoc,
+                        t.MaLoaiThuoc,
+                        t.TenThuoc,
+                        t.ThanhPhan,
+                        t.MoTa,
+                        t.MaLoaiDonVi,
+                        t.SoLuong,
+                        t.CongDung,
+                        t.CachDung,
+                        t.LuuY,
+                        t.UrlAnh,
+                        t.MaNCC,
+                        t.DonGiaSi,
+                        t.DonGiaLe,
+                        TenNCC = _context.NhaCungCaps.Where(n => n.MaNCC == t.MaNCC).Select(n => n.TenNCC).FirstOrDefault(),
+                        TenLoaiDonVi = _context.Set<LoaiDonVi>().Where(d => d.MaLoaiDonVi == t.MaLoaiDonVi).Select(d => d.TenLoaiDonVi).FirstOrDefault()
+                    })
+                    .ToListAsync();
+                return result;
+            });
 
+            return Ok(response);
+        }
         // GET: api/Thuoc/ByLoai/{maLoaiThuoc}
         [HttpGet("ByLoai/{maLoaiThuoc}")]
         public async Task<IActionResult> GetThuocByLoai(string maLoaiThuoc)
@@ -112,8 +145,11 @@ namespace BE_QLTiemThuoc.Controllers
                         t.MaThuoc,
                         t.MaLoaiThuoc,
                         t.TenThuoc,
+                        t.MoTa,
                         t.UrlAnh,
-                        t.DonGiaSi
+                        t.DonGiaSi,
+                        TenNCC = _context.NhaCungCaps.Where(n => n.MaNCC == t.MaNCC).Select(n => n.TenNCC).FirstOrDefault(),
+                        TenLoaiDonVi = _context.Set<LoaiDonVi>().Where(d => d.MaLoaiDonVi == t.MaLoaiDonVi).Select(d => d.TenLoaiDonVi).FirstOrDefault()
                     })
                     .ToListAsync();
 
@@ -123,6 +159,39 @@ namespace BE_QLTiemThuoc.Controllers
             return Ok(response);
         }
 
+        // GET: api/Thuoc/{maThuoc}
+        [HttpGet("{maThuoc}")]
+        public async Task<IActionResult> GetThuocById(string maThuoc)
+        {
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                var thuoc = await _context.Thuoc
+                    .Where(t => t.MaThuoc == maThuoc)
+                    .Select(t => new {
+                        t.MaThuoc,
+                        t.MaLoaiThuoc,
+                        t.TenThuoc,
+                        t.ThanhPhan,
+                        t.MoTa,
+                        t.MaLoaiDonVi,
+                        t.SoLuong,
+                        t.CongDung,
+                        t.CachDung,
+                        t.LuuY,
+                        t.UrlAnh,
+                        t.MaNCC,
+                        t.DonGiaSi,
+                        t.DonGiaLe,
+                        TenNCC = _context.NhaCungCaps.Where(n => n.MaNCC == t.MaNCC).Select(n => n.TenNCC).FirstOrDefault(),
+                        TenLoaiDonVi = _context.Set<LoaiDonVi>().Where(d => d.MaLoaiDonVi == t.MaLoaiDonVi).Select(d => d.TenLoaiDonVi).FirstOrDefault()
+                    })
+                    .FirstOrDefaultAsync();
+                if (thuoc == null) throw new Exception("Không tìm thấy thuốc.");
+                return thuoc;
+            });
+
+            return Ok(response);
+        }
 
         // POST: api/Thuoc
         [HttpPost]

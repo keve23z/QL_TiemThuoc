@@ -1,0 +1,105 @@
+﻿@{
+    Layout = "~/Views/Shared/UserSH/_LayoutUser.cshtml";
+    ViewData["Title"] = "Danh sách thuốc";
+}
+
+@model List<System.Text.Json.JsonElement>
+
+<div class="shop-area bg py-90">
+    <div class="container">
+        <div class="row">
+            <!-- Sidebar trái -->
+            <div class="col-lg-3 col-md-4">
+                <div class="shop-sidebar">
+                    <!-- Ô tìm kiếm -->
+                    <div class="shop-widget">
+                        <div class="shop-search-form">
+                            <h4 class="shop-widget-title">Tìm kiếm</h4>
+                            <form method="get" action="/User/ShopGrid">
+                                <div class="form-group">
+                                    <input type="text" name="search" value="@ViewBag.Search" class="form-control" placeholder="Nhập tên hoặc mã thuốc...">
+                                    <button type="submit"><i class="far fa-search"></i></button>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- Danh mục thuốc -->
+                    <div class="shop-widget">
+                        <h4 class="shop-widget-title">Danh mục thuốc</h4>
+                        <ul class="shop-category-list">
+                            @if (ViewBag.Categories != null)
+                            {
+                                var categories = (List<System.Text.Json.JsonElement>)ViewBag.Categories;
+                                foreach (var cat in categories)
+                                {
+                                    var tenLoai = cat.TryGetProperty("tenLoaiThuoc", out var ten) ? ten.GetString() : "Không rõ";
+                                    var maLoai = cat.TryGetProperty("maLoaiThuoc", out var ma) ? ma.GetString() : "";
+                                    var soLuong = cat.TryGetProperty("soLuongThuoc", out var sl) ? sl.GetInt32() : 0;
+
+                                    var isActive = ViewBag.Category != null && ViewBag.Category.ToString() == maLoai;
+
+                                    <li class="@(isActive ? "active" : "")">
+                                        <a href="/User/ShopGrid?category=@maLoai">@tenLoai <span>(@soLuong)</span></a>
+                                    </li>
+                                }
+                            }
+                            else
+                            {
+                                <li>Không có dữ liệu</li>
+                            }
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Nội dung phải -->
+            <div class="col-lg-9 col-md-8">
+                <!-- Thanh sắp xếp -->
+                <div class="shop-sort mb-4">
+                    <form method="get" action="/User/ShopGrid" class="d-flex justify-content-between">
+                        <select name="sort" onchange="this.form.submit()">
+                            <option value="">Mặc định</option>
+                            <option value="price_asc" selected="@(ViewBag.Sort == "price_asc")">Giá tăng dần</option>
+                            <option value="price_desc" selected="@(ViewBag.Sort == "price_desc")">Giá giảm dần</option>
+                        </select>
+                    </form>
+                </div>
+                <!-- Danh sách thuốc -->
+                <div class="shop-item-wrap item-4">
+                    <div class="row g-4">
+                        @if (Model != null && Model.Count > 0)
+                        {
+                            foreach (var item in Model)
+                            {
+                                var tenThuoc = item.GetProperty("tenThuoc").GetString();
+                                var gia = item.GetProperty("donGiaSi").GetDecimal();
+                                var maThuoc = item.GetProperty("maThuoc").GetString();
+                                // Có thể dùng ảnh sau nếu API có trả về urlAnh
+                                // var hinh = item.TryGetProperty("urlAnh", out var img) ? img.GetString() : "default.png";
+
+                                <div class="col-md-6 col-lg-4">
+                                    <div class="product-item">
+                                        @* <div class="product-img">
+                                            <img src="/images/@hinh" alt="@tenThuoc" />
+                                        </div> *@
+                                        <div class="product-content">
+                                            <h3 class="product-title">@tenThuoc</h3>
+                                            <div class="product-price">
+                                                <span>@gia.ToString("C0")</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        }
+                        else
+                        {
+                            <p>Không có sản phẩm cho loại này.</p>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
