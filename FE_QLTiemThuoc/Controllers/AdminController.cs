@@ -129,7 +129,48 @@ namespace FE_QLTiemThuoc.Controllers
             return View();
         }
 
-        public IActionResult Index()
+        // Quản lý nhà cung cấp
+        [HttpGet, HttpPost]
+        public async Task<IActionResult> QuanLyNCC(string? actionType = null, string? editId = null)
+        {
+            var client = _http.CreateClient("MyApi");
+            
+            // Lấy danh sách nhà cung cấp
+            var listResponse = await client.GetAsync("NhaCungCap");
+            var nccList = new List<Models.NhaCungCap>();
+            if (listResponse.IsSuccessStatusCode)
+            {
+                var json = await listResponse.Content.ReadAsStringAsync();
+                try
+                {
+                    var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                    using var doc = System.Text.Json.JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("data", out var dataElement))
+                    {
+                        var result = System.Text.Json.JsonSerializer.Deserialize<List<Models.NhaCungCap>>(dataElement.GetRawText(), options);
+                        nccList = result ?? new List<Models.NhaCungCap>();
+                    }
+                    else if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+                    {
+                        var result = System.Text.Json.JsonSerializer.Deserialize<List<Models.NhaCungCap>>(json, options);
+                        nccList = result ?? new List<Models.NhaCungCap>();
+                    }
+                    else
+                    {
+                        // Try to deserialize root element directly
+                        var result = System.Text.Json.JsonSerializer.Deserialize<List<Models.NhaCungCap>>(doc.RootElement.GetRawText(), options);
+                        nccList = result ?? new List<Models.NhaCungCap>();
+                    }
+                }
+                catch (Exception)
+                {
+                    nccList = new List<Models.NhaCungCap>();
+                }
+            }
+            
+            ViewBag.NCCList = nccList;
+            return View();
+        }        public IActionResult Index()
         {
             return View();
         }

@@ -101,6 +101,19 @@ namespace BE_QLTiemThuoc.Controllers
             return Ok(response);
         }
 
+        // GET: api/Thuoc/LoaiDonVi
+        [HttpGet("LoaiDonVi")]
+        public async Task<IActionResult> GetLoaiDonVi()
+        {
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                var list = await _context.LoaiDonVi.ToListAsync();
+                return list;
+            });
+
+            return Ok(response);
+        }
+
         // GET: api/ListThuocDetail
         [HttpGet("ListThuocDetail")]
         public async Task<IActionResult> GetListThuocDetail()

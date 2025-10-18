@@ -1,0 +1,404 @@
+@{
+    ViewData["Title"] = "Quản lý nhà cung cấp";
+    
+    // Test data nếu không có data từ API
+    if (ViewBag.NCCList == null || ViewBag.NCCList.Count == 0)
+    {
+        ViewBag.NCCList = new List<dynamic>
+        {
+            new { MaNCC = "NCC001", TenNCC = "Công ty A", DiaChi = "Hà Nội", DienThoai = "0123456789", Email = "a@example.com" },
+            new { MaNCC = "NCC002", TenNCC = "Công ty B", DiaChi = "TP HCM", DienThoai = "0987654321", Email = "b@example.com" },
+            new { MaNCC = "NCC003", TenNCC = "Công ty C", DiaChi = "Đà Nẵng", DienThoai = "0913456789", Email = "c@example.com" }
+        };
+    }
+}
+
+<div class="container-fluid mt-4">
+    <div class="row">
+        <div class="col-12">
+            <!-- Header Card -->
+            <div class="card mb-3" style="box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius: 6px;">
+                <div class="card-body" style="padding: 1.5rem;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h2 class="mb-0">Quản lý nhà cung cấp</h2>
+                            <small class="text-muted">Tổng cộng: @(ViewBag.NCCList?.Count ?? 0) nhà cung cấp</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <!-- Filter Card -->
+            <div class="card mb-3" style="box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius: 6px;">
+                <div class="card-body" style="padding: 1rem;">
+                    <div class="row align-items-end g-2">
+                        <div class="col-md-6">
+                            <label class="form-label small mb-1">Tìm kiếm theo tên hoặc mã:</label>
+                            <input type="text" id="nccSearch" class="form-control form-control-sm" placeholder="Nhập tên hoặc mã nhà cung cấp..." />
+                        </div>
+                        <div class="col-md-3">
+                            <button id="applySearchBtn" class="btn btn-outline-secondary w-100">Tìm kiếm</button>
+                        </div>
+                        <div class="col-md-3">
+                            <button class="btn btn-primary w-100" data-bs-toggle="modal" data-bs-target="#nccAddModal">
+                                <i class="bi bi-plus-circle"></i> Thêm mới
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Table Card -->
+            <div class="card" style="box-shadow: 0 1px 3px rgba(0,0,0,0.1); border-radius: 6px;">
+                <div class="card-body" style="padding: 0;">
+                    <div class="table-responsive">
+                        <table id="nccTable" class="table table-hover table-striped mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th class="ps-3">Mã NCC</th>
+                                    <th>Tên nhà cung cấp</th>
+                                    <th>Địa chỉ</th>
+                                    <th>Điện thoại</th>
+                                    <th>Email</th>
+                                    <th class="text-center pe-3">Hành động</th>
+                                </tr>
+                            </thead>
+                            <tbody id="nccTableBody">
+                                @if (ViewBag.NCCList != null && ViewBag.NCCList.Count > 0)
+                                {
+                                    @foreach (var ncc in (List<FE_QLTiemThuoc.Models.NhaCungCap>)ViewBag.NCCList)
+                                    {
+                                        <tr data-mancc="@ncc.MaNCC">
+                                            <td class="ps-3"><strong>@ncc.MaNCC</strong></td>
+                                            <td>@ncc.TenNCC</td>
+                                            <td>@ncc.DiaChi</td>
+                                            <td>@ncc.DienThoai</td>
+                                            <td>@ncc.Email</td>
+                                            <td class="text-center pe-3">
+                                                <button class="btn btn-sm btn-warning btn-edit" data-mancc="@ncc.MaNCC">Sửa</button>
+                                                <button class="btn btn-sm btn-danger btn-delete" data-mancc="@ncc.MaNCC">Xóa</button>
+                                            </td>
+                                        </tr>
+                                    }
+                                }
+                                else
+                                {
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted py-4">Không có dữ liệu</td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Add NCC -->
+<div class="modal fade" id="nccAddModal" tabindex="-1" aria-labelledby="nccAddModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="nccAddModalLabel">Thêm nhà cung cấp mới</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="nccAddForm">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Mã NCC:</label>
+                            <input type="text" class="form-control add-ncc-ma" readonly placeholder="Tự động sinh" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Tên nhà cung cấp:</label>
+                            <input type="text" class="form-control add-ncc-ten" required />
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Địa chỉ:</label>
+                            <input type="text" class="form-control add-ncc-diachi" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Điện thoại:</label>
+                            <input type="text" class="form-control add-ncc-dienthoai" />
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Email:</label>
+                            <input type="email" class="form-control add-ncc-email" />
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="nccAddSaveBtn" class="btn btn-primary">Lưu</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Edit NCC -->
+<div class="modal fade" id="nccEditModal" tabindex="-1" aria-labelledby="nccEditModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="nccEditModalLabel">Chỉnh sửa nhà cung cấp</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="nccEditForm">
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Mã NCC:</label>
+                            <input type="text" class="form-control edit-ncc-ma" readonly />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Tên nhà cung cấp:</label>
+                            <input type="text" class="form-control edit-ncc-ten" required />
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Địa chỉ:</label>
+                            <input type="text" class="form-control edit-ncc-diachi" />
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Điện thoại:</label>
+                            <input type="text" class="form-control edit-ncc-dienthoai" />
+                        </div>
+                    </div>
+
+                    <div class="row mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Email:</label>
+                            <input type="email" class="form-control edit-ncc-email" />
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" id="nccEditSaveBtn" class="btn btn-primary">Lưu</button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section Scripts {
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const API_URL = 'https://localhost:7283/api';
+
+    // Mở modal Add
+    var addModal = document.getElementById('nccAddModal');
+    if (addModal) {
+        addModal.addEventListener('show.bs.modal', function () {
+            document.getElementById('nccAddForm').reset();
+            generateNextMaNCC();
+        });
+    }
+
+    // Sinh mã NCC tự động
+    function generateNextMaNCC() {
+        var maxNum = 0;
+        
+        // Lấy dữ liệu từ table hiện tại
+        var tableBody = document.getElementById('nccTableBody');
+        if (tableBody) {
+            var rows = tableBody.querySelectorAll('tr[data-mancc]');
+            rows.forEach(row => {
+                var maNCC = row.getAttribute('data-mancc');
+                var numPart = parseInt(maNCC.replace(/\D/g, '')) || 0;
+                if (numPart > maxNum) maxNum = numPart;
+            });
+        }
+        
+        // Nếu chưa có dữ liệu từ table, thử fetch từ API
+        if (maxNum === 0) {
+            fetch(API_URL + '/NhaCungCap')
+                .then(r => {
+                    if (!r.ok) return Promise.reject('API error');
+                    return r.json();
+                })
+                .then(json => {
+                    var arr = [];
+                    
+                    // Xử lý response format: {status, message, data: [...]}
+                    if (json.data && Array.isArray(json.data)) {
+                        arr = json.data;
+                    } else if (Array.isArray(json)) {
+                        arr = json;
+                    }
+                    
+                    var apiMaxNum = 0;
+                    arr.forEach(ncc => {
+                        // Xử lý cả uppercase và lowercase key names
+                        var code = ncc.MaNCC || ncc.maNCC || '';
+                        var numPart = parseInt(code.replace(/\D/g, '')) || 0;
+                        if (numPart > apiMaxNum) apiMaxNum = numPart;
+                    });
+                    
+                    var nextMa = 'NCC' + String(apiMaxNum + 1).padStart(3, '0');
+                    var input = document.querySelector('#nccAddModal .add-ncc-ma');
+                    if (input) input.value = nextMa;
+                })
+                .catch(e => {
+                    console.error('Error generating MaNCC:', e);
+                    var input = document.querySelector('#nccAddModal .add-ncc-ma');
+                    if (input) input.value = 'NCC001';
+                });
+        } else {
+            var nextMa = 'NCC' + String(maxNum + 1).padStart(3, '0');
+            var input = document.querySelector('#nccAddModal .add-ncc-ma');
+            if (input) input.value = nextMa;
+        }
+    }
+
+    // Save Add
+    var addSaveBtn = document.getElementById('nccAddSaveBtn');
+    if (addSaveBtn) {
+        addSaveBtn.addEventListener('click', function () {
+            var modal = document.getElementById('nccAddModal');
+            var maNCC = modal.querySelector('.add-ncc-ma').value || '';
+            var tenNCC = modal.querySelector('.add-ncc-ten').value || '';
+            var diaChi = modal.querySelector('.add-ncc-diachi').value || '';
+            var dienThoai = modal.querySelector('.add-ncc-dienthoai').value || '';
+            var email = modal.querySelector('.add-ncc-email').value || '';
+
+            if (!tenNCC.trim()) {
+                alert('Tên nhà cung cấp không được để trống');
+                return;
+            }
+
+            var payload = {
+                maNCC: maNCC,
+                tenNCC: tenNCC,
+                diaChi: diaChi,
+                dienThoai: dienThoai,
+                email: email
+            };
+
+            fetch(API_URL + '/NhaCungCap', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(r => r.ok ? r.json() : Promise.reject('Save failed'))
+            .then(result => {
+                alert('Thêm nhà cung cấp thành công');
+                bootstrap.Modal.getInstance(modal).hide();
+                location.reload();
+            })
+            .catch(e => {
+                alert('Lỗi: ' + e);
+            });
+        });
+    }
+
+    // Xử lý Edit
+    var tableBody = document.getElementById('nccTableBody');
+    if (tableBody) {
+        tableBody.addEventListener('click', function (e) {
+            var editBtn = e.target.closest('.btn-edit');
+            var deleteBtn = e.target.closest('.btn-delete');
+
+            if (editBtn) {
+                var maNCC = editBtn.getAttribute('data-mancc');
+                openEditModal(maNCC);
+            }
+
+            if (deleteBtn) {
+                var maNCC = deleteBtn.getAttribute('data-mancc');
+                if (confirm('Bạn chắc chắn muốn xóa?')) {
+                    deleteNCC(maNCC);
+                }
+            }
+        });
+    }
+
+    function openEditModal(maNCC) {
+        fetch(API_URL + '/NhaCungCap/' + maNCC)
+            .then(r => r.ok ? r.json() : Promise.reject())
+            .then(json => {
+                var ncc = json.data || json;
+                var modal = document.getElementById('nccEditModal');
+                modal.querySelector('.edit-ncc-ma').value = ncc.MaNCC || '';
+                modal.querySelector('.edit-ncc-ten').value = ncc.TenNCC || '';
+                modal.querySelector('.edit-ncc-diachi').value = ncc.DiaChi || '';
+                modal.querySelector('.edit-ncc-dienthoai').value = ncc.DienThoai || '';
+                modal.querySelector('.edit-ncc-email').value = ncc.Email || '';
+                bootstrap.Modal.getOrCreateInstance(modal).show();
+            })
+            .catch(e => alert('Lỗi khi tải dữ liệu'));
+
+                var editModal = new bootstrap.Modal(modal);
+                editModal.show();
+            })
+            .catch(e => alert('Lỗi: ' + e));
+    }
+
+    // Save Edit
+    var editSaveBtn = document.getElementById('nccEditSaveBtn');
+    if (editSaveBtn) {
+        editSaveBtn.addEventListener('click', function () {
+            var modal = document.getElementById('nccEditModal');
+            var maNCC = modal.querySelector('.edit-ncc-ma').value || '';
+            var payload = {
+                maNCC: maNCC,
+                tenNCC: modal.querySelector('.edit-ncc-ten').value || '',
+                diaChi: modal.querySelector('.edit-ncc-diachi').value || '',
+                dienThoai: modal.querySelector('.edit-ncc-dienthoai').value || '',
+                email: modal.querySelector('.edit-ncc-email').value || ''
+            };
+
+            fetch(API_URL + '/NhaCungCap/' + maNCC, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+            .then(r => r.ok ? r.json() : Promise.reject('Update failed'))
+            .then(result => {
+                alert('Cập nhật thành công');
+                bootstrap.Modal.getInstance(modal).hide();
+                location.reload();
+            })
+            .catch(e => alert('Lỗi: ' + e));
+        });
+    }
+
+    function deleteNCC(maNCC) {
+        fetch(API_URL + '/NhaCungCap/' + maNCC, { method: 'DELETE' })
+            .then(r => r.ok ? r.json() : Promise.reject())
+            .then(result => {
+                alert('Xóa thành công');
+                location.reload();
+            })
+            .catch(e => alert('Lỗi xóa: ' + e));
+    }
+
+    // Search
+    var searchInput = document.getElementById('nccSearch');
+    if (searchInput) {
+        searchInput.addEventListener('input', function () {
+            filterTable();
+        });
+    }
+
+    function filterTable() {
+        var query = (document.getElementById('nccSearch').value || '').toLowerCase();
+        var rows = document.querySelectorAll('#nccTableBody tr');
+        rows.forEach(row => {
+            var text = row.textContent.toLowerCase();
+            row.style.display = text.includes(query) ? '' : 'none';
+        });
+    }
+});
+</script>
+}

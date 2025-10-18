@@ -31,14 +31,14 @@
         <!-- Thuốc -->
         <li class="menu-item">
             <a href="@Url.Action("ThemThuoc", "Admin")" class="has-chevron" data-toggle="collapse" data-target="#doctor" aria-expanded="false" aria-controls="doctor">
-                <span><i class="fas fa-stethoscope"></i>Thuoc</span>
+                <span><i class="fas fa-stethoscope"></i>Thuốc</span>
             </a>
             <ul id="doctor" class="collapse show" aria-labelledby="doctor" data-parent="#side-nav-accordion">
                 <li>
-                    <a href="@Url.Action("ThemThuoc", "Admin")">Thêm Thuốc</a>
+                    <a href="@Url.Action("ThemThuoc", "Admin")">Quản lý Thuốc</a>
                 </li>
                 <li>
-                    <a href="pages/doctor/doctor-list.html">Thêm nhà cung cấp</a>
+                    <a href="@Url.Action("QuanLyNCC", "Admin")">Quản lý Nhà cung cấp</a>
                 </li>
             </ul>
         </li>

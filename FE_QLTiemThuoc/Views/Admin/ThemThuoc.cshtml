@@ -174,7 +174,7 @@
                                 <button type="button" id="applySearchBtn" class="btn btn-primary" onclick="window._runFilter();">Tìm</button>
                             </div>
                             <div class="col-md-2 d-grid">
-                                <button type="button" class="btn btn-primary">Thêm mới</button>
+                                <button type="button" id="addThuocBtn" class="btn btn-primary">Thêm mới</button>
                             </div>
                             
                     </form>
@@ -371,6 +371,141 @@
     </div>
 </div>
 
+<!-- Modal for adding new medication -->
+<div class="modal fade" id="thuocAddModal" tabindex="-1" aria-labelledby="thuocAddModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered" style="max-width:1200px;">
+        <div class="modal-content">
+            <style>
+                #thuocAddModal .modal-body { font-size: 1rem; }
+                #thuocAddModal .form-control, #thuocAddModal .form-select { width: 100% !important; }
+                #thuocAddModal .add-preview-img-container {
+                    width: 100%;
+                    display: none;                /* Default: hidden */
+                    align-items: center;
+                    justify-content: center;
+                    border: 1px solid #ddd;
+                    border-radius: 4px;
+                    padding: 8px;
+                    background-color: #f9f9f9;
+                    margin: 0;
+                }
+                #thuocAddModal .add-preview-img-container.show {
+                    display: flex;                /* Show when .show class added */
+                }
+                #thuocAddModal .add-preview-img {
+                    max-width: 100%;
+                    max-height: 100%;
+                    object-fit: contain;
+                }
+            </style>
+            <div class="modal-header">
+                <h5 class="modal-title" id="thuocAddModalLabel">Thêm thuốc mới</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Top section: form fields (left) + image (right) -->
+                <div class="row mb-3 top-section align-items-start">
+                    <!-- Left column: Form fields -->
+                    <div class="col-md-8" style="padding-right: 20px;">
+                        <!-- Mã trên 1 hàng -->
+                        <div class="row g-2 mb-2">
+                            <div class="col-sm-4">
+                                <label class="form-label small mb-1">Mã:</label>
+                                <input type="text" class="form-control form-control-sm add-ma" readonly />
+                            </div>
+                            <div class="col-sm-8">
+                                <label class="form-label small mb-1">Tên:</label>
+                                <input type="text" class="form-control form-control-sm add-ten" />
+                            </div>
+                        </div>
+                        
+                        <!-- Loại, Đơn vị, Nhà cung cấp -->
+                        <div class="row g-2 mb-2">
+                            <div class="col-sm-4">
+                                <label class="form-label small mb-1">Loại:</label>
+                                <input type="text" class="form-control form-control-sm add-loai" list="loaiList" placeholder="Nhập hoặc chọn loại..." />
+                                <datalist id="loaiList" class="add-loai-list"></datalist>
+                            </div>
+                            <div class="col-sm-4">
+                                <label class="form-label small mb-1">Đơn vị:</label>
+                                <select class="form-select form-select-sm add-maloaidonvi">
+                                    <option value="">-- Chọn đơn vị --</option>
+                                </select>
+                            </div>
+                            <div class="col-sm-4">
+                                <label class="form-label small mb-1">Nhà cung cấp:</label>
+                                <select class="form-select form-select-sm add-ncc">
+                                    <option value="">-- Chọn NCC --</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- Giá sỉ, Giá lẻ, Số lượng -->
+                        <div class="row g-2 mb-2">
+                            <div class="col-sm-4">
+                                <label class="form-label small mb-1">Giá sỉ:</label>
+                                <input type="number" class="form-control form-control-sm add-gia" step="1" min="0" />
+                            </div>
+                            <div class="col-sm-4">
+                                <label class="form-label small mb-1">Giá lẻ:</label>
+                                <input type="number" class="form-control form-control-sm add-gia-le" step="1" min="0" />
+                            </div>
+                            <div class="col-sm-4">
+                                <label class="form-label small mb-1">Số lượng:</label>
+                                <input type="number" class="form-control form-control-sm add-soluong" step="1" min="0" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right column: Image + Upload -->
+                    <div class="col-md-4 text-center">
+                        <div class="add-image-area w-100"></div>
+                        <div class="add-preview-img-container" style="max-width: 90%; height: 140px; margin-bottom: 8px;">
+                            <img class="add-preview-img" src="" alt="Ảnh thuốc" />
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Bottom section: Thành phần, Công dụng, Cách dùng, Lưu ý, Mô tả -->
+                <div class="row g-2 mb-2">
+                    <div class="col-sm-6">
+                        <label class="form-label small mb-1">Thành phần:</label>
+                        <textarea class="form-control form-control-sm add-thanhphan" rows="2" style="font-size:0.875rem;"></textarea>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label small mb-1">Công dụng:</label>
+                        <textarea class="form-control form-control-sm add-congdung" rows="2" style="font-size:0.875rem;"></textarea>
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-2">
+                    <div class="col-sm-6">
+                        <label class="form-label small mb-1">Cách dùng:</label>
+                        <textarea class="form-control form-control-sm add-cachdung" rows="2" style="font-size:0.875rem;"></textarea>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label small mb-1">Lưu ý:</label>
+                        <textarea class="form-control form-control-sm add-luuy" rows="2" style="font-size:0.875rem;"></textarea>
+                    </div>
+                </div>
+
+                <div class="row g-2 mb-2">
+                    <div class="col-sm-12">
+                        <label class="form-label small mb-1">Mô tả:</label>
+                        <textarea class="form-control form-control-sm add-mota" rows="2" style="font-size:0.875rem;"></textarea>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div style="width: 100%; display: flex; justify-content: flex-end; gap: 0.5rem;">
+                    <button type="button" id="thuocAddSaveBtn" class="btn btn-primary">Lưu</button>
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Đóng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
 @section Scripts {
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -395,9 +530,15 @@ document.addEventListener('DOMContentLoaded', function () {
 
         // If Edit button clicked, open modal in edit mode (inputs) and show Save button
         if (btn.classList.contains('btn-edit')) {
+            console.log('Sửa thuốc: ' + maThuoc);
             fetch('https://localhost:7283/api/Thuoc/' + maThuoc)
-                .then(function (res) { if (!res.ok) throw new Error(res.statusText || 'API error'); return res.json(); })
+                .then(function (res) {
+                    console.log('Fetch Edit response status:', res.status, res.ok);
+                    if (!res.ok) throw new Error(res.statusText || 'API error');
+                    return res.json();
+                })
                 .then(function (response) {
+                    console.log('Edit response:', response);
                     if (response.status === 1 && response.data) {
                         var t = response.data;
                         var modal = document.getElementById('thuocDetailModal');
@@ -455,8 +596,32 @@ document.addEventListener('DOMContentLoaded', function () {
                                     }).catch(function (e) { console.error(e); setHtml('.detail-ncc', placeholder); });
                             } catch (e) { console.error(e); setHtml('.detail-ncc', placeholder); }
                         })();
-                        // MaLoaiDonVi and UrlAnh inputs
-                        setHtml('.detail-maloaidonvi', '<input class="form-control form-control-sm edit-maloaidonvi" value="' + (t.maLoaiDonVi || '') + '" />');
+                        // Build unit select by fetching LoaiDonVi list; fallback to input on error
+                        (function () {
+                            var placeholder = '<input class="form-control form-control-sm edit-maloaidonvi" value="' + (t.maLoaiDonVi || '') + '" />';
+                            try {
+                                fetch('https://localhost:7283/api/Thuoc/LoaiDonVi')
+                                    .then(function (r) { if (!r.ok) throw new Error('LoaiDonVi fetch failed'); return r.json(); })
+                                    .then(function (json) {
+                                        var arr = (json && json.data) ? json.data : json;
+                                        if (!Array.isArray(arr) || arr.length === 0) {
+                                            setHtml('.detail-maloaidonvi', placeholder);
+                                            return;
+                                        }
+                                        var sel = '<select class="form-select form-select-sm edit-maloaidonvi">';
+                                        sel += '<option value="">-- Chọn đơn vị --</option>';
+                                        for (var i = 0; i < arr.length; i++) {
+                                            var n = arr[i];
+                                            var code = n.MaLoaiDonVi || n.maLoaiDonVi || '';
+                                            var name = n.TenLoaiDonVi || n.tenLoaiDonVi || code;
+                                            var selAttr = (code === (t.maLoaiDonVi || '')) ? ' selected' : '';
+                                            sel += '<option value="' + code + '"' + selAttr + '>' + name + '</option>';
+                                        }
+                                        sel += '</select>';
+                                        setHtml('.detail-maloaidonvi', sel);
+                                    }).catch(function (e) { console.error(e); setHtml('.detail-maloaidonvi', placeholder); });
+                            } catch (e) { console.error(e); setHtml('.detail-maloaidonvi', placeholder); }
+                        })();
                         // Image chooser: choose existing image or upload a new one
                         var imageSelectorHtml = '';
                         imageSelectorHtml += '<div class="d-flex align-items-center gap-3 mb-2">';
@@ -501,6 +666,17 @@ document.addEventListener('DOMContentLoaded', function () {
                             var hidden = modal.querySelector('.edit-urlanh');
                             if (!select) return;
                             select.innerHTML = '<option value="">(Chọn ảnh có sẵn)</option>';
+                            
+                            // Define updateImageAreas in populateImages scope so it's accessible to both fetch and upload handler
+                            var radios = modal.querySelectorAll('.img-choice');
+                            var existingArea = modal.querySelector('.image-existing-area');
+                            var uploadArea = modal.querySelector('.image-upload-area');
+                            function updateImageAreas() {
+                                var val = modal.querySelector('.img-choice:checked')?.value || 'existing';
+                                if (existingArea) existingArea.style.display = (val === 'existing') ? '' : 'none';
+                                if (uploadArea) uploadArea.style.display = (val === 'upload') ? '' : 'none';
+                            }
+                            
                             function parseApiResponse(res) {
                                 return res.text().then(function (txt) {
                                     if (!txt) return { ok: res.ok, body: null, text: '' };
@@ -523,15 +699,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                         hidden.value = select.value || '';
                                         if (hidden.value) { img.src = '/assets_user/img/product/' + hidden.value; img.style.display = 'block'; }
                                     });
-                                    // radio toggle behaviour: existing vs upload
-                                    var radios = modal.querySelectorAll('.img-choice');
-                                    var existingArea = modal.querySelector('.image-existing-area');
-                                    var uploadArea = modal.querySelector('.image-upload-area');
-                                    function updateImageAreas() {
-                                        var val = modal.querySelector('.img-choice:checked')?.value || 'existing';
-                                        if (existingArea) existingArea.style.display = (val === 'existing') ? '' : 'none';
-                                        if (uploadArea) uploadArea.style.display = (val === 'upload') ? '' : 'none';
-                                    }
+                                    // wire up radio listeners
                                     radios.forEach(function (r) { r.addEventListener('change', updateImageAreas); });
                                     // initial set
                                     updateImageAreas();
@@ -546,9 +714,14 @@ document.addEventListener('DOMContentLoaded', function () {
                                     if (!f) { alert('Chọn file ảnh trước khi upload'); return; }
                                     uploadBtn.disabled = true; uploadBtn.textContent = 'Đang upload...';
                                     var fd = new FormData(); fd.append('file', f);
+                                    console.log('Starting upload to https://localhost:7283/api/Images/UploadFile');
                                     fetch('https://localhost:7283/api/Images/UploadFile', { method: 'POST', body: fd })
-                                        .then(function (r) { return parseApiResponse(r); })
+                                        .then(function (r) { 
+                                            console.log('Upload response status:', r.status, r.statusText); 
+                                            return parseApiResponse(r); 
+                                        })
                                         .then(function (resp) {
+                                            console.log('Upload response parsed:', resp);
                                             uploadBtn.disabled = false; uploadBtn.textContent = 'Upload';
                                             var fileName = null;
                                             if (resp.body && resp.body.status === 1 && resp.body.data) fileName = resp.body.data;
@@ -556,6 +729,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                             else if (resp.text) {
                                                 try { var maybe = JSON.parse(resp.text); if (maybe && maybe.data) fileName = maybe.data; else if (typeof maybe === 'string') fileName = maybe; } catch (e) { /* ignore */ }
                                             }
+                                            console.log('Extracted fileName:', fileName);
                                             if (!fileName) { alert('Upload thất bại hoặc không có body trả về'); return; }
                                             var opt = document.createElement('option'); opt.value = fileName; opt.textContent = fileName; opt.selected = true; select.appendChild(opt);
                                             hidden.value = fileName;
@@ -563,15 +737,26 @@ document.addEventListener('DOMContentLoaded', function () {
                                             // after upload switch to existing image mode and select the new image
                                             var radioExisting = modal.querySelector('#imgChoiceExisting');
                                             if (radioExisting) { radioExisting.checked = true; updateImageAreas(); }
-                                        }).catch(function (e) { uploadBtn.disabled = false; uploadBtn.textContent = 'Upload'; console.error(e); alert('Upload lỗi: ' + (e && e.message ? e.message : e)); });
+                                            console.log('Upload completed successfully, no page reload should happen');
+                                        }).catch(function (e) { 
+                                            uploadBtn.disabled = false; uploadBtn.textContent = 'Upload'; 
+                                            console.error('Upload error:', e); 
+                                            alert('Upload lỗi: ' + (e && e.message ? e.message : e)); 
+                                        });
                                 });
                             }
                         })();
 
                         var saveBtn = document.getElementById('thuocSaveBtn'); if (saveBtn) saveBtn.style.display = '';
-                        var modalObj = new bootstrap.Modal(modal); modalObj.show();
+                        try {
+                            var modalObj = new bootstrap.Modal(modal);
+                            modalObj.show();
+                        } catch (e) {
+                            console.error('Lỗi hiển thị modal Edit:', e);
+                            alert('Lỗi: Không thể hiển thị modal. ' + e.message);
+                        }
                     }
-                }).catch(function (e) { console.error(e); });
+                }).catch(function (e) { console.error('Lỗi tải dữ liệu Edit:', e); alert('Lỗi tải dữ liệu: ' + (e && e.message ? e.message : e)); });
 
             return;
         }
@@ -598,10 +783,12 @@ document.addEventListener('DOMContentLoaded', function () {
                         safeSetText('.detail-ten', t.tenThuoc || '');
                         safeSetText('.detail-ma', t.maThuoc || '');
                         safeSetText('.detail-loai', (t.maLoaiThuoc && LOAI_MAP[t.maLoaiThuoc]) ? LOAI_MAP[t.maLoaiThuoc] : (t.maLoaiThuoc || ''));
+                        safeSetText('.detail-maloaidonvi', t.tenLoaiDonVi || t.maLoaiDonVi || '');
                         safeSetText('.detail-gia', (typeof t.donGiaSi !== 'undefined') ? (t.donGiaSi.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + ' đ') : '');
                         safeSetText('.detail-gia-le', (typeof t.donGiaLe !== 'undefined') ? (t.donGiaLe.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") + ' đ') : '');
                         safeSetText('.detail-soluong', (typeof t.soLuong !== 'undefined') ? t.soLuong : '');
                         safeSetText('.detail-ncc', t.tenNCC || t.TenNCC || t.tenNcc || t.TenNcc || t.maNCC || '');
+                        safeSetText('.detail-urlanh', t.urlAnh || '');
                         safeSetText('.detail-thanhphan', t.thanhPhan || '');
                         safeSetText('.detail-congdung', t.congDung || '');
                         safeSetText('.detail-cachdung', t.cachDung || '');
@@ -616,7 +803,7 @@ document.addEventListener('DOMContentLoaded', function () {
                     var modalObj = new bootstrap.Modal(document.getElementById('thuocDetailModal'));
                     modalObj.show();
                 }
-            }).catch(function (e) { console.error(e); });
+            }).catch(function (e) { console.error('Lỗi tải dữ liệu View:', e); alert('Lỗi tải dữ liệu: ' + (e && e.message ? e.message : e)); });
     });
 
     // Save handler for inline modal edit
@@ -672,32 +859,60 @@ document.addEventListener('DOMContentLoaded', function () {
                 return;
             }
 
-            // send PUT and handle non-200 responses gracefully
-            fetch('https://localhost:7283/api/Thuoc/' + encodeURIComponent(ma), {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            }).then(function (res) {
-                if (res.ok) {
-                    return res.json().then(function (json) { return { ok: true, body: json }; });
-                }
-                // try to parse JSON error body, otherwise text
-                return res.text().then(function (txt) {
-                    try { var j = JSON.parse(txt); return { ok: false, body: j, text: null }; } catch (e) { return { ok: false, body: null, text: txt }; }
+            // If user uploaded a new image from temp folder, finalize it first
+            var uploadedFileName = modal.querySelector('.edit-urlanh')?.value;
+            var chosenMode = modal.querySelector('.img-choice:checked')?.value || 'existing';
+            
+            function proceedWithSave() {
+                // send PUT and handle non-200 responses gracefully
+                fetch('https://localhost:7283/api/Thuoc/' + encodeURIComponent(ma), {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                }).then(function (res) {
+                    if (res.ok) {
+                        return res.json().then(function (json) { return { ok: true, body: json }; });
+                    }
+                    // try to parse JSON error body, otherwise text
+                    return res.text().then(function (txt) {
+                        try { var j = JSON.parse(txt); return { ok: false, body: j, text: null }; } catch (e) { return { ok: false, body: null, text: txt }; }
+                    });
+                }).then(function (result) {
+                    if (result.ok && result.body && result.body.status === 1) {
+                        window.location.reload();
+                        return;
+                    }
+                    // show server-provided message if available
+                    var msg = 'Không rõ';
+                    if (result.body && result.body.message) msg = result.body.message;
+                    else if (result.text) msg = result.text;
+                    else if (result.body && result.body.errors) msg = JSON.stringify(result.body.errors);
+                    alert('Lưu thất bại: ' + msg);
+                    console.error('PUT /api/Thuoc error:', result);
+                }).catch(function (e) { console.error(e); alert('Lỗi khi lưu: ' + (e && e.message ? e.message : e)); });
+            }
+            
+            // If upload mode and file was uploaded, finalize it first
+            if (chosenMode === 'upload' && uploadedFileName && uploadedFileName.trim() !== '') {
+                console.log('Finalizing uploaded image:', uploadedFileName);
+                fetch('https://localhost:7283/api/Images/FinalizeImage', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ fileName: uploadedFileName })
+                }).then(function (res) { 
+                    if (res.ok) return res.json();
+                    throw new Error('FinalizeImage failed: ' + res.statusText);
+                }).then(function (resp) {
+                    console.log('Image finalized:', resp);
+                    proceedWithSave();
+                }).catch(function (e) {
+                    console.error('Error finalizing image:', e);
+                    alert('Lỗi khi finalize ảnh: ' + e.message);
                 });
-            }).then(function (result) {
-                if (result.ok && result.body && result.body.status === 1) {
-                    window.location.reload();
-                    return;
-                }
-                // show server-provided message if available
-                var msg = 'Không rõ';
-                if (result.body && result.body.message) msg = result.body.message;
-                else if (result.text) msg = result.text;
-                else if (result.body && result.body.errors) msg = JSON.stringify(result.body.errors);
-                alert('Lưu thất bại: ' + msg);
-                console.error('PUT /api/Thuoc error:', result);
-            }).catch(function (e) { console.error(e); alert('Lỗi khi lưu: ' + (e && e.message ? e.message : e)); });
+            } else {
+                // No upload, proceed directly with save
+                proceedWithSave();
+            }
         });
     }
 
@@ -862,6 +1077,433 @@ document.addEventListener('DOMContentLoaded', function () {
 
     // initial filter (no-op if empty)
     applyFilters();
+
+    // Handle "Add new medication" button
+    var addThuocBtn = document.getElementById('addThuocBtn');
+    if (addThuocBtn) {
+        addThuocBtn.addEventListener('click', function () {
+            // Initialize add modal with default values
+            openAddModal();
+        });
+    }
+
+    // Function to open add medication modal
+    function openAddModal() {
+        var modal = document.getElementById('thuocAddModal');
+        if (!modal) return;
+
+        // Reset form fields
+        modal.querySelector('.add-ma').value = '';
+        modal.querySelector('.add-ten').value = '';
+        modal.querySelector('.add-loai').value = '';
+        modal.querySelector('.add-maloaidonvi').value = '';
+        modal.querySelector('.add-gia').value = '';
+        modal.querySelector('.add-gia-le').value = '';
+        modal.querySelector('.add-soluong').value = '';
+        modal.querySelector('.add-ncc').value = '';
+        modal.querySelector('.add-thanhphan').value = '';
+        modal.querySelector('.add-congdung').value = '';
+        modal.querySelector('.add-cachdung').value = '';
+        modal.querySelector('.add-luuy').value = '';
+        modal.querySelector('.add-mota').value = '';
+        
+        // Reset preview image
+        var previewImg = modal.querySelector('.add-preview-img');
+        var previewContainer = modal.querySelector('.add-preview-img-container');
+        if (previewImg) previewImg.src = '';
+        if (previewContainer) previewContainer.classList.remove('show');
+
+        // Load dropdowns
+        loadLoaiDropdown('.add-loai');
+        loadLoaiDonViDropdown('.add-maloaidonvi');
+        loadNCCDropdown('.add-ncc');
+
+        // Generate next medication ID
+        generateNextMaThuoc();
+
+        // Initialize image upload area
+        initializeAddImageArea();
+
+        // Show modal
+        var bsModal = new bootstrap.Modal(modal);
+        bsModal.show();
+    }
+
+    // Function to generate next medication ID
+    function generateNextMaThuoc() {
+        fetch('https://localhost:7283/api/Thuoc')
+            .then(function (r) { if (!r.ok) throw new Error('Fetch Thuoc list failed'); return r.json(); })
+            .then(function (json) {
+                var arr = (json && json.data) ? json.data : json;
+                if (!Array.isArray(arr)) arr = [];
+                
+                // Find maximum numeric part from existing codes
+                var maxNum = 0;
+                for (var i = 0; i < arr.length; i++) {
+                    var code = arr[i].maThuoc || arr[i].MaThuoc || '';
+                    var numPart = parseInt(code.replace(/\D/g, '')) || 0;
+                    if (numPart > maxNum) maxNum = numPart;
+                }
+                
+                var nextMa = 'T' + String(maxNum + 1).padStart(3, '0');
+                var maInput = document.querySelector('#thuocAddModal .add-ma');
+                if (maInput) maInput.value = nextMa;
+            })
+            .catch(function (e) { 
+                console.error('Error generating MaThuoc:', e);
+                var maInput = document.querySelector('#thuocAddModal .add-ma');
+                if (maInput) maInput.value = 'T001';
+            });
+    }
+
+    // Helper functions to load dropdowns
+    function loadLoaiDropdown(selector) {
+        var input = document.querySelector('#thuocAddModal ' + selector);
+        if (!input) return;
+        
+        fetch('https://localhost:7283/api/Thuoc/LoaiThuoc')
+            .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+            .then(function (json) {
+                var arr = (json && json.data) ? json.data : json;
+                if (!Array.isArray(arr)) arr = [];
+                
+                var datalist = document.querySelector('#loaiList');
+                if (datalist) {
+                    datalist.innerHTML = '';
+                    for (var i = 0; i < arr.length; i++) {
+                        var opt = document.createElement('option');
+                        var maLoai = arr[i].maLoaiThuoc || arr[i].MaLoaiThuoc || '';
+                        var tenLoai = arr[i].tenLoaiThuoc || arr[i].TenLoaiThuoc || maLoai;
+                        opt.value = tenLoai + ' (' + maLoai + ')';
+                        datalist.appendChild(opt);
+                    }
+                }
+            })
+            .catch(function (e) { console.error('Error loading Loai:', e); });
+    }
+
+    function loadLoaiDonViDropdown(selector) {
+        var select = document.querySelector('#thuocAddModal ' + selector);
+        if (!select) return;
+        
+        fetch('https://localhost:7283/api/Thuoc/LoaiDonVi')
+            .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+            .then(function (json) {
+                var arr = (json && json.data) ? json.data : json;
+                if (!Array.isArray(arr)) arr = [];
+                
+                select.innerHTML = '<option value="">-- Chọn đơn vị --</option>';
+                for (var i = 0; i < arr.length; i++) {
+                    var opt = document.createElement('option');
+                    opt.value = arr[i].maLoaiDonVi || arr[i].MaLoaiDonVi || '';
+                    opt.textContent = arr[i].tenLoaiDonVi || arr[i].TenLoaiDonVi || opt.value;
+                    select.appendChild(opt);
+                }
+            })
+            .catch(function (e) { console.error('Error loading LoaiDonVi:', e); });
+    }
+
+    function loadNCCDropdown(selector) {
+        var select = document.querySelector('#thuocAddModal ' + selector);
+        if (!select) return;
+        
+        fetch('https://localhost:7283/api/NhaCungCap')
+            .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+            .then(function (json) {
+                var arr = (json && json.data) ? json.data : json;
+                if (!Array.isArray(arr)) arr = [];
+                
+                select.innerHTML = '<option value="">-- Chọn nhà cung cấp --</option>';
+                for (var i = 0; i < arr.length; i++) {
+                    var opt = document.createElement('option');
+                    opt.value = arr[i].maNCC || arr[i].MaNCC || '';
+                    opt.textContent = arr[i].tenNCC || arr[i].TenNCC || opt.value;
+                    select.appendChild(opt);
+                }
+            })
+            .catch(function (e) { console.error('Error loading NCC:', e); });
+    }
+
+    // Initialize image upload area for add modal
+    function initializeAddImageArea() {
+        var modal = document.getElementById('thuocAddModal');
+        if (!modal) return;
+        
+        var imageArea = modal.querySelector('.add-image-area');
+        if (!imageArea) return;
+        
+        var imageHtml = '';
+        imageHtml += '<div class="d-flex align-items-center gap-3 mb-2">';
+        imageHtml += '  <div class="form-check form-check-inline">';
+        imageHtml += '    <input class="form-check-input add-img-choice" type="radio" name="addImgChoice" id="addImgChoiceExisting" value="existing" />';
+        imageHtml += '    <label class="form-check-label small" for="addImgChoiceExisting">Ảnh đã có</label>';
+        imageHtml += '  </div>';
+        imageHtml += '  <div class="form-check form-check-inline">';
+        imageHtml += '    <input class="form-check-input add-img-choice" type="radio" name="addImgChoice" id="addImgChoiceUpload" value="upload" checked />';
+        imageHtml += '    <label class="form-check-label small" for="addImgChoiceUpload">Upload ảnh</label>';
+        imageHtml += '  </div>';
+        imageHtml += '</div>';
+        
+        // Existing images area
+        imageHtml += '<div class="add-existing-area mb-1" style="display:none;">';
+        imageHtml += '  <select class="form-select form-select-sm add-img-select" style="max-width:260px;">';
+        imageHtml += '    <option value="">(Chọn ảnh)</option>';
+        imageHtml += '  </select>';
+        imageHtml += '</div>';
+        
+        // Upload area
+        imageHtml += '<div class="add-upload-area mb-1" style="display:flex; gap:8px; align-items:center; justify-content:flex-start;">';
+        imageHtml += '  <input type="file" accept="image/*" class="form-control form-control-sm add-img-file" style="flex:0 1 auto;" />';
+        imageHtml += '  <button class="btn btn-sm btn-primary add-upload-btn" type="button" style="white-space:nowrap;">Upload</button>';
+        imageHtml += '  <input type="hidden" class="add-urlanh" />';
+        imageHtml += '</div>';
+        
+        imageArea.innerHTML = imageHtml;
+        
+        // Load existing images into select
+        fetch('https://localhost:7283/api/Images/List')
+            .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
+            .then(function (json) {
+                var arr = (json && json.data) ? json.data : json;
+                if (!Array.isArray(arr)) arr = [];
+                
+                var select = modal.querySelector('.add-img-select');
+                if (select && arr.length > 0) {
+                    for (var i = 0; i < arr.length; i++) {
+                        var opt = document.createElement('option');
+                        opt.value = arr[i];
+                        opt.textContent = arr[i];
+                        select.appendChild(opt);
+                    }
+                    
+                    // Handle selection change for existing images
+                    select.addEventListener('change', function () {
+                        var fileName = this.value;
+                        var previewImg = modal.querySelector('.add-preview-img');
+                        var previewContainer = modal.querySelector('.add-preview-img-container');
+                        
+                        if (fileName) {
+                            var imgUrl = '/assets_user/img/product/' + fileName;
+                            if (previewImg) previewImg.src = imgUrl;
+                            if (previewContainer) previewContainer.classList.add('show');
+                        } else {
+                            if (previewImg) previewImg.src = '';
+                            if (previewContainer) previewContainer.classList.remove('show');
+                        }
+                    });
+                }
+            })
+            .catch(function (e) { console.error('Error loading images:', e); });
+        
+        // Handle radio button changes
+        var radioButtons = modal.querySelectorAll('.add-img-choice');
+        radioButtons.forEach(function (radio) {
+            radio.addEventListener('change', function () {
+                var existingArea = modal.querySelector('.add-existing-area');
+                var uploadArea = modal.querySelector('.add-upload-area');
+                var previewImg = modal.querySelector('.add-preview-img');
+                var previewContainer = modal.querySelector('.add-preview-img-container');
+                
+                if (this.value === 'existing') {
+                    existingArea.style.display = 'block';
+                    uploadArea.style.display = 'none';
+                    modal.querySelector('.add-urlanh').value = '';
+                    // Reset preview
+                    if (previewImg) previewImg.src = '';
+                    if (previewContainer) previewContainer.classList.remove('show');
+                    modal.querySelector('.add-img-select').value = '';
+                } else {
+                    existingArea.style.display = 'none';
+                    uploadArea.style.display = 'block';
+                    // Reset preview
+                    if (previewImg) previewImg.src = '';
+                    if (previewContainer) previewContainer.classList.remove('show');
+                }
+            });
+        });
+        
+        // Attach upload handler
+        var uploadBtn = modal.querySelector('.add-upload-btn');
+        if (uploadBtn) {
+            uploadBtn.addEventListener('click', function () {
+                var fileInput = modal.querySelector('.add-img-file');
+                if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
+                    alert('Vui lòng chọn file ảnh.');
+                    return;
+                }
+                
+                var formData = new FormData();
+                formData.append('file', fileInput.files[0]);
+                
+                fetch('https://localhost:7283/api/Images/UploadFile', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(function (r) { if (!r.ok) throw new Error('Upload failed'); return r.json(); })
+                .then(function (json) {
+                    var fileName = (json && json.data) ? json.data : json;
+                    modal.querySelector('.add-urlanh').value = fileName;
+                    
+                    // Show preview of uploaded image
+                    var previewImg = modal.querySelector('.add-preview-img');
+                    var previewContainer = modal.querySelector('.add-preview-img-container');
+                    if (previewImg && previewContainer) {
+                        // Temp file preview
+                        var tempUrl = 'https://localhost:7283/api/Images/GetTemp?filename=' + encodeURIComponent(fileName);
+                        previewImg.src = tempUrl;
+                        previewContainer.classList.add('show');
+                    }
+                    
+                    alert('Upload thành công: ' + fileName);
+                })
+                .catch(function (e) {
+                    console.error('Upload error:', e);
+                    alert('Lỗi upload: ' + (e && e.message ? e.message : e));
+                });
+            });
+        }
+    }
+
+    // Handle save for add modal
+    var addSaveBtn = document.getElementById('thuocAddSaveBtn');
+    if (addSaveBtn) {
+        addSaveBtn.addEventListener('click', function () {
+            var modal = document.getElementById('thuocAddModal');
+            if (!modal) return;
+            
+            var maThuoc = modal.querySelector('.add-ma')?.value || '';
+            var tenThuoc = modal.querySelector('.add-ten')?.value || '';
+            
+            // Extract mã loại from format "Tên loại (Mã loại)" or use as-is if just mã
+            var loaiInput = modal.querySelector('.add-loai')?.value || '';
+            var maLoaiThuoc = '';
+            var match = loaiInput.match(/\(([^)]+)\)$/);
+            if (match) {
+                maLoaiThuoc = match[1];
+            } else {
+                maLoaiThuoc = loaiInput;
+            }
+            
+            var maLoaiDonVi = modal.querySelector('.add-maloaidonvi')?.value || '';
+            var donGiaSi = parseFloat((modal.querySelector('.add-gia')?.value || '0').toString().replace(/,/g, '')) || 0;
+            var donGiaLe = parseFloat((modal.querySelector('.add-gia-le')?.value || '0').toString().replace(/,/g, '')) || 0;
+            var soLuong = parseInt(modal.querySelector('.add-soluong')?.value || 0) || 0;
+            var maNCC = modal.querySelector('.add-ncc')?.value || '';
+            var thanhPhan = modal.querySelector('.add-thanhphan')?.value || '';
+            var congDung = modal.querySelector('.add-congdung')?.value || '';
+            var cachDung = modal.querySelector('.add-cachdung')?.value || '';
+            var luuY = modal.querySelector('.add-luuy')?.value || '';
+            var moTa = modal.querySelector('.add-mota')?.value || '';
+            
+            // Determine which image was chosen
+            var imgChoice = modal.querySelector('.add-img-choice:checked')?.value || 'upload';
+            var urlAnh = '';
+            
+            if (imgChoice === 'existing') {
+                // Use existing image from dropdown
+                urlAnh = modal.querySelector('.add-img-select')?.value || '';
+            } else {
+                // Use uploaded image from temp
+                urlAnh = modal.querySelector('.add-urlanh')?.value || '';
+            }
+            
+            // Validation
+            if (!tenThuoc || tenThuoc.trim() === '') {
+                alert('Tên thuốc là bắt buộc.');
+                return;
+            }
+            if (!urlAnh || urlAnh.trim() === '') {
+                alert('Vui lòng chọn hoặc upload ảnh.');
+                return;
+            }
+            if (!maLoaiDonVi || maLoaiDonVi.trim() === '') {
+                alert('Vui lòng chọn đơn vị.');
+                return;
+            }
+            
+            function proceedWithAddSave() {
+                var payload = {
+                    maThuoc: maThuoc,
+                    tenThuoc: tenThuoc,
+                    maLoaiThuoc: maLoaiThuoc,
+                    maLoaiDonVi: maLoaiDonVi,
+                    donGiaSi: donGiaSi,
+                    donGiaLe: donGiaLe,
+                    soLuong: soLuong,
+                    maNCC: maNCC,
+                    urlAnh: urlAnh,
+                    thanhPhan: thanhPhan,
+                    congDung: congDung,
+                    cachDung: cachDung,
+                    luuY: luuY,
+                    moTa: moTa
+                };
+                
+                fetch('https://localhost:7283/api/Thuoc', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                })
+                .then(function (res) {
+                    if (res.ok) {
+                        return res.json().then(function (json) { return { ok: true, body: json }; });
+                    } else {
+                        return res.text().then(function (txt) { throw new Error(txt || 'Save failed'); });
+                    }
+                })
+                .then(function (result) {
+                    if (result.ok) {
+                        alert('Thêm thuốc thành công!');
+                        var bsModal = bootstrap.Modal.getInstance(modal);
+                        if (bsModal) bsModal.hide();
+                        
+                        // Reload table
+                        location.reload();
+                    } else {
+                        alert('Lỗi: ' + (result.body && result.body.message ? result.body.message : 'Unknown error'));
+                    }
+                })
+                .catch(function (e) {
+                    console.error('Save error:', e);
+                    alert('Lỗi lưu: ' + (e && e.message ? e.message : e));
+                });
+            }
+            
+            // If upload mode with temp file, finalize image before save
+            if (imgChoice === 'upload' && urlAnh) {
+                fetch('https://localhost:7283/api/Images/FinalizeImage', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ tempFileName: urlAnh, productFolderName: 'product' })
+                })
+                .then(function (r) { if (!r.ok) throw new Error('Finalize failed'); return r.json(); })
+                .then(function (json) {
+                    proceedWithAddSave();
+                })
+                .catch(function (e) {
+                    console.error('Finalize error:', e);
+                    alert('Lỗi finalize ảnh: ' + (e && e.message ? e.message : e));
+                });
+            } else {
+                // For existing images, proceed directly (no finalization needed)
+                proceedWithAddSave();
+            }
+        });
+    }
+    
+    // DEBUG: Catch any page reload attempts to see what triggers it
+    window.addEventListener('beforeunload', function(e) {
+        console.log('beforeunload event fired - page is about to reload/unload');
+        console.trace();
+    });
+    
+    // Override location.reload to see who calls it
+    var _origReload = window.location.reload.bind(window.location);
+    window.location.reload = function() {
+        console.error('window.location.reload() called!');
+        console.trace();
+        return _origReload();
+    };
 });
 </script>
 }

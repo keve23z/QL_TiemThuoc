@@ -16,7 +16,17 @@ namespace BE_QLTiemThuoc.Controllers
     {
         private static readonly HttpClient _http = new HttpClient();
 
-        // Note: the images folder is inside the FE project wwwroot. We compute it relative to the BE project working directory.
+        // Temp upload folder (outside wwwroot to avoid triggering hot reload during development)
+        private string GetTempUploadFolder()
+        {
+            var beRoot = Directory.GetCurrentDirectory();
+            var candidate = Path.GetFullPath(Path.Combine(beRoot, "..", "TempImages"));
+            if (!Directory.Exists(candidate))
+                Directory.CreateDirectory(candidate);
+            return candidate;
+        }
+
+        // Final product images folder (inside FE wwwroot)
         private string GetImagesFolder()
         {
             // BE project directory (where the app runs)
@@ -44,6 +54,12 @@ namespace BE_QLTiemThuoc.Controllers
         }
 
     public class ImportRequest { public string? url { get; set; } }
+
+    // Wrapper for file uploads so Swagger can describe the multipart/form-data schema
+    public class UploadFileRequest
+    {
+        public IFormFile? file { get; set; }
+    }
 
         [HttpPost("UploadExternal")]
         public async Task<IActionResult> UploadExternal([FromBody] ImportRequest req)
@@ -83,13 +99,15 @@ namespace BE_QLTiemThuoc.Controllers
 
     [HttpPost("UploadFile")]
     [Consumes("multipart/form-data")]
-    public async Task<IActionResult> UploadFile([FromForm] IFormFile file)
+    public async Task<IActionResult> UploadFile([FromForm] UploadFileRequest req)
         {
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
-                if (file == null) throw new Exception("File missing");
+        var file = req?.file;
+        if (file == null) throw new Exception("File missing");
 
-                var folder = GetImagesFolder();
+                // Upload to TEMP folder first (not wwwroot, so no hot reload)
+                var folder = GetTempUploadFolder();
                 if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
 
                 var safeName = SanitizeFileName(file.FileName ?? ("upload_" + DateTime.UtcNow.ToString("yyyyMMddHHmmss") + ".dat"));
@@ -110,6 +128,46 @@ namespace BE_QLTiemThuoc.Controllers
                 }
 
                 return Path.GetFileName(target);
+            });
+
+            return Ok(response);
+        }
+
+        // Move file from temp to product folder (called when user clicks Save)
+        [HttpPost("FinalizeImage")]
+        public async Task<IActionResult> FinalizeImage([FromBody] dynamic req)
+        {
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                var fileName = req?.fileName as string;
+                if (string.IsNullOrEmpty(fileName)) throw new Exception("fileName required");
+
+                var tempFolder = GetTempUploadFolder();
+                var tempPath = Path.Combine(tempFolder, fileName);
+                if (!System.IO.File.Exists(tempPath))
+                    throw new Exception("File not found in temp folder");
+
+                var finalFolder = GetImagesFolder();
+                if (!Directory.Exists(finalFolder)) Directory.CreateDirectory(finalFolder);
+                var finalPath = Path.Combine(finalFolder, fileName);
+
+                // If file already exists in final folder, overwrite or rename
+                var baseName = Path.GetFileNameWithoutExtension(fileName);
+                var ext = Path.GetExtension(fileName);
+                int counter = 1;
+                while (System.IO.File.Exists(finalPath))
+                {
+                    var newName = baseName + "_" + counter + ext;
+                    finalPath = Path.Combine(finalFolder, newName);
+                    counter++;
+                }
+
+                // Copy from temp to final
+                System.IO.File.Copy(tempPath, finalPath, overwrite: true);
+                // Delete temp file
+                System.IO.File.Delete(tempPath);
+
+                return Path.GetFileName(finalPath);
             });
 
             return Ok(response);
