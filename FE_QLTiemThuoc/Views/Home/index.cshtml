@@ -604,12 +604,13 @@
                     {
                         foreach (var category in Model.Take(6))
                         {
+                            string maLoai = category.TryGetProperty("maLoaiThuoc", out var maLoaiProp) ? maLoaiProp.GetString() : "";
                             string tenLoai = category.TryGetProperty("tenLoaiThuoc", out var tenLoaiProp) ? tenLoaiProp.GetString() : "Không xác định";
                             int soLuong = category.TryGetProperty("soLuongThuoc", out var soLuongProp) ? soLuongProp.GetInt32() : 0;
                             string icon = category.TryGetProperty("icon", out var iconProp) ? iconProp.GetString() : "medicine.svg";
 
                             <div class="category-item">
-                                <a href="#">
+                                <a href="@Url.Action("ShopGrid", "User", new { category = maLoai })">
                                     <div class="category-info">
                                         <div class="icon">
                                             <img src="~/assets_user/img/icon/@icon" alt="@tenLoai">

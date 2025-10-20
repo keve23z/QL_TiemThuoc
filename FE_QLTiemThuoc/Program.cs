@@ -25,6 +25,6 @@ app.UseAuthorization();
 
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=Admin}/{action=ThemThuoc}");
+    pattern: "{controller=User}/{action=ShopGrid}");
 
 app.Run();

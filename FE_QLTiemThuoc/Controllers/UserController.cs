@@ -12,7 +12,7 @@ namespace FE_QLTiemThuoc.Controllers
             _http = http;
         }
 
-        public async Task<IActionResult> ShopGrid(string? search, string? category, string? sort)
+        public async Task<IActionResult> ShopGrid(string? search, string? category, string? sort, string? view)
         {
             var client = _http.CreateClient("MyApi");
 
@@ -52,10 +52,24 @@ namespace FE_QLTiemThuoc.Controllers
                 products = dataElement.EnumerateArray().ToList();
             }
 
+            // Support server-side sorting for price
+            if (products != null && !string.IsNullOrEmpty(sort))
+            {
+                if (sort == "price_asc")
+                {
+                    products = products.OrderBy(p => p.TryGetProperty("donGiaSi", out var priceProp) && priceProp.ValueKind == JsonValueKind.Number ? priceProp.GetDecimal() : decimal.MaxValue).ToList();
+                }
+                else if (sort == "price_desc")
+                {
+                    products = products.OrderByDescending(p => p.TryGetProperty("donGiaSi", out var priceProp) && priceProp.ValueKind == JsonValueKind.Number ? priceProp.GetDecimal() : decimal.MinValue).ToList();
+                }
+            }
+
 
             ViewBag.Search = search;
             ViewBag.Category = category;
             ViewBag.Sort = sort;
+            ViewBag.View = view; // "grid" or "list"
 
             return View(products);
         }
