@@ -143,13 +143,13 @@
                                     <div class="col-md-6 col-lg-4 shop-product-card">
                                         <div class="product-item d-flex flex-column h-100" style="min-height:320px; border-radius:12px; background:#fff; padding:18px; box-shadow:0 6px 18px rgba(12,37,64,0.06);">
                                             <div class="product-img" style="flex:0 0 180px; display:flex; align-items:center; justify-content:center;">
-                                                <a href="#" style="display:block; width:100%; height:100%;">
+                                                <a href='@Url.Action("ItemDetail", "User", new { maThuoc = maThuoc })' style="display:block; width:100%; height:100%;">
                                                     <img src="~/assets_user/img/product/@urlAnh" alt="@tenThuoc" style="max-width:100%; max-height:100%; object-fit:contain; display:block; margin:auto;" />
                                                 </a>
                                             </div>
 
                                             <div class="product-content d-flex flex-column mt-3" style="flex:1 1 auto;">
-                                                <h3 class="product-title" style="font-size:1.05rem; margin-bottom:8px;"><a href="#" style="color:#0b3b52;">@tenThuoc</a></h3>
+                                                <h3 class="product-title" style="font-size:1.05rem; margin-bottom:8px;"><a href='@Url.Action("ItemDetail", "User", new { maThuoc = maThuoc })' style="color:#0b3b52;">@tenThuoc</a></h3>
                                                 <div style="margin-top:auto;">
                                                     <div class="product-price"><span style="color:#ff6b6b; font-weight:600;">@formattedPrice</span></div>
                                                 </div>
@@ -165,14 +165,14 @@
                                         <div class="product-list-item d-flex align-items-center" style="padding:18px; background:#fff; border-radius:12px;">
                                             <!-- Left: large image -->
                                             <div class="product-list-img me-4" style="flex:0 0 220px; max-width:220px;">
-                                                <a href="#" style="display:block; width:100%; height:180px;">
+                                                <a href='@Url.Action("ItemDetail", "User", new { maThuoc = maThuoc })' style="display:block; width:100%; height:180px;">
                                                     <img src="~/assets_user/img/product/@urlAnh" alt="@tenThuoc" style="width:100%; height:100%; object-fit:contain; display:block; margin:auto;" />
                                                 </a>
                                             </div>
 
                                             <!-- Middle: title, rating, short description -->
                                             <div class="product-list-content flex-grow-1">
-                                                <h3 class="product-title" style="margin:0 0 6px; font-size:1.15rem;"><a href="#" style="color:#0b3b52;">@tenThuoc</a></h3>
+                                                <h3 class="product-title" style="margin:0 0 6px; font-size:1.15rem;"><a href='@Url.Action("ItemDetail", "User", new { maThuoc = maThuoc })' style="color:#0b3b52;">@tenThuoc</a></h3>
                                                 <p class="product-desc text-muted" style="margin:0 0 12px; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;">@moTa</p>
                                             </div>
 

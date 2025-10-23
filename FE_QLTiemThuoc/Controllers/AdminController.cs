@@ -10,7 +10,7 @@ namespace FE_QLTiemThuoc.Controllers
     {
         private readonly IHttpClientFactory _http;
 
-        public AdminController(IHttpClientFactory http)
+        public AdminController(IHttpClientFactory http)//https://localhost:7283/api/
         {
             _http = http;
         }
@@ -173,6 +173,159 @@ namespace FE_QLTiemThuoc.Controllers
         }        public IActionResult Index()
         {
             return View();
+        }
+
+        // Nhập thuốc view (filter form + list)
+        [HttpGet]
+        public IActionResult NhapThuoc()
+        {
+            // provide default date range for the view: first day of current month -> today
+            var today = System.DateTime.Now;
+            var firstOfMonth = new System.DateTime(today.Year, today.Month, 1);
+            ViewBag.DefaultFrom = firstOfMonth.ToString("yyyy-MM-dd");
+            ViewBag.DefaultTo = today.ToString("yyyy-MM-dd");
+            // expose API base address (as configured in Program.cs) so client-side JS can call backend
+            try
+            {
+                var client = _http.CreateClient("MyApi");
+                ViewBag.ApiBase = client.BaseAddress?.ToString() ?? "/api";
+            }
+            catch
+            {
+                ViewBag.ApiBase = "/api";
+            }
+
+            // expose current logged-in employee code (if any) so the view can auto-fill MaNV
+            try
+            {
+                var maNV = HttpContext.Session.GetString("MaNhanVien");
+                var tenNV = HttpContext.Session.GetString("TenNhanVien");
+                ViewBag.MaNV = maNV ?? string.Empty;
+                ViewBag.TenNV = tenNV ?? string.Empty;
+            }
+            catch
+            {
+                ViewBag.MaNV = string.Empty;
+                ViewBag.TenNV = string.Empty;
+            }
+
+            // default datetime-local value for inline add form
+            ViewBag.DefaultNgayNhap = System.DateTime.Now.ToString("yyyy-MM-ddTHH:mm");
+
+            return View();
+        }
+
+        // Debug: return current session-stored employee info
+        [HttpGet]
+        public IActionResult SessionInfo()
+        {
+            try
+            {
+                var maNV = HttpContext.Session.GetString("MaNhanVien") ?? string.Empty;
+                var tenNV = HttpContext.Session.GetString("TenNhanVien") ?? string.Empty;
+                return Json(new { MaNhanVien = maNV, TenNhanVien = tenNV });
+            }
+            catch
+            {
+                return Json(new { MaNhanVien = string.Empty, TenNhanVien = string.Empty });
+            }
+        }
+
+        [HttpGet]
+        public IActionResult AddPhieuNhap()
+        {
+            // provide ApiBase for client JS if needed
+            try
+            {
+                var client = _http.CreateClient("MyApi");
+                ViewBag.ApiBase = client.BaseAddress?.ToString() ?? "/api";
+            }
+            catch
+            {
+                ViewBag.ApiBase = "/api";
+            }
+
+            // prepare an empty model with today's date
+            var model = new FE_QLTiemThuoc.Models.PhieuNhapDto { NgayNhap = System.DateTime.Now };
+
+            // Fetch supplier list to populate the select in the view
+            try
+            {
+                var client = _http.CreateClient("MyApi");
+                var listResponse = client.GetAsync("NhaCungCap").GetAwaiter().GetResult();
+                if (listResponse.IsSuccessStatusCode)
+                {
+                    var json = listResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult();
+                    var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                    try
+                    {
+                        using var doc = System.Text.Json.JsonDocument.Parse(json);
+                        if (doc.RootElement.TryGetProperty("data", out var dataElement) && dataElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        {
+                            var result = System.Text.Json.JsonSerializer.Deserialize<List<FE_QLTiemThuoc.Models.NhaCungCap>>(dataElement.GetRawText(), options);
+                            ViewBag.NCCList = result ?? new List<FE_QLTiemThuoc.Models.NhaCungCap>();
+                        }
+                        else if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        {
+                            var result = System.Text.Json.JsonSerializer.Deserialize<List<FE_QLTiemThuoc.Models.NhaCungCap>>(json, options);
+                            ViewBag.NCCList = result ?? new List<FE_QLTiemThuoc.Models.NhaCungCap>();
+                        }
+                        else
+                        {
+                            ViewBag.NCCList = new List<FE_QLTiemThuoc.Models.NhaCungCap>();
+                        }
+                    }
+                    catch
+                    {
+                        ViewBag.NCCList = new List<FE_QLTiemThuoc.Models.NhaCungCap>();
+                    }
+                }
+                else
+                {
+                    ViewBag.NCCList = new List<FE_QLTiemThuoc.Models.NhaCungCap>();
+                }
+            }
+            catch
+            {
+                ViewBag.NCCList = new List<FE_QLTiemThuoc.Models.NhaCungCap>();
+            }
+
+            try
+            {
+                var maNV = HttpContext.Session.GetString("MaNhanVien");
+                var tenNV = HttpContext.Session.GetString("TenNhanVien");
+                ViewBag.MaNV = maNV ?? string.Empty;
+                ViewBag.TenNV = tenNV ?? string.Empty;
+            }
+            catch
+            {
+                ViewBag.MaNV = string.Empty;
+                ViewBag.TenNV = string.Empty;
+            }
+
+            return View(model);
+        }
+
+        [HttpPost]
+        public async Task<IActionResult> AddPhieuNhap(FE_QLTiemThuoc.Models.PhieuNhapDto model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
+            var client = _http.CreateClient("MyApi");
+            var resp = await client.PostAsJsonAsync("PhieuNhap/AddPhieuNhap", model);
+            if (resp.IsSuccessStatusCode)
+            {
+                // optionally show success and redirect back to list
+                return RedirectToAction("NhapThuoc");
+            }
+
+            // read error and show
+            var text = await resp.Content.ReadAsStringAsync();
+            ModelState.AddModelError("", "Lỗi khi gọi API: " + resp.StatusCode + " - " + text);
+            return View(model);
         }
     }
 }

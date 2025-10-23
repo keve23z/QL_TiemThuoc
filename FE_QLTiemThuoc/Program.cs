@@ -1,4 +1,7 @@
-﻿var builder = WebApplication.CreateBuilder(args);
+﻿using Microsoft.AspNetCore.StaticFiles;
+using System;
+
+var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddHttpClient("MyApi", client =>
 {
@@ -6,6 +9,14 @@ builder.Services.AddHttpClient("MyApi", client =>
 });
 
 builder.Services.AddControllersWithViews();
+// session support (store logged-in employee code)
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromHours(8);
+    options.Cookie.HttpOnly = true;
+    options.Cookie.IsEssential = true;
+});
 
 var app = builder.Build();
 
@@ -17,14 +28,18 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseStaticFiles();
+
+// Ensure .avif is served with correct MIME type
+var provider = new FileExtensionContentTypeProvider();
+provider.Mappings[".avif"] = "image/avif";
+app.UseStaticFiles(new StaticFileOptions { ContentTypeProvider = provider });
 
 app.UseRouting();
-
+app.UseSession();
 app.UseAuthorization();
 
 app.MapControllerRoute(
     name: "default",
-    pattern: "{controller=User}/{action=ShopGrid}");
+    pattern: "{controller=TaiKhoan}/{action=DangNhap}");
 
 app.Run();

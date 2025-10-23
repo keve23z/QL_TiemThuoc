@@ -1,0 +1,60 @@
+@{
+    ViewData["Title"] = "Danh sách phiếu nhập";
+}
+
+<div class="container mt-3">
+    <h4>Danh sách phiếu nhập</h4>
+    <div id="pnList"></div>
+    <nav>
+        <ul id="pagination" class="pagination"></ul>
+    </nav>
+</div>
+
+@section Scripts {
+<script>
+(async function(){
+    var apiBase = '/api';
+    var page = 1;
+    var pageSize = 10;
+    var listEl = document.getElementById('pnList');
+    var pagEl = document.getElementById('pagination');
+
+    async function loadPage(p){
+        page = p || 1;
+        var url = apiBase + '/PhieuNhap/ListPaged?page=' + page + '&pageSize=' + pageSize;
+        var r = await fetch(url);
+        if (!r.ok) { listEl.innerHTML = '<div class="alert alert-danger">Lỗi khi tải danh sách</div>'; return; }
+        var j = await r.json();
+        var payload = j.data || j;
+        var total = payload.total || 0;
+        var items = payload.items || [];
+
+        // render items
+        var html = '<table class="table table-sm"><thead><tr><th>MaPN</th><th>NgayNhap</th><th>TenNCC</th><th>TenNV</th><th>TongTien</th></tr></thead><tbody>';
+        items.forEach(function(it){
+            html += '<tr>' +
+                '<td>' + (it.MaPN||'') + '</td>' +
+                '<td>' + (it.NgayNhap? new Date(it.NgayNhap).toLocaleDateString() : '') + '</td>' +
+                '<td>' + (it.TenNCC||'') + '</td>' +
+                '<td>' + (it.TenNV||'') + '</td>' +
+                '<td>' + (it.TongTien||0).toFixed(2) + '</td>' +
+                '</tr>';
+        });
+        html += '</tbody></table>';
+        listEl.innerHTML = html;
+
+        // render pagination
+        pagEl.innerHTML = '';
+        var totalPages = Math.ceil(total / pageSize) || 1;
+        for (var i=1;i<=totalPages;i++){
+            var li = document.createElement('li'); li.className = 'page-item' + (i===page? ' active':'');
+            var a = document.createElement('a'); a.className = 'page-link'; a.href = '#'; a.innerText = i;
+            (function(p){ a.addEventListener('click', function(e){ e.preventDefault(); loadPage(p); }); })(i);
+            li.appendChild(a); pagEl.appendChild(li);
+        }
+    }
+
+    loadPage(1);
+})();
+</script>
+}

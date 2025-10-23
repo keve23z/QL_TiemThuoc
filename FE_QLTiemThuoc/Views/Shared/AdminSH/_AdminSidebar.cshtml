@@ -20,7 +20,7 @@
     <ul class="accordion ms-main-aside fs-14" id="side-nav-accordion">
         <!-- Dashboard -->
         <li class="menu-item">
-            <a href="#" class="has-chevron" data-toggle="collapse" data-target="#dashboard" aria-expanded="false" aria-controls="dashboard">
+            <a href="#" class="has-chevron" data-bs-toggle="collapse" data-bs-target="#dashboard" aria-expanded="false" aria-controls="dashboard">
                 <span><i class="material-icons fs-16">dashboard</i>Dashboard </span>
             </a>
             <ul id="dashboard" class="collapse" aria-labelledby="dashboard" data-parent="#side-nav-accordion">
@@ -30,7 +30,7 @@
         <!-- /Dashboard -->
         <!-- Thuốc -->
         <li class="menu-item">
-            <a href="@Url.Action("ThemThuoc", "Admin")" class="has-chevron" data-toggle="collapse" data-target="#doctor" aria-expanded="false" aria-controls="doctor">
+            <a href="@Url.Action("ThemThuoc", "Admin")" class="has-chevron" data-bs-toggle="collapse" data-bs-target="#doctor" aria-expanded="false" aria-controls="doctor">
                 <span><i class="fas fa-stethoscope"></i>Thuốc</span>
             </a>
             <ul id="doctor" class="collapse show" aria-labelledby="doctor" data-parent="#side-nav-accordion">
@@ -45,7 +45,7 @@
         <!-- Thuốc -->
         <!-- Patient -->
         <li class="menu-item">
-            <a href="#" class="has-chevron" data-toggle="collapse" data-target="#patient" aria-expanded="false" aria-controls="patient">
+            <a href="#" class="has-chevron" data-bs-toggle="collapse" data-bs-target="#patient" aria-expanded="false" aria-controls="patient">
                 <span><i class="fas fa-user"></i>Patient</span>
             </a>
             <ul id="patient" class="collapse" aria-labelledby="patient" data-parent="#side-nav-accordion">
@@ -54,20 +54,21 @@
             </ul>
         </li>
         <!-- /Patient -->
-        <!-- Department -->
+        <!-- Quản lý kho -->
         <li class="menu-item">
-            <a href="#" class="has-chevron" data-toggle="collapse" data-target="#department" aria-expanded="false" aria-controls="department">
-                <span><i class="fas fa-sitemap"></i>Department</span>
+            <a href="#" class="has-chevron" data-bs-toggle="collapse" data-bs-target="#warehouse" aria-expanded="false" aria-controls="warehouse">
+                <span><i class="fas fa-sitemap"></i>Quản lý kho</span>
             </a>
-            <ul id="department" class="collapse" aria-labelledby="department" data-parent="#side-nav-accordion">
-                <li> <a href="pages/department/add-department.html">Add Department</a> </li>
-                <li> <a href="pages/department/department-list.html">Department List</a> </li>
+            <ul id="warehouse" class="collapse" aria-labelledby="warehouse" data-parent="#side-nav-accordion">
+                <li> <a href="pages/warehouse/add-warehouse.html">Yêu cầu nhập thuốc</a> </li>
+                <li> <a href="/admin/AddPhieuNhap">Thêm nhập thuốc</a> </li>
+                <li> <a href="@Url.Action("NhapThuoc", "Admin")">Nhập thuốc</a> </li>
             </ul>
         </li>
         <!-- /Department -->
         <!-- Schedule -->
         <li class="menu-item">
-            <a href="#" class="has-chevron" data-toggle="collapse" data-target="#schedule" aria-expanded="false" aria-controls="schedule">
+            <a href="#" class="has-chevron" data-bs-toggle="collapse" data-bs-target="#schedule" aria-expanded="false" aria-controls="schedule">
                 <span><i class="fas fa-list-alt"></i>Doctor Schedule</span>
             </a>
             <ul id="schedule" class="collapse" aria-labelledby="schedule" data-parent="#side-nav-accordion">
@@ -78,7 +79,7 @@
         <!-- /Schedule -->
         <!-- Appointment -->
         <li class="menu-item">
-            <a href="#" class="has-chevron" data-toggle="collapse" data-target="#appointment" aria-expanded="false" aria-controls="appointment">
+            <a href="#" class="has-chevron" data-bs-toggle="collapse" data-bs-target="#appointment" aria-expanded="false" aria-controls="appointment">
                 <span><i class="far fa-check-square"></i>Appointment</span>
             </a>
             <ul id="appointment" class="collapse" aria-labelledby="appointment" data-parent="#side-nav-accordion">
@@ -89,7 +90,7 @@
         <!-- /Appointment -->
         <!-- Payment -->
         <li class="menu-item">
-            <a href="#" class="has-chevron" data-toggle="collapse" data-target="#payment" aria-expanded="false" aria-controls="payment">
+            <a href="#" class="has-chevron" data-bs-toggle="collapse" data-bs-target="#payment" aria-expanded="false" aria-controls="payment">
                 <span><i class="fas fa-credit-card"></i>Payment</span>
             </a>
             <ul id="payment" class="collapse" aria-labelledby="payment" data-parent="#side-nav-accordion">
@@ -101,7 +102,7 @@
         <!-- /Payment -->
         <!-- Report -->
         <li class="menu-item">
-            <a href="#" class="has-chevron" data-toggle="collapse" data-target="#report" aria-expanded="false" aria-controls="report">
+            <a href="#" class="has-chevron" data-bs-toggle="collapse" data-bs-target="#report" aria-expanded="false" aria-controls="report">
                 <span><i class="fas fa-file-alt"></i>Report</span>
             </a>
             <ul id="report" class="collapse" aria-labelledby="report" data-parent="#side-nav-accordion">
@@ -113,7 +114,7 @@
         <!-- /Report -->
         <!-- Human Resource -->
         <li class="menu-item">
-            <a href="#" class="has-chevron" data-toggle="collapse" data-target="#human-resource" aria-expanded="false" aria-controls="human-resource">
+            <a href="#" class="has-chevron" data-bs-toggle="collapse" data-bs-target="#human-resource" aria-expanded="false" aria-controls="human-resource">
                 <span><i class="far fa-user-circle"></i>Human Resource</span>
             </a>
             <ul id="human-resource" class="collapse" aria-labelledby="human-resource" data-parent="#side-nav-accordion">
@@ -130,7 +131,7 @@
         <!-- /Human Resource -->
         <!-- Bed -->
         <li class="menu-item">
-            <a href="#" class="has-chevron" data-toggle="collapse" data-target="#bed" aria-expanded="false" aria-controls="bed">
+            <a href="#" class="has-chevron" data-bs-toggle="collapse" data-bs-target="#bed" aria-expanded="false" aria-controls="bed">
                 <span><i class="fas fa-bed"></i>Bed Manager</span>
             </a>
             <ul id="bed" class="collapse" aria-labelledby="bed" data-parent="#side-nav-accordion">
@@ -141,7 +142,7 @@
         <!-- /Bed-->
         <!-- Notice -->
         <li class="menu-item">
-            <a href="#" class="has-chevron" data-toggle="collapse" data-target="#notice" aria-expanded="false" aria-controls="notice">
+            <a href="#" class="has-chevron" data-bs-toggle="collapse" data-bs-target="#notice" aria-expanded="false" aria-controls="notice">
                 <span><i class="far fa-file-alt"></i>Notice</span>
             </a>
             <ul id="notice" class="collapse" aria-labelledby="notice" data-parent="#side-nav-accordion">
@@ -157,7 +158,7 @@
         </li>
         <!-- Basic UI Elements -->
         <li class="menu-item">
-            <a href="#" class="has-chevron" data-toggle="collapse" data-target="#basic-elements" aria-expanded="false" aria-controls="basic-elements">
+            <a href="#" class="has-chevron" data-bs-toggle="collapse" data-bs-target="#basic-elements" aria-expanded="false" aria-controls="basic-elements">
                 <span><i class="material-icons fs-16">filter_list</i>Basic UI Elements</span>
             </a>
             <ul id="basic-elements" class="collapse" aria-labelledby="basic-elements" data-parent="#side-nav-accordion">
@@ -177,7 +178,7 @@
         <!-- /Basic UI Elements -->
         <!-- Advanced UI Elements -->
         <li class="menu-item">
-            <a href="#" class="has-chevron" data-toggle="collapse" data-target="#advanced-elements" aria-expanded="false" aria-controls="advanced-elements">
+            <a href="#" class="has-chevron" data-bs-toggle="collapse" data-bs-target="#advanced-elements" aria-expanded="false" aria-controls="advanced-elements">
                 <span><i class="material-icons fs-16">code</i>Advanced UI Elements</span>
             </a>
             <ul id="advanced-elements" class="collapse" aria-labelledby="advanced-elements" data-parent="#side-nav-accordion">
@@ -244,7 +245,7 @@
         <!-- /Popups -->
         <!-- Icons -->
         <li class="menu-item">
-            <a href="#" class="has-chevron" data-toggle="collapse" data-target="#icons" aria-expanded="false" aria-controls="icons">
+            <a href="#" class="has-chevron" data-bs-toggle="collapse" data-bs-target="#icons" aria-expanded="false" aria-controls="icons">
                 <span><i class="material-icons fs-16">border_color</i>Icons</span>
             </a>
             <ul id="icons" class="collapse" aria-labelledby="icons" data-parent="#side-nav-accordion">
@@ -256,7 +257,7 @@
         <!-- /Icons -->
         <!-- Maps -->
         <li class="menu-item">
-            <a href="#" class="has-chevron" data-toggle="collapse" data-target="#maps" aria-expanded="false" aria-controls="maps">
+            <a href="#" class="has-chevron" data-bs-toggle="collapse" data-bs-target="#maps" aria-expanded="false" aria-controls="maps">
                 <span><i class="material-icons fs-16">map</i>Maps</span>
             </a>
             <ul id="maps" class="collapse" aria-labelledby="maps" data-parent="#side-nav-accordion">
@@ -267,12 +268,12 @@
         <!-- /Maps -->
         <!-- Pages -->
         <li class="menu-item">
-            <a href="#" class="has-chevron" data-toggle="collapse" data-target="#pages" aria-expanded="false" aria-controls="pages">
+            <a href="#" class="has-chevron" data-bs-toggle="collapse" data-bs-target="#pages" aria-expanded="false" aria-controls="pages">
                 <span><i class="material-icons fs-16">insert_drive_file</i>Pages</span>
             </a>
             <ul id="pages" class="collapse" aria-labelledby="pages" data-parent="#side-nav-accordion">
                 <li class="menu-item">
-                    <a href="#" class="has-chevron" data-toggle="collapse" data-target="#authentication" aria-expanded="false" aria-controls="authentication">Authentication</a>
+                    <a href="#" class="has-chevron" data-bs-toggle="collapse" data-bs-target="#authentication" aria-expanded="false" aria-controls="authentication">Authentication</a>
                     <ul id="authentication" class="collapse" aria-labelledby="authentication" data-parent="#pages">
                         <li> <a href="pages/prebuilt-pages/default-login.html">Default Login</a> </li>
                         <li> <a href="pages/prebuilt-pages/modal-login.html">Modal Login</a> </li>

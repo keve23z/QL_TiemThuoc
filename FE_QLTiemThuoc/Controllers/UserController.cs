@@ -12,6 +12,35 @@ namespace FE_QLTiemThuoc.Controllers
             _http = http;
         }
 
+        // GET: /User/ItemDetail?maThuoc=T001  (or route configured to /User/ItemDetail/T001)
+        public async Task<IActionResult> ItemDetail(string? maThuoc)
+        {
+            if (string.IsNullOrEmpty(maThuoc)) return BadRequest("maThuoc is required");
+
+            var client = _http.CreateClient("MyApi");
+
+            try
+            {
+                // call api Thuoc/{maThuoc}
+                var resp = await client.GetFromJsonAsync<System.Text.Json.JsonElement>($"Thuoc/{maThuoc}");
+                if (resp.ValueKind == System.Text.Json.JsonValueKind.Object && resp.TryGetProperty("data", out var data) && data.ValueKind == System.Text.Json.JsonValueKind.Object)
+                {
+                    // pass the inner data object to the view as model
+                    return View(data);
+                }
+
+                // if response doesn't have data, pass empty model and show message in view
+                ViewBag.Error = "Không tìm thấy dữ liệu thuốc.";
+                return View(new System.Text.Json.JsonElement());
+            }
+            catch (System.Exception ex)
+            {
+                // log later if needed; show friendly message
+                ViewBag.Error = "Lỗi khi lấy dữ liệu từ API: " + ex.Message;
+                return View(new System.Text.Json.JsonElement());
+            }
+        }
+
         public async Task<IActionResult> ShopGrid(string? search, string? category, string? sort, string? view)
         {
             var client = _http.CreateClient("MyApi");

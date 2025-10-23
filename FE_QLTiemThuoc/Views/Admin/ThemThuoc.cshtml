@@ -185,6 +185,14 @@
 
             <!-- List card (card grid style) -->
             <div class="card">
+                <style>
+                    /* Admin list thumbnail tweaks: make the image-column narrow and thumbnails small */
+                    /* reduce the reserved width for the image column */
+                    #thuocTable th.img-cell, #thuocTable td.img-cell { min-width:70px; width:80px; padding:0 8px !important; }
+                    /* make the thumbnail a small centered square inside that column */
+                    .product-thumb { width:100% !important; height:80px !important;  border-radius:6px; display:block; margin:6px auto !important; box-sizing:border-box; }
+                    table.table td { vertical-align: middle; }
+                </style>
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <strong>Danh sách thuốc</strong>
                     <small class="text-muted">Bảng danh sách</small>
@@ -198,7 +206,7 @@
                                     <th style="width:140px">Loại</th>
                                     <th>Tên thuốc</th>
                                     <th style="width:120px">Giá sỉ</th>
-                                    <th style="width:100px">Ảnh</th>
+                                    <th class="img-cell" style="width:80px">Ảnh</th>
                                     <th>Mô tả</th>
                                     <th style="width:110px">Thao tác</th>
                                 </tr>
@@ -210,12 +218,34 @@
                                     <tr data-mathuoc="@item.MaThuoc" data-maloai="@item.MaLoaiThuoc">
                                         <td>@item.MaThuoc</td>
                                         <td>@(!string.IsNullOrEmpty(tenLoai) ? tenLoai : item.MaLoaiThuoc)</td>
-                                        <td>@item.TenThuoc</td>
+                                        <td title="@item.TenThuoc">
+                                            @{
+                                                var fullName = (item.TenThuoc ?? "").Trim();
+                                                if (string.IsNullOrEmpty(fullName)) {
+                                                    @: 
+                                                } else {
+                                                    var words = fullName.Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+                                                    if (words.Length <= 15) {
+                                                        @fullName
+                                                    } else {
+                                                        var sb = new System.Text.StringBuilder();
+                                                        for (int wi = 0; wi < 15; wi++) {
+                                                            if (wi > 0) sb.Append(' ');
+                                                            sb.Append(words[wi]);
+                                                        }
+                                                        sb.Append("...");
+                                                        @sb.ToString()
+                                                    }
+                                                }
+                                            }
+                                        </td>
                                         <td>@item.DonGiaSi.ToString("N0") đ</td>
-                                        <td>
+                                        <td class="img-cell" style="vertical-align:middle;">
                                             @if (!string.IsNullOrEmpty(item.UrlAnh))
                                             {
-                                                <img src="/assets_user/img/product/@item.UrlAnh" alt="Ảnh" width="60" height="60" style="object-fit:contain;border-radius:0;" />
+                                                var isAbsolute = item.UrlAnh.StartsWith("http://") || item.UrlAnh.StartsWith("https://") || item.UrlAnh.StartsWith("/");
+                                                var imgSrc = isAbsolute ? item.UrlAnh : Url.Content("~/assets_user/img/product/" + item.UrlAnh);
+                                                <img data-filename="@item.UrlAnh" src="@imgSrc" alt="Ảnh" class="product-thumb" />
                                             }
                                         </td>
                                         <td class="text-truncate">@item.MoTa</td>
@@ -517,6 +547,23 @@ document.addEventListener('DOMContentLoaded', function () {
         LOAI_MAP = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(loaiList?.ToDictionary(l => l.MaLoaiThuoc ?? "", l => l.TenLoaiThuoc ?? "") ?? new Dictionary<string,string>()));
     } catch (e) { LOAI_MAP = {}; }
 
+    // Image URL helper: builds a local path for stored filename or returns absolute URLs unchanged.
+    function sanitizeName(name) {
+        if (!name) return '';
+        return name.toString().replace(/[^A-Za-z0-9_\-]/g, '_');
+    }
+    function getImageUrl(fileNameOrUrl) {
+        if (!fileNameOrUrl) return '';
+        var s = fileNameOrUrl.toString().trim();
+        // If it's already an absolute URL or starts with a slash, return as-is
+        if (/^https?:\/\//i.test(s) || /^\//.test(s)) return s;
+        // If it contains path segments, take only last segment
+    if (s.indexOf('/') !== -1) s = s.split('/').pop();
+    // Now s is a filename (like 'T013_12345.png') — return a local storage path
+    // Use encodeURIComponent for the filename to handle non-ASCII characters safely in URLs
+    return '/assets_user/img/product/' + encodeURIComponent(s);
+    }
+
     var thuocTableEl = document.getElementById('thuocTable');
     var tableContainer = thuocTableEl ? (thuocTableEl.tBodies[0] || thuocTableEl) : document;
 
@@ -642,7 +689,6 @@ document.addEventListener('DOMContentLoaded', function () {
                         imageSelectorHtml += '<div class="image-upload-area mb-1" style="display:none">';
                         imageSelectorHtml += '  <div class="d-flex align-items-center gap-2">';
                         imageSelectorHtml += '    <input type="file" accept="image/*" class="form-control form-control-sm edit-urlanh-file" style="max-width:260px; padding:.28rem .5rem;" />';
-                        imageSelectorHtml += '    <button class="btn btn-sm btn-outline-secondary upload-file-btn" type="button" style="padding:.28rem .6rem;">Upload</button>';
                         imageSelectorHtml += '    <small class="text-muted ms-2" style="font-size:.85rem">Kích thước tối ưu: 800x800</small>';
                         imageSelectorHtml += '  </div>';
                         imageSelectorHtml += '</div>';
@@ -656,7 +702,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
                         var img = modal.querySelector('.detail-img');
                         if (img) {
-                            if (t.urlAnh) { img.src = '/assets_user/img/product/' + t.urlAnh; img.style.display = 'block'; }
+                            if (t.urlAnh) { img.src = getImageUrl(t.urlAnh); img.style.display = 'block'; }
                             else { img.style.display = 'none'; }
                         }
 
@@ -697,7 +743,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                     // when selecting, update hidden input and preview
                                     select.addEventListener('change', function () {
                                         hidden.value = select.value || '';
-                                        if (hidden.value) { img.src = '/assets_user/img/product/' + hidden.value; img.style.display = 'block'; }
+                                        if (hidden.value) { img.src = getImageUrl(hidden.value); img.style.display = 'block'; }
                                     });
                                     // wire up radio listeners
                                     radios.forEach(function (r) { r.addEventListener('change', updateImageAreas); });
@@ -705,46 +751,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                     updateImageAreas();
                                 }).catch(function (e) { console.error(e); });
 
-                            // file upload handler (local file picker)
-                            var uploadBtn = modal.querySelector('.upload-file-btn');
-                            var fileInput = modal.querySelector('.edit-urlanh-file');
-                            if (uploadBtn && fileInput) {
-                                uploadBtn.addEventListener('click', function () {
-                                    var f = fileInput.files && fileInput.files[0];
-                                    if (!f) { alert('Chọn file ảnh trước khi upload'); return; }
-                                    uploadBtn.disabled = true; uploadBtn.textContent = 'Đang upload...';
-                                    var fd = new FormData(); fd.append('file', f);
-                                    console.log('Starting upload to https://localhost:7283/api/Images/UploadFile');
-                                    fetch('https://localhost:7283/api/Images/UploadFile', { method: 'POST', body: fd })
-                                        .then(function (r) { 
-                                            console.log('Upload response status:', r.status, r.statusText); 
-                                            return parseApiResponse(r); 
-                                        })
-                                        .then(function (resp) {
-                                            console.log('Upload response parsed:', resp);
-                                            uploadBtn.disabled = false; uploadBtn.textContent = 'Upload';
-                                            var fileName = null;
-                                            if (resp.body && resp.body.status === 1 && resp.body.data) fileName = resp.body.data;
-                                            else if (resp.body && resp.body.data === null && typeof resp.body === 'object' && resp.body !== null) fileName = resp.body;
-                                            else if (resp.text) {
-                                                try { var maybe = JSON.parse(resp.text); if (maybe && maybe.data) fileName = maybe.data; else if (typeof maybe === 'string') fileName = maybe; } catch (e) { /* ignore */ }
-                                            }
-                                            console.log('Extracted fileName:', fileName);
-                                            if (!fileName) { alert('Upload thất bại hoặc không có body trả về'); return; }
-                                            var opt = document.createElement('option'); opt.value = fileName; opt.textContent = fileName; opt.selected = true; select.appendChild(opt);
-                                            hidden.value = fileName;
-                                            img.src = '/assets_user/img/product/' + fileName; img.style.display = 'block';
-                                            // after upload switch to existing image mode and select the new image
-                                            var radioExisting = modal.querySelector('#imgChoiceExisting');
-                                            if (radioExisting) { radioExisting.checked = true; updateImageAreas(); }
-                                            console.log('Upload completed successfully, no page reload should happen');
-                                        }).catch(function (e) { 
-                                            uploadBtn.disabled = false; uploadBtn.textContent = 'Upload'; 
-                                            console.error('Upload error:', e); 
-                                            alert('Upload lỗi: ' + (e && e.message ? e.message : e)); 
-                                        });
-                                });
-                            }
+                            // No explicit upload button in edit modal: uploading will happen when Save is clicked (auto-upload-to-product)
                         })();
 
                         var saveBtn = document.getElementById('thuocSaveBtn'); if (saveBtn) saveBtn.style.display = '';
@@ -796,7 +803,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         safeSetText('.detail-mota', t.moTa || '');
                         var img = modal.querySelector('.detail-img');
                         if (img) {
-                            if (t.urlAnh) { img.src = '/assets_user/img/product/' + t.urlAnh; img.style.display = 'block'; }
+                            if (t.urlAnh) { img.src = getImageUrl(t.urlAnh); img.style.display = 'block'; }
                             else { img.style.display = 'none'; }
                         }
                     }
@@ -846,17 +853,32 @@ document.addEventListener('DOMContentLoaded', function () {
                 alert('Tên thuốc là bắt buộc. Vui lòng nhập tên thuốc.');
                 return;
             }
-            if (!payload.urlAnh || payload.urlAnh.trim() === '') {
-                if (imgChoice === 'upload') {
-                    alert('Bạn đã chọn upload nhưng chưa upload file. Vui lòng chọn file và bấm Upload trước khi lưu.');
-                } else {
-                    alert('Url ảnh là bắt buộc. Vui lòng chọn một ảnh từ danh sách.');
-                }
+            if (!payload.maLoaiThuoc || payload.maLoaiThuoc.trim() === '') {
+                alert('Mã loại thuốc (MaLoaiThuoc) là bắt buộc. Vui lòng chọn loại thuốc.');
+                return;
+            }
+            if (!payload.maNCC || payload.maNCC.trim() === '') {
+                alert('Nhà cung cấp (MaNCC) là bắt buộc. Vui lòng chọn NCC.');
                 return;
             }
             if (!payload.maLoaiDonVi || payload.maLoaiDonVi.trim() === '') {
                 alert('Mã loại đơn vị (MaLoaiDonVi) là bắt buộc. Vui lòng nhập.');
                 return;
+            }
+            if (!payload.urlAnh || payload.urlAnh.trim() === '') {
+                if (imgChoice === 'upload') {
+                    // user chose upload mode — allow save if a new file is selected (we will auto-upload on Save)
+                    var fileInputCheck = modal.querySelector('.edit-urlanh-file');
+                    var fileCheck = fileInputCheck && fileInputCheck.files ? fileInputCheck.files[0] : null;
+                    if (!fileCheck) {
+                        alert('Bạn đã chọn upload nhưng chưa chọn file. Vui lòng chọn file trước khi lưu.');
+                        return;
+                    }
+                    // otherwise continue; selected file will be uploaded automatically below
+                } else {
+                    alert('Url ảnh là bắt buộc. Vui lòng chọn một ảnh từ danh sách.');
+                    return;
+                }
             }
 
             // If user uploaded a new image from temp folder, finalize it first
@@ -864,25 +886,106 @@ document.addEventListener('DOMContentLoaded', function () {
             var chosenMode = modal.querySelector('.img-choice:checked')?.value || 'existing';
             
             function proceedWithSave() {
-                // send PUT and handle non-200 responses gracefully
+                // Build FormData (backend expects form-data)
+                var fd = new FormData();
+                // Re-read the selected UrlAnh from the modal DOM right before sending (avoid stale payload)
+                var finalUrl = '';
+                try {
+                    var modalEl = document.getElementById('thuocDetailModal');
+                    if (modalEl) {
+                        var currentChoice = modalEl.querySelector('.img-choice:checked')?.value || 'existing';
+                        if (currentChoice === 'existing') {
+                            finalUrl = modalEl.querySelector('.edit-urlanh-select')?.value || modalEl.querySelector('.edit-urlanh')?.value || '';
+                        } else {
+                            finalUrl = modalEl.querySelector('.edit-urlanh')?.value || '';
+                        }
+                    }
+                } catch (e) { console.warn('Reading finalUrl from modal failed', e); }
+                // Fallback to payload.urlAnh if DOM read failed
+                if (!finalUrl) finalUrl = payload.urlAnh || '';
+                // Append UrlAnh (backend will extract filename and will NOT upload to Cloudinary when no FileAnh present)
+                fd.append('UrlAnh', finalUrl);
+
+                // Append other fields matching ThuocDto names expected by backend ([FromForm])
+                fd.append('MaThuoc', payload.maThuoc || '');
+                fd.append('TenThuoc', payload.tenThuoc || '');
+                fd.append('MaLoaiThuoc', payload.maLoaiThuoc || '');
+                fd.append('MaLoaiDonVi', payload.maLoaiDonVi || '');
+                fd.append('DonGiaSi', isFinite(payload.donGiaSi) ? payload.donGiaSi.toString() : '0');
+                fd.append('DonGiaLe', isFinite(payload.donGiaLe) ? payload.donGiaLe.toString() : '0');
+                fd.append('SoLuong', isFinite(payload.soLuong) ? payload.soLuong.toString() : '0');
+                fd.append('MaNCC', payload.maNCC || '');
+                fd.append('ThanhPhan', payload.thanhPhan || '');
+                fd.append('CongDung', payload.congDung || '');
+                fd.append('CachDung', payload.cachDung || '');
+                fd.append('LuuY', payload.luuY || '');
+                fd.append('MoTa', payload.moTa || '');
+
+                // Do NOT append FileAnh here — that would instruct backend to upload to Cloudinary.
+                // If you want backend to upload the raw file to Cloudinary, append FileAnh with a File object.
+
+                // Debug: log what will be sent so we can confirm UrlAnh is included
+                try {
+                    console.log('PUT /api/Thuoc payload UrlAnh =', finalUrl);
+                    // enumerate FormData entries for debugging
+                    for (var pair of fd.entries()) {
+                        console.log('FormData entry:', pair[0], '=', pair[1]);
+                    }
+                } catch (e) { console.warn('FormData debug failed', e); }
+
                 fetch('https://localhost:7283/api/Thuoc/' + encodeURIComponent(ma), {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
+                    body: fd
                 }).then(function (res) {
-                    if (res.ok) {
-                        return res.json().then(function (json) { return { ok: true, body: json }; });
-                    }
-                    // try to parse JSON error body, otherwise text
+                    if (res.ok) return res.json().then(function (json) { return { ok: true, body: json }; });
                     return res.text().then(function (txt) {
                         try { var j = JSON.parse(txt); return { ok: false, body: j, text: null }; } catch (e) { return { ok: false, body: null, text: txt }; }
                     });
                 }).then(function (result) {
                     if (result.ok && result.body && result.body.status === 1) {
-                        window.location.reload();
+                        // successful save — fetch the updated Thuoc to get the canonical UrlAnh
+                        fetch('https://localhost:7283/api/Thuoc/' + encodeURIComponent(ma))
+                            .then(function (r) { if (!r.ok) throw new Error('Fetch updated Thuoc failed'); return r.json(); })
+                            .then(function (resp) {
+                                if (resp && resp.status === 1 && resp.data) {
+                                    var updated = resp.data;
+                                    try {
+                                        // update table row image if present
+                                        var row = document.querySelector('#thuocTable tbody tr[data-mathuoc="' + ma + '"]');
+                                        if (row) {
+                                            var img = row.querySelector('img.product-thumb');
+                                            if (img) {
+                                                var newUrl = getImageUrl(updated.urlAnh || updated.UrlAnh || updated.UrlAnhString || '');
+                                                img.src = newUrl;
+                                                // keep data-filename in sync
+                                                if (updated.urlAnh || updated.UrlAnh) img.setAttribute('data-filename', updated.urlAnh || updated.UrlAnh);
+                                            }
+                                        }
+                                        // update modal display fields
+                                        var modal = document.getElementById('thuocDetailModal');
+                                        if (modal) {
+                                            var detailUrlEl = modal.querySelector('.detail-urlanh');
+                                            if (detailUrlEl) detailUrlEl.textContent = updated.urlAnh || updated.UrlAnh || '';
+                                            var imgEl = modal.querySelector('.detail-img');
+                                            if (imgEl) {
+                                                if (updated.urlAnh || updated.UrlAnh) { imgEl.src = getImageUrl(updated.urlAnh || updated.UrlAnh); imgEl.style.display = 'block'; }
+                                                else imgEl.style.display = 'none';
+                                            }
+                                        }
+                                    } catch (e) { console.warn('Updating UI after save failed', e); }
+                                }
+                                // finally hide modal and show success
+                                var m = document.getElementById('thuocDetailModal');
+                                var bs = m ? bootstrap.Modal.getInstance(m) : null;
+                                if (bs) bs.hide();
+                                alert('Lưu thành công!');
+                            }).catch(function (e) {
+                                console.warn('Could not fetch updated Thuoc:', e);
+                                // fallback: reload to ensure consistency
+                                window.location.reload();
+                            });
                         return;
                     }
-                    // show server-provided message if available
                     var msg = 'Không rõ';
                     if (result.body && result.body.message) msg = result.body.message;
                     else if (result.text) msg = result.text;
@@ -892,25 +995,53 @@ document.addEventListener('DOMContentLoaded', function () {
                 }).catch(function (e) { console.error(e); alert('Lỗi khi lưu: ' + (e && e.message ? e.message : e)); });
             }
             
-            // If upload mode and file was uploaded, finalize it first
-            if (chosenMode === 'upload' && uploadedFileName && uploadedFileName.trim() !== '') {
-                console.log('Finalizing uploaded image:', uploadedFileName);
-                fetch('https://localhost:7283/api/Images/FinalizeImage', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ fileName: uploadedFileName })
-                }).then(function (res) { 
-                    if (res.ok) return res.json();
-                    throw new Error('FinalizeImage failed: ' + res.statusText);
-                }).then(function (resp) {
-                    console.log('Image finalized:', resp);
-                    proceedWithSave();
-                }).catch(function (e) {
-                    console.error('Error finalizing image:', e);
-                    alert('Lỗi khi finalize ảnh: ' + e.message);
-                });
+            // If upload mode: either upload the selected file into product now,
+            // or finalize a previously uploaded temp file. Otherwise proceed.
+            var fileInputLocal = modal.querySelector('.edit-urlanh-file');
+            var fileLocal = fileInputLocal && fileInputLocal.files ? fileInputLocal.files[0] : null;
+
+            if (chosenMode === 'upload') {
+                if (fileLocal) {
+                    // auto-upload selected file directly into product folder
+                    var fdUp = new FormData(); fdUp.append('file', fileLocal);
+                    fetch('https://localhost:7283/api/Images/UploadToProduct', { method: 'POST', body: fdUp })
+                        .then(function (r) { if (!r.ok) throw new Error('UploadToProduct failed'); return r.json(); })
+                        .then(function (json) {
+                            var fn = (json && json.data) ? (json.data.fileName || json.data) : (json && (json.fileName || null));
+                            if (!fn && typeof json === 'string') fn = json;
+                            if (!fn) throw new Error('Upload returned no filename');
+                            if (modal) {
+                                var hid = modal.querySelector('.edit-urlanh'); if (hid) hid.value = fn;
+                                modal.dataset.uploadType = 'product';
+                                var imgEl = modal.querySelector('.detail-img'); if (imgEl) { imgEl.src = getImageUrl(fn); imgEl.style.display = 'block'; }
+                            }
+                            proceedWithSave();
+                        }).catch(function (e) { console.error('Auto-upload failed:', e); alert('Lỗi khi upload ảnh tự động: ' + (e && e.message ? e.message : e)); });
+                    return;
+                }
+                // If no file selected but there is a temp uploaded filename, finalize it
+                if (uploadedFileName && uploadedFileName.trim() !== '') {
+                    console.log('Finalizing uploaded temp image:', uploadedFileName);
+                    fetch('https://localhost:7283/api/Images/FinalizeImage', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ fileName: uploadedFileName })
+                    }).then(function (res) {
+                        if (res.ok) return res.json();
+                        throw new Error('FinalizeImage failed: ' + res.statusText);
+                    }).then(function (resp) {
+                        console.log('Image finalized:', resp);
+                        proceedWithSave();
+                    }).catch(function (e) {
+                        console.error('Error finalizing image:', e);
+                        alert('Lỗi khi finalize ảnh: ' + e.message);
+                    });
+                    return;
+                }
+                // nothing to upload/finalize, proceed
+                proceedWithSave();
             } else {
-                // No upload, proceed directly with save
+                // No upload mode: proceed directly with save
                 proceedWithSave();
             }
         });
@@ -925,7 +1056,7 @@ document.addEventListener('DOMContentLoaded', function () {
         urlAnhInput.addEventListener('input', function () {
             var fileName = urlAnhInput.value.trim();
             var imagePreview = document.getElementById('ImagePreview');
-            if (fileName && imagePreview) { imagePreview.src = '/assets_user/img/product/' + fileName; imagePreview.style.display = 'block'; }
+            if (fileName && imagePreview) { imagePreview.src = getImageUrl(fileName); imagePreview.style.display = 'block'; }
             else if (imagePreview) { imagePreview.style.display = 'none'; }
         });
     }
@@ -1088,46 +1219,46 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Function to open add medication modal
-    function openAddModal() {
-        var modal = document.getElementById('thuocAddModal');
-        if (!modal) return;
+            function openAddModal() {
+                var modal = document.getElementById('thuocAddModal');
+                if (!modal) return;
 
-        // Reset form fields
-        modal.querySelector('.add-ma').value = '';
-        modal.querySelector('.add-ten').value = '';
-        modal.querySelector('.add-loai').value = '';
-        modal.querySelector('.add-maloaidonvi').value = '';
-        modal.querySelector('.add-gia').value = '';
-        modal.querySelector('.add-gia-le').value = '';
-        modal.querySelector('.add-soluong').value = '';
-        modal.querySelector('.add-ncc').value = '';
-        modal.querySelector('.add-thanhphan').value = '';
-        modal.querySelector('.add-congdung').value = '';
-        modal.querySelector('.add-cachdung').value = '';
-        modal.querySelector('.add-luuy').value = '';
-        modal.querySelector('.add-mota').value = '';
-        
-        // Reset preview image
-        var previewImg = modal.querySelector('.add-preview-img');
-        var previewContainer = modal.querySelector('.add-preview-img-container');
-        if (previewImg) previewImg.src = '';
-        if (previewContainer) previewContainer.classList.remove('show');
+                // Reset form fields
+                modal.querySelector('.add-ma').value = '';
+                modal.querySelector('.add-ten').value = '';
+                modal.querySelector('.add-loai').value = '';
+                modal.querySelector('.add-maloaidonvi').value = '';
+                modal.querySelector('.add-gia').value = '';
+                modal.querySelector('.add-gia-le').value = '';
+                modal.querySelector('.add-soluong').value = '';
+                modal.querySelector('.add-ncc').value = '';
+                modal.querySelector('.add-thanhphan').value = '';
+                modal.querySelector('.add-congdung').value = '';
+                modal.querySelector('.add-cachdung').value = '';
+                modal.querySelector('.add-luuy').value = '';
+                modal.querySelector('.add-mota').value = '';
 
-        // Load dropdowns
-        loadLoaiDropdown('.add-loai');
-        loadLoaiDonViDropdown('.add-maloaidonvi');
-        loadNCCDropdown('.add-ncc');
+                // Reset preview image
+                var previewImg = modal.querySelector('.add-preview-img');
+                var previewContainer = modal.querySelector('.add-preview-img-container');
+                if (previewImg) previewImg.src = '';
+                if (previewContainer) previewContainer.classList.remove('show');
 
-        // Generate next medication ID
-        generateNextMaThuoc();
+                // Load dropdowns
+                loadLoaiDropdown('.add-loai');
+                loadLoaiDonViDropdown('.add-maloaidonvi');
+                loadNCCDropdown('.add-ncc');
 
-        // Initialize image upload area
-        initializeAddImageArea();
+                // Generate next medication ID
+                generateNextMaThuoc();
 
-        // Show modal
-        var bsModal = new bootstrap.Modal(modal);
-        bsModal.show();
-    }
+                // Initialize image upload area
+                initializeAddImageArea();
+
+                // Show modal
+                var bsModal = new bootstrap.Modal(modal);
+                bsModal.show();
+            }
 
     // Function to generate next medication ID
     function generateNextMaThuoc() {
@@ -1225,271 +1356,401 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     // Initialize image upload area for add modal
-    function initializeAddImageArea() {
-        var modal = document.getElementById('thuocAddModal');
-        if (!modal) return;
-        
-        var imageArea = modal.querySelector('.add-image-area');
-        if (!imageArea) return;
-        
-        var imageHtml = '';
-        imageHtml += '<div class="d-flex align-items-center gap-3 mb-2">';
-        imageHtml += '  <div class="form-check form-check-inline">';
-        imageHtml += '    <input class="form-check-input add-img-choice" type="radio" name="addImgChoice" id="addImgChoiceExisting" value="existing" />';
-        imageHtml += '    <label class="form-check-label small" for="addImgChoiceExisting">Ảnh đã có</label>';
-        imageHtml += '  </div>';
-        imageHtml += '  <div class="form-check form-check-inline">';
-        imageHtml += '    <input class="form-check-input add-img-choice" type="radio" name="addImgChoice" id="addImgChoiceUpload" value="upload" checked />';
-        imageHtml += '    <label class="form-check-label small" for="addImgChoiceUpload">Upload ảnh</label>';
-        imageHtml += '  </div>';
-        imageHtml += '</div>';
-        
-        // Existing images area
-        imageHtml += '<div class="add-existing-area mb-1" style="display:none;">';
-        imageHtml += '  <select class="form-select form-select-sm add-img-select" style="max-width:260px;">';
-        imageHtml += '    <option value="">(Chọn ảnh)</option>';
-        imageHtml += '  </select>';
-        imageHtml += '</div>';
-        
-        // Upload area
-        imageHtml += '<div class="add-upload-area mb-1" style="display:flex; gap:8px; align-items:center; justify-content:flex-start;">';
-        imageHtml += '  <input type="file" accept="image/*" class="form-control form-control-sm add-img-file" style="flex:0 1 auto;" />';
-        imageHtml += '  <button class="btn btn-sm btn-primary add-upload-btn" type="button" style="white-space:nowrap;">Upload</button>';
-        imageHtml += '  <input type="hidden" class="add-urlanh" />';
-        imageHtml += '</div>';
-        
-        imageArea.innerHTML = imageHtml;
-        
-        // Load existing images into select
-        fetch('https://localhost:7283/api/Images/List')
-            .then(function (r) { if (!r.ok) throw new Error(); return r.json(); })
-            .then(function (json) {
-                var arr = (json && json.data) ? json.data : json;
-                if (!Array.isArray(arr)) arr = [];
-                
-                var select = modal.querySelector('.add-img-select');
-                if (select && arr.length > 0) {
-                    for (var i = 0; i < arr.length; i++) {
-                        var opt = document.createElement('option');
-                        opt.value = arr[i];
-                        opt.textContent = arr[i];
-                        select.appendChild(opt);
-                    }
-                    
-                    // Handle selection change for existing images
-                    select.addEventListener('change', function () {
-                        var fileName = this.value;
-                        var previewImg = modal.querySelector('.add-preview-img');
-                        var previewContainer = modal.querySelector('.add-preview-img-container');
-                        
-                        if (fileName) {
-                            var imgUrl = '/assets_user/img/product/' + fileName;
-                            if (previewImg) previewImg.src = imgUrl;
-                            if (previewContainer) previewContainer.classList.add('show');
-                        } else {
-                            if (previewImg) previewImg.src = '';
-                            if (previewContainer) previewContainer.classList.remove('show');
-                        }
-                    });
-                }
-            })
-            .catch(function (e) { console.error('Error loading images:', e); });
-        
-        // Handle radio button changes
-        var radioButtons = modal.querySelectorAll('.add-img-choice');
-        radioButtons.forEach(function (radio) {
-            radio.addEventListener('change', function () {
-                var existingArea = modal.querySelector('.add-existing-area');
-                var uploadArea = modal.querySelector('.add-upload-area');
-                var previewImg = modal.querySelector('.add-preview-img');
-                var previewContainer = modal.querySelector('.add-preview-img-container');
-                
-                if (this.value === 'existing') {
-                    existingArea.style.display = 'block';
-                    uploadArea.style.display = 'none';
-                    modal.querySelector('.add-urlanh').value = '';
-                    // Reset preview
-                    if (previewImg) previewImg.src = '';
-                    if (previewContainer) previewContainer.classList.remove('show');
-                    modal.querySelector('.add-img-select').value = '';
-                } else {
-                    existingArea.style.display = 'none';
-                    uploadArea.style.display = 'block';
-                    // Reset preview
-                    if (previewImg) previewImg.src = '';
-                    if (previewContainer) previewContainer.classList.remove('show');
-                }
-            });
-        });
-        
-        // Attach upload handler
-        var uploadBtn = modal.querySelector('.add-upload-btn');
-        if (uploadBtn) {
-            uploadBtn.addEventListener('click', function () {
-                var fileInput = modal.querySelector('.add-img-file');
-                if (!fileInput || !fileInput.files || fileInput.files.length === 0) {
-                    alert('Vui lòng chọn file ảnh.');
-                    return;
-                }
-                
-                var formData = new FormData();
-                formData.append('file', fileInput.files[0]);
-                
-                fetch('https://localhost:7283/api/Images/UploadFile', {
-                    method: 'POST',
-                    body: formData
-                })
-                .then(function (r) { if (!r.ok) throw new Error('Upload failed'); return r.json(); })
-                .then(function (json) {
-                    var fileName = (json && json.data) ? json.data : json;
-                    modal.querySelector('.add-urlanh').value = fileName;
-                    
-                    // Show preview of uploaded image
-                    var previewImg = modal.querySelector('.add-preview-img');
-                    var previewContainer = modal.querySelector('.add-preview-img-container');
-                    if (previewImg && previewContainer) {
-                        // Temp file preview
-                        var tempUrl = 'https://localhost:7283/api/Images/GetTemp?filename=' + encodeURIComponent(fileName);
-                        previewImg.src = tempUrl;
-                        previewContainer.classList.add('show');
-                    }
-                    
-                    alert('Upload thành công: ' + fileName);
-                })
-                .catch(function (e) {
-                    console.error('Upload error:', e);
-                    alert('Lỗi upload: ' + (e && e.message ? e.message : e));
-                });
-            });
-        }
-    }
-
-    // Handle save for add modal
-    var addSaveBtn = document.getElementById('thuocAddSaveBtn');
-    if (addSaveBtn) {
-        addSaveBtn.addEventListener('click', function () {
+                 // Initialize image upload area for add modal
+        function initializeAddImageArea() {
             var modal = document.getElementById('thuocAddModal');
             if (!modal) return;
-            
-            var maThuoc = modal.querySelector('.add-ma')?.value || '';
-            var tenThuoc = modal.querySelector('.add-ten')?.value || '';
-            
-            // Extract mã loại from format "Tên loại (Mã loại)" or use as-is if just mã
-            var loaiInput = modal.querySelector('.add-loai')?.value || '';
-            var maLoaiThuoc = '';
-            var match = loaiInput.match(/\(([^)]+)\)$/);
-            if (match) {
-                maLoaiThuoc = match[1];
-            } else {
-                maLoaiThuoc = loaiInput;
-            }
-            
-            var maLoaiDonVi = modal.querySelector('.add-maloaidonvi')?.value || '';
-            var donGiaSi = parseFloat((modal.querySelector('.add-gia')?.value || '0').toString().replace(/,/g, '')) || 0;
-            var donGiaLe = parseFloat((modal.querySelector('.add-gia-le')?.value || '0').toString().replace(/,/g, '')) || 0;
-            var soLuong = parseInt(modal.querySelector('.add-soluong')?.value || 0) || 0;
-            var maNCC = modal.querySelector('.add-ncc')?.value || '';
-            var thanhPhan = modal.querySelector('.add-thanhphan')?.value || '';
-            var congDung = modal.querySelector('.add-congdung')?.value || '';
-            var cachDung = modal.querySelector('.add-cachdung')?.value || '';
-            var luuY = modal.querySelector('.add-luuy')?.value || '';
-            var moTa = modal.querySelector('.add-mota')?.value || '';
-            
-            // Determine which image was chosen
-            var imgChoice = modal.querySelector('.add-img-choice:checked')?.value || 'upload';
-            var urlAnh = '';
-            
-            if (imgChoice === 'existing') {
-                // Use existing image from dropdown
-                urlAnh = modal.querySelector('.add-img-select')?.value || '';
-            } else {
-                // Use uploaded image from temp
-                urlAnh = modal.querySelector('.add-urlanh')?.value || '';
-            }
-            
-            // Validation
-            if (!tenThuoc || tenThuoc.trim() === '') {
-                alert('Tên thuốc là bắt buộc.');
-                return;
-            }
-            if (!urlAnh || urlAnh.trim() === '') {
-                alert('Vui lòng chọn hoặc upload ảnh.');
-                return;
-            }
-            if (!maLoaiDonVi || maLoaiDonVi.trim() === '') {
-                alert('Vui lòng chọn đơn vị.');
-                return;
-            }
-            
-            function proceedWithAddSave() {
-                var payload = {
-                    maThuoc: maThuoc,
-                    tenThuoc: tenThuoc,
-                    maLoaiThuoc: maLoaiThuoc,
-                    maLoaiDonVi: maLoaiDonVi,
-                    donGiaSi: donGiaSi,
-                    donGiaLe: donGiaLe,
-                    soLuong: soLuong,
-                    maNCC: maNCC,
-                    urlAnh: urlAnh,
-                    thanhPhan: thanhPhan,
-                    congDung: congDung,
-                    cachDung: cachDung,
-                    luuY: luuY,
-                    moTa: moTa
-                };
-                
-                fetch('https://localhost:7283/api/Thuoc', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(payload)
-                })
-                .then(function (res) {
-                    if (res.ok) {
-                        return res.json().then(function (json) { return { ok: true, body: json }; });
+
+            var imageArea = modal.querySelector('.add-image-area');
+            if (!imageArea) return;
+
+            // Build HTML
+            var imageHtml = '';
+            imageHtml += '<div class="d-flex align-items-center gap-3 mb-2">';
+            imageHtml += '  <div class="form-check form-check-inline">';
+            imageHtml += '    <input class="form-check-input add-img-choice" type="radio" name="addImgChoice" id="addImgChoiceExisting" value="existing" />';
+            imageHtml += '    <label class="form-check-label small" for="addImgChoiceExisting">Ảnh đã có</label>';
+            imageHtml += '  </div>';
+            imageHtml += '  <div class="form-check form-check-inline">';
+            imageHtml += '    <input class="form-check-input add-img-choice" type="radio" name="addImgChoice" id="addImgChoiceUpload" value="upload" checked />';
+            imageHtml += '    <label class="form-check-label small" for="addImgChoiceUpload">Upload ảnh</label>';
+            imageHtml += '  </div>';
+            imageHtml += '</div>';
+
+            // Existing images area
+            imageHtml += '<div class="add-existing-area mb-1" style="display:none;">';
+            imageHtml += '  <select class="form-select form-select-sm add-img-select" style="max-width:260px;">';
+            imageHtml += '    <option value="">(Chọn ảnh)</option>';
+            imageHtml += '  </select>';
+            imageHtml += '</div>';
+
+            // Upload area (file input only). Upload will happen when user clicks Save.
+            imageHtml += '<div class="add-upload-area mb-1" style="display:block;">';
+            imageHtml += '  <label class="form-label small mb-1">Chọn file ảnh (tối đa 5MB):</label>';
+            imageHtml += '  <div class="d-flex gap-2 align-items-center">';
+            imageHtml += '    <input type="file" accept="image/*" class="form-control form-control-sm add-img-file" style="max-width:260px;" />';
+            imageHtml += '  </div>';
+            imageHtml += '</div>';
+
+            // Hidden UrlAnh
+            imageHtml += '<input type="hidden" class="add-urlanh" />';
+
+            imageArea.innerHTML = imageHtml;
+
+            // Elements
+            var fileInput = modal.querySelector('.add-img-file');
+            var uploadBtn = modal.querySelector('.add-img-upload-btn');
+            var previewImg = modal.querySelector('.add-preview-img');
+            var previewContainer = modal.querySelector('.add-preview-img-container');
+            var urlAnhHidden = modal.querySelector('.add-urlanh');
+            var existingArea = modal.querySelector('.add-existing-area');
+            var uploadArea = modal.querySelector('.add-upload-area');
+            var select = modal.querySelector('.add-img-select');
+            var radioButtons = modal.querySelectorAll('.add-img-choice');
+
+            // Local preview on file select
+            if (fileInput) {
+                fileInput.addEventListener('change', function (event) {
+                    var file = event.target.files[0];
+                    if (file) {
+                        var reader = new FileReader();
+                        reader.onload = function(e) {
+                            if (previewImg) previewImg.src = e.target.result;
+                            if (previewContainer) previewContainer.classList.add('show');
+                        };
+                        reader.readAsDataURL(file);
+                        // Clear hidden UrlAnh so backend knows a new file is provided
+                        if (urlAnhHidden) urlAnhHidden.value = '';
                     } else {
-                        return res.text().then(function (txt) { throw new Error(txt || 'Save failed'); });
+                        if (previewImg) previewImg.src = '';
+                        if (previewContainer) previewContainer.classList.remove('show');
                     }
-                })
-                .then(function (result) {
-                    if (result.ok) {
-                        alert('Thêm thuốc thành công!');
-                        var bsModal = bootstrap.Modal.getInstance(modal);
-                        if (bsModal) bsModal.hide();
-                        
-                        // Reload table
-                        location.reload();
-                    } else {
-                        alert('Lỗi: ' + (result.body && result.body.message ? result.body.message : 'Unknown error'));
-                    }
-                })
-                .catch(function (e) {
-                    console.error('Save error:', e);
-                    alert('Lỗi lưu: ' + (e && e.message ? e.message : e));
                 });
             }
-            
-            // If upload mode with temp file, finalize image before save
-            if (imgChoice === 'upload' && urlAnh) {
-                fetch('https://localhost:7283/api/Images/FinalizeImage', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ tempFileName: urlAnh, productFolderName: 'product' })
-                })
-                .then(function (r) { if (!r.ok) throw new Error('Finalize failed'); return r.json(); })
+
+            // No explicit upload button: uploading occurs when user clicks Save.
+
+            // When select changes (existing image chosen)
+            if (select) {
+                select.addEventListener('change', function () {
+                    var fileName = this.value;
+                    if (urlAnhHidden) urlAnhHidden.value = fileName;
+                    if (modal) modal.dataset.uploadType = 'product';
+
+                    if (fileName) {
+                        var imgUrl = getImageUrl(fileName);
+                        if (previewImg) previewImg.src = imgUrl;
+                        if (previewContainer) previewContainer.classList.add('show');
+                    } else {
+                        if (previewImg) previewImg.src = '';
+                        if (previewContainer) previewContainer.classList.remove('show');
+                    }
+                });
+            }
+
+            // Toggle existing/upload radio
+            radioButtons.forEach(function (radio) {
+                radio.addEventListener('change', function () {
+                    if (this.value === 'existing') {
+                        if (existingArea) existingArea.style.display = 'block';
+                        if (uploadArea) uploadArea.style.display = 'none';
+
+                        if (fileInput) fileInput.value = '';
+                        if (select) select.dispatchEvent(new Event('change'));
+                        if (modal) modal.dataset.uploadType = 'product';
+                    } else {
+                        if (existingArea) existingArea.style.display = 'none';
+                        if (uploadArea) uploadArea.style.display = 'block';
+                        if (urlAnhHidden) urlAnhHidden.value = '';
+                        if (previewImg) previewImg.src = '';
+                        if (previewContainer) previewContainer.classList.remove('show');
+                        if (modal) modal.dataset.uploadType = 'temp';
+                    }
+                });
+            });
+
+            // Load existing images list from backend
+            fetch('https://localhost:7283/api/Images/List')
+                .then(function (r) { if (!r.ok) throw new Error('List failed'); return r.json(); })
                 .then(function (json) {
-                    proceedWithAddSave();
+                    var arr = (json && json.data) ? json.data : json;
+                    if (!Array.isArray(arr)) arr = [];
+
+                    if (select && arr.length > 0) {
+                        arr.forEach(function (name) {
+                            var opt = document.createElement('option');
+                            opt.value = name;
+                            opt.textContent = name;
+                            select.appendChild(opt);
+                        });
+                    }
                 })
-                .catch(function (e) {
-                    console.error('Finalize error:', e);
-                    alert('Lỗi finalize ảnh: ' + (e && e.message ? e.message : e));
+                .catch(function (e) { console.error('Error loading images:', e); });
+
+            // Ensure hidden UrlAnh is empty initially
+            if (urlAnhHidden) urlAnhHidden.value = '';
+        }
+
+                // Attach upload handler
+        
+
+    // Handle save for add modal
+            // Handle save for add modal
+                var addSaveBtn = document.getElementById('thuocAddSaveBtn');
+            if (addSaveBtn) {
+                addSaveBtn.addEventListener('click', function () {
+                    var modal = document.getElementById('thuocAddModal');
+                    if (!modal) return;
+
+                    // 1. Trích xuất dữ liệu form
+                    var maThuoc = modal.querySelector('.add-ma')?.value || '';
+                    var tenThuoc = modal.querySelector('.add-ten')?.value || '';
+                    var loaiInput = modal.querySelector('.add-loai')?.value || '';
+                    var maLoaiThuoc = loaiInput.match(/\(([^)]+)\)$/) ? loaiInput.match(/\(([^)]+)\)$/)[1] : loaiInput;
+                    var maLoaiDonVi = modal.querySelector('.add-maloaidonvi')?.value || '';
+                    var donGiaSi = (modal.querySelector('.add-gia')?.value || '0').toString().replace(/,/g, '');
+                    var donGiaLe = (modal.querySelector('.add-gia-le')?.value || '0').toString().replace(/,/g, '');
+                    var soLuong = modal.querySelector('.add-soluong')?.value || '0';
+                    var maNCC = modal.querySelector('.add-ncc')?.value || '';
+                    var thanhPhan = modal.querySelector('.add-thanhphan')?.value || '';
+                    var congDung = modal.querySelector('.add-congdung')?.value || '';
+                    var cachDung = modal.querySelector('.add-cachdung')?.value || '';
+                    var luuY = modal.querySelector('.add-luuy')?.value || '';
+                    var moTa = modal.querySelector('.add-mota')?.value || '';
+
+                    var fileInput = modal.querySelector('.add-img-file');
+                    var file = fileInput.files && fileInput.files[0];
+                    var urlAnhHidden = modal.querySelector('.add-urlanh');
+
+                    var imgChoice = modal.querySelector('.add-img-choice:checked')?.value || 'upload';
+                    // Re-read select/hidden right now to avoid stale value
+                    var selectEl = modal.querySelector('.add-img-select');
+                    var selectedVal = '';
+                    if (selectEl) {
+                        selectedVal = selectEl.value || (selectEl.options && selectEl.selectedIndex >= 0 ? (selectEl.options[selectEl.selectedIndex].value || '') : '');
+                    }
+                    var urlAnh = (imgChoice === 'existing') ? (urlAnhHidden.value || selectedVal || '') : '';
+
+                    // 2. Validation cơ bản (client-side) — ensure required fields exist before sending
+                    if (!tenThuoc || tenThuoc.trim() === '') {
+                        alert('Tên thuốc là bắt buộc.');
+                        return;
+                    }
+                    if (!maLoaiDonVi || maLoaiDonVi.trim() === '') {
+                        alert('Vui lòng chọn đơn vị.');
+                        return;
+                    }
+                    // Ensure MaThuoc has been generated (generateNextMaThuoc is async)
+                    if (!maThuoc || maThuoc.trim() === '') {
+                        // try to regenerate and instruct user to retry
+                        generateNextMaThuoc();
+                        alert('Mã thuốc chưa sẵn sàng. Vui lòng chờ vài giây rồi thử lại.');
+                        return;
+                    }
+                    // Ensure loại thuốc code is present (the input stores "Ten (Ma)")
+                    if (!maLoaiThuoc || maLoaiThuoc.trim() === '') {
+                        alert('Vui lòng chọn hoặc nhập loại thuốc (ví dụ: "Paracetamol (L001)").');
+                        return;
+                    }
+                    // Ensure nhà cung cấp is selected
+                    if (!maNCC || maNCC.trim() === '') {
+                        alert('Vui lòng chọn nhà cung cấp.');
+                        return;
+                    }
+
+                    // Kiểm tra: Phải có file mới HOẶC URL cũ
+                    if (!file && !urlAnh) {
+                        alert('Vui lòng chọn file ảnh mới (để upload lên Cloudinary) hoặc chọn ảnh đã có.');
+                        return;
+                    }
+
+                    // 3. Xây dựng FormData
+                    var formData = new FormData();
+
+                    // Recompute finalUrl right before send (defensive)
+                    var finalUrl = '';
+                    try {
+                        var modalEl = document.getElementById('thuocAddModal');
+                        if (modalEl) {
+                            var currentChoice = modalEl.querySelector('.add-img-choice:checked')?.value || 'upload';
+                            var sel = modalEl.querySelector('.add-img-select');
+                            var hidden = modalEl.querySelector('.add-urlanh');
+                            var selVal = '';
+                            if (sel) selVal = sel.value || (sel.options && sel.selectedIndex >= 0 ? (sel.options[sel.selectedIndex].value || '') : '');
+                            var hidVal = hidden ? (hidden.value || '') : '';
+                            if (currentChoice === 'existing') finalUrl = hidVal || selVal || '';
+                            else finalUrl = hidVal || '';
+                        }
+                    } catch (e) { console.warn('Could not recompute finalUrl', e); }
+
+                    // We'll append UrlAnh and FileAnh later, just before sending, to avoid double-uploads.
+
+                    // Warn if user selected existing but finalUrl is empty
+                    if (!finalUrl && imgChoice === 'existing') {
+                        console.warn('Add modal: existing image selected but UrlAnh is empty. Select value:', selectEl ? selectEl.value : '(no select)');
+                    }
+
+                    // Debug: enumerate FormData so developer can confirm UrlAnh is present
+                    try {
+                        console.log('POST /api/Thuoc FormData entries (add):');
+                        for (var pair of formData.entries()) {
+                            console.log('  ' + pair[0] + ' = ', pair[1]);
+                        }
+                    } catch (e) { console.warn('FormData debug failed', e); }
+
+                    // Đính kèm các trường dữ liệu khác
+                    formData.append('MaThuoc', maThuoc);
+                    formData.append('TenThuoc', tenThuoc);
+                    formData.append('MaLoaiThuoc', maLoaiThuoc);
+                    formData.append('MaLoaiDonVi', maLoaiDonVi);
+                    formData.append('DonGiaSi', donGiaSi);
+                    formData.append('DonGiaLe', donGiaLe);
+                    formData.append('SoLuong', soLuong);
+                    formData.append('MaNCC', maNCC);
+                    formData.append('ThanhPhan', thanhPhan);
+                    formData.append('CongDung', congDung);
+                    formData.append('CachDung', cachDung);
+                    formData.append('LuuY', luuY);
+                    formData.append('MoTa', moTa);
+
+                    // 4. Gửi Request POST (Backend C# sẽ xử lý Signed Upload Cloudinary)
+                    function proceedWithSave() {
+                        // Recompute finalUrl now and append to FormData
+                        try {
+                            var modalEl2 = document.getElementById('thuocAddModal');
+                            var currentChoice2 = modalEl2 ? (modalEl2.querySelector('.add-img-choice:checked')?.value || 'upload') : 'upload';
+                            var sel2 = modalEl2 ? modalEl2.querySelector('.add-img-select') : null;
+                            var hid2 = modalEl2 ? modalEl2.querySelector('.add-urlanh') : null;
+                            var selVal2 = '';
+                            if (sel2) selVal2 = sel2.value || (sel2.options && sel2.selectedIndex >= 0 ? (sel2.options[sel2.selectedIndex].value || '') : '');
+                            var hidVal2 = hid2 ? (hid2.value || '') : '';
+                            var finalUrl2 = (currentChoice2 === 'existing') ? (hidVal2 || selVal2 || '') : (hidVal2 || '');
+                            // set UrlAnh on formData
+                            formData.set('UrlAnh', finalUrl2);
+
+                            // Append FileAnh only if image was NOT already uploaded into product
+                            var addModalEl2 = document.getElementById('thuocAddModal');
+                            var uploadType2 = addModalEl2 ? (addModalEl2.dataset.uploadType || '') : '';
+                            var fileInput2 = addModalEl2 ? addModalEl2.querySelector('.add-img-file') : null;
+                            var file2 = fileInput2 && fileInput2.files ? fileInput2.files[0] : null;
+                            if (file2 && uploadType2 !== 'product') {
+                                formData.set('FileAnh', file2);
+                            } else {
+                                // ensure FileAnh is not sent if already uploaded to product
+                                try { formData.delete && formData.delete('FileAnh'); } catch(e) {}
+                            }
+                        } catch (e) { console.warn('Could not recompute UrlAnh/FileAnh before send', e); }
+
+                        fetch('https://localhost:7283/api/Thuoc', {
+                            method: 'POST',
+                            body: formData
+                        })
+                        .then(function (res) {
+                            return res.text().then(function (txt) { return { ok: res.ok, text: txt }; });
+                        })
+                        .then(function (result) {
+                            var jsonBody = null;
+                            try { jsonBody = JSON.parse(result.text); } catch (e) { /* ignore */ }
+
+                            if (result.ok && jsonBody && jsonBody.status === 1) {
+                                // Nếu có file được upload, save vào IndexedDB (local storage) bên FE
+                                if (file) {
+                                    console.log('Saving image file to local storage:', file.name);
+                                    saveImageToLocalStorage(file, jsonBody.data.imageFileName || file.name);
+                                }
+                                alert('Thêm thuốc thành công!');
+                                var bsModal = bootstrap.Modal.getInstance(modal);
+                                if (bsModal) bsModal.hide();
+
+                                location.reload();
+                            } else {
+                                var msg = jsonBody && jsonBody.message ? jsonBody.message : result.text;
+                                alert('Lỗi: ' + (msg || 'Unknown error'));
+                                console.error('API Error:', result.text);
+                            }
+                        })
+                        .catch(function (e) {
+                            console.error('Network/Save error:', e);
+                            alert('Lỗi khi lưu: ' + (e && e.message ? e.message : e));
+                        });
+                    }
+
+                    // Decide how to finalize/upload image before saving
+                    (function decideAndSave() {
+                        var addModalEl = document.getElementById('thuocAddModal');
+                        var uploadedFileName = addModalEl ? (addModalEl.querySelector('.add-urlanh')?.value || '') : '';
+                        var fileInputLocal = addModalEl ? addModalEl.querySelector('.add-img-file') : null;
+                        var fileLocal = fileInputLocal && fileInputLocal.files ? fileInputLocal.files[0] : null;
+
+                        // If a new file was selected, upload it now into product folder (backend handles duplicate names)
+                        if (fileLocal) {
+                            var fd2 = new FormData(); fd2.append('file', fileLocal);
+                            fetch('https://localhost:7283/api/Images/UploadToProduct', { method: 'POST', body: fd2 })
+                                .then(function (r) { if (!r.ok) throw new Error('UploadToProduct failed'); return r.json(); })
+                                .then(function (json) {
+                                    var fn = (json && json.data) ? (json.data.fileName || json.data) : (json && (json.fileName || json.fileName === '' ? json.fileName : null));
+                                    if (!fn) fn = (json && json.data && typeof json.data === 'string') ? json.data : null;
+                                    if (fn) {
+                                        if (addModalEl) addModalEl.querySelector('.add-urlanh').value = fn;
+                                        // mark that the file was stored into product folder so we don't send the binary again
+                                        if (addModalEl) addModalEl.dataset.uploadType = 'product';
+                                    }
+                                    proceedWithSave();
+                                }).catch(function (e) {
+                                    console.error('Auto-upload failed:', e);
+                                    alert('Lỗi khi upload ảnh tự động: ' + (e && e.message ? e.message : e));
+                                });
+                            return;
+                        }
+
+                        // No new file selected: if an existing image name is set, just proceed, otherwise proceed without image
+                        proceedWithSave();
+                    })();
                 });
-            } else {
-                // For existing images, proceed directly (no finalization needed)
-                proceedWithAddSave();
             }
-        });
-    }
+
+            // Hàm lưu ảnh vào IndexedDB (local storage)
+            function saveImageToLocalStorage(file, fileName) {
+                var reader = new FileReader();
+                reader.onload = function(e) {
+                    var db = indexedDB.open('ThuocImages', 1);
+                    db.onupgradeneeded = function(event) {
+                        var store = event.target.result.createObjectStore('images', { keyPath: 'fileName' });
+                    };
+                    db.onsuccess = function(event) {
+                        var database = event.target.result;
+                        var tx = database.transaction('images', 'readwrite');
+                        var store = tx.objectStore('images');
+                        store.put({ fileName: fileName, data: e.target.result });
+                        console.log('Image saved to IndexedDB:', fileName);
+                    };
+                };
+                reader.readAsArrayBuffer(file);
+            }
+
+            // Hàm lấy ảnh từ IndexedDB để hiển thị
+            function getImageFromLocalStorage(fileName) {
+                return new Promise(function(resolve, reject) {
+                    var db = indexedDB.open('ThuocImages', 1);
+                    db.onsuccess = function(event) {
+                        var database = event.target.result;
+                        var tx = database.transaction('images', 'readonly');
+                        var store = tx.objectStore('images');
+                        var request = store.get(fileName);
+                        request.onsuccess = function() {
+                            if (request.result) {
+                                var blob = new Blob([request.result.data], { type: 'image/jpeg' });
+                                resolve(URL.createObjectURL(blob));
+                            } else {
+                                resolve(null);
+                            }
+                        };
+                        request.onerror = function() {
+                            reject(request.error);
+                        };
+                    };
+                });
+            }
     
     // DEBUG: Catch any page reload attempts to see what triggers it
     window.addEventListener('beforeunload', function(e) {

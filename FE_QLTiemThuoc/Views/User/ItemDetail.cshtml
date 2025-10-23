@@ -1,0 +1,161 @@
+﻿@{
+    ViewData["Title"] = "Chi tiết thuốc";
+}
+<!-- breadcrumb -->
+<div class="site-breadcrumb">
+    <div class="site-breadcrumb-bg" style="background: none;"></div>
+    <div class="container">
+        <div class="site-breadcrumb-wrap">
+            <h4 class="breadcrumb-title">Chi tiết thuốc</h4>
+            <ul class="breadcrumb-menu">
+                <li><a href="/User/ShopGrid"><i class="far fa-home"></i> Trang chủ</a></li>
+                <li class="active">Chi tiết</li>
+            </ul>
+        </div>
+    </div>
+</div>
+<!-- breadcrumb end -->
+<!-- shop single -->
+@{
+    var model = Model as System.Text.Json.JsonElement?;
+}
+<div class="shop-single py-90" style="background: #f8f9fa;">
+    <div class="container">
+        <div class="row g-4">
+            <!-- Left: Image -->
+            <div class="col-lg-6">
+                <div class="shop-single-gallery text-center">
+                    @{
+                        string url = "default.png";
+                        if (model.HasValue && model.Value.TryGetProperty("urlAnh", out var p) && p.ValueKind == System.Text.Json.JsonValueKind.String)
+                        {
+                            url = p.GetString() ?? url;
+                        }
+                    }
+                    <div class="image-container" style="position: relative; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+                        <img src="~/assets_user/img/product/@url" alt="Hình ảnh thuốc" style="width: 100%; height: auto; object-fit: contain; transition: transform 0.3s ease;" />
+                        <div class="image-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.05); opacity: 0; transition: opacity 0.3s ease;"></div>
+                    </div>
+                </div>
+            </div>
+            <!-- Right: Product Info -->
+            <div class="col-lg-6">
+                <div class="shop-single-info" style="background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+                    <h2 class="shop-single-title" style="color: #333; font-weight: 700; margin-bottom: 10px; font-size: 2rem;">
+                        @if (model.HasValue && model.Value.TryGetProperty("tenThuoc", out var tn) && tn.ValueKind == System.Text.Json.JsonValueKind.String)
+                        {
+                            @tn.GetString()
+                        }
+                        else { <text>Không có tên thuốc</text>; }
+                    </h2>
+
+                    <div class="shop-single-meta mb-3">
+                        <span class="badge bg-primary me-2" style="font-size: 0.9rem;">
+                            <i class="fas fa-building"></i> @((model.HasValue && model.Value.TryGetProperty("tenNCC", out var ncc) && ncc.ValueKind == System.Text.Json.JsonValueKind.String) ? ncc.GetString() : "-")
+                        </span>
+                        <span class="badge bg-secondary" style="font-size: 0.9rem;">
+                            <i class="fas fa-box"></i> @((model.HasValue && model.Value.TryGetProperty("tenLoaiDonVi", out var dv) && dv.ValueKind == System.Text.Json.JsonValueKind.String) ? dv.GetString() : "-")
+                        </span>
+                    </div>
+
+                    <div class="shop-single-price mb-4">
+                        <span class="amount" style="color: #e74c3c; font-weight: 700; font-size: 1.8rem;">
+                            @(
+                                (model.HasValue && model.Value.TryGetProperty("donGiaSi", out var g) && g.ValueKind == System.Text.Json.JsonValueKind.Number)
+                                    ? g.GetDecimal().ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("vi-VN")) + " đ"
+                                    : "-"
+                            )
+                        </span>
+                        <small class="text-muted ms-2">Giá sỉ</small>
+                    </div>
+
+                    <p class="mb-4" style="color: #666; line-height: 1.6;">
+                        @((model.HasValue && model.Value.TryGetProperty("moTa", out var md) && md.ValueKind == System.Text.Json.JsonValueKind.String) ? md.GetString() : "Không có mô tả.")
+                    </p>
+
+                    <div class="product-details mb-4">
+                        <div class="row g-3">
+                            <div class="col-6">
+                                <div class="detail-item" style="background: #f8f9fa; padding: 15px; border-radius: 10px; text-align: center;">
+                                    <i class="fas fa-cubes" style="color: #3498db; font-size: 1.5rem;"></i>
+                                    <h6 style="margin: 5px 0; color: #333;">Số lượng</h6>
+                                    <span style="font-weight: 600;">@((model.HasValue && model.Value.TryGetProperty("soLuong", out var sl) && sl.ValueKind == System.Text.Json.JsonValueKind.Number) ? sl.GetInt32().ToString() : "-")</span>
+                                </div>
+                            </div>
+                            <div class="col-6">
+                                <div class="detail-item" style="background: #f8f9fa; padding: 15px; border-radius: 10px; text-align: center;">
+                                    <i class="fas fa-info-circle" style="color: #e67e22; font-size: 1.5rem;"></i>
+                                    <h6 style="margin: 5px 0; color: #333;">Công dụng</h6>
+                                    <span style="font-size: 0.9rem;">@((model.HasValue && model.Value.TryGetProperty("congDung", out var cd) && cd.ValueKind == System.Text.Json.JsonValueKind.String) ? cd.GetString() : "-")</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="shop-single-action">
+                        <a href="#" class="btn btn-primary btn-lg me-3" style="border-radius: 25px; padding: 12px 30px; font-weight: 600;">
+                            <i class="fas fa-cart-plus"></i> Thêm vào giỏ
+                        </a>
+                        <a href="#" class="btn btn-success btn-lg" style="border-radius: 25px; padding: 12px 30px; font-weight: 600;">
+                            <i class="fas fa-shopping-bag"></i> Mua ngay
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Additional Details Section -->
+        <div class="row mt-5">
+            <div class="col-12">
+                <div class="additional-details" style="background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+                    <h3 style="color: #333; margin-bottom: 30px; text-align: center;">Thông tin chi tiết</h3>
+                    <div class="row g-4">
+                        <div class="col-md-6">
+                            <div class="detail-card" style="background: #f8f9fa; padding: 20px; border-radius: 10px; height: 100%;">
+                                <h5 style="color: #27ae60; margin-bottom: 15px;"><i class="fas fa-flask"></i> Thành phần</h5>
+                                <p style="color: #666; line-height: 1.6;">
+                                    @((model.HasValue && model.Value.TryGetProperty("thanhPhan", out var tp) && tp.ValueKind == System.Text.Json.JsonValueKind.String) ? tp.GetString() : "Không có thông tin.")
+                                </p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="detail-card" style="background: #f8f9fa; padding: 20px; border-radius: 10px; height: 100%;">
+                                <h5 style="color: #3498db; margin-bottom: 15px;"><i class="fas fa-pills"></i> Cách dùng</h5>
+                                <p style="color: #666; line-height: 1.6;">
+                                    @((model.HasValue && model.Value.TryGetProperty("cachDung", out var cg) && cg.ValueKind == System.Text.Json.JsonValueKind.String) ? cg.GetString() : "Không có thông tin.")
+                                </p>
+                            </div>
+                        </div>
+                        <div class="col-12">
+                            <div class="detail-card" style="background: #fff3cd; padding: 20px; border-radius: 10px; border-left: 5px solid #ffc107;">
+                                <h5 style="color: #856404; margin-bottom: 15px;"><i class="fas fa-exclamation-triangle"></i> Lưu ý</h5>
+                                <p style="color: #856404; line-height: 1.6;">
+                                    @((model.HasValue && model.Value.TryGetProperty("luuY", out var ly) && ly.ValueKind == System.Text.Json.JsonValueKind.String) ? ly.GetString() : "Không có lưu ý.")
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<!-- shop single end -->
+<style>
+    .image-container:hover img {
+        transform: scale(1.05);
+    }
+    .image-container:hover .image-overlay {
+        opacity: 1;
+    }
+    .detail-item:hover {
+        background: #e9ecef !important;
+        transform: translateY(-2px);
+        transition: all 0.3s ease;
+    }
+    .btn:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        transition: all 0.3s ease;
+    }
+</style>

@@ -1,12 +1,14 @@
-using Microsoft.EntityFrameworkCore;
 using BE_QLTiemThuoc.Data;
+using CloudinaryDotNet;
+using Microsoft.EntityFrameworkCore;
 using System;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var configuration = builder.Configuration; // Biến này đã có sẵn thông qua builder
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
 
 // Cấu hình CORS
 var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
@@ -27,7 +29,23 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-var app = builder.Build();
+// =========================================================
+// !!! KHỐI CẤU HÌNH CLOUDINARY ĐÃ ĐƯỢC DI CHUYỂN LÊN TRƯỚC builder.Build() !!!
+// =========================================================
+
+// Khai báo Account và cấu hình Cloudinary
+var account = new Account(
+    configuration["Cloudinary:CloudName"], // Lấy giá trị của CloudName
+    configuration["Cloudinary:ApiKey"],    // Lấy giá trị của ApiKey
+    configuration["Cloudinary:ApiSecret"]  // Lấy giá trị của ApiSecret
+);
+
+// Đăng ký Cloudinary là Singleton Service (Phải nằm trong builder.Services...)
+builder.Services.AddSingleton(new Cloudinary(account));
+
+// =========================================================
+
+var app = builder.Build(); // Service collection bị khóa tại đây
 
 // Swagger UI
 if (app.Environment.IsDevelopment())
@@ -35,14 +53,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-/*
-# chuyển vào thư mục project (tùy chọn)
-Set-Location -Path "i:\Ky_06_2025_2026\KhoaLuan\DoAn\QLTiemThuoc\BE_QLTiemThuoc"
-dotnet run --launch-profile "https"
 
-Set-Location -Path "i:\Ky_06_2025_2026\KhoaLuan\DoAn\QLTiemThuoc\FE_QLTiemThuoc"
-dotnet run --launch-profile "https"
-*/
 app.UseHttpsRedirection();
 app.UseCors(MyAllowSpecificOrigins);
 app.UseAuthorization();

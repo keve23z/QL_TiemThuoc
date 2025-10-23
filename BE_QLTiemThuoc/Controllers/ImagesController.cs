@@ -15,11 +15,18 @@ namespace BE_QLTiemThuoc.Controllers
     public class ImagesController : ControllerBase
     {
         private static readonly HttpClient _http = new HttpClient();
+        private readonly IWebHostEnvironment _env;
+
+        public ImagesController(IWebHostEnvironment env)
+        {
+            _env = env ?? throw new ArgumentNullException(nameof(env));
+        }
 
         // Temp upload folder (outside wwwroot to avoid triggering hot reload during development)
         private string GetTempUploadFolder()
         {
-            var beRoot = Directory.GetCurrentDirectory();
+            // Use ContentRootPath for predictable project root instead of Directory.GetCurrentDirectory()
+            var beRoot = _env.ContentRootPath ?? Directory.GetCurrentDirectory();
             var candidate = Path.GetFullPath(Path.Combine(beRoot, "..", "TempImages"));
             if (!Directory.Exists(candidate))
                 Directory.CreateDirectory(candidate);
@@ -29,10 +36,12 @@ namespace BE_QLTiemThuoc.Controllers
         // Final product images folder (inside FE wwwroot)
         private string GetImagesFolder()
         {
-            // BE project directory (where the app runs)
-            var beRoot = Directory.GetCurrentDirectory();
-            // Path to FE wwwroot assets folder (relative sibling)
+            var beRoot = _env.ContentRootPath ?? Directory.GetCurrentDirectory();
             var candidate = Path.GetFullPath(Path.Combine(beRoot, "..", "FE_QLTiemThuoc", "wwwroot", "assets_user", "img", "product"));
+            if (!Directory.Exists(candidate))
+            {
+                try { Directory.CreateDirectory(candidate); } catch { /* ignore */ }
+            }
             return candidate;
         }
 
@@ -131,6 +140,70 @@ namespace BE_QLTiemThuoc.Controllers
             });
 
             return Ok(response);
+        }
+
+        // Upload directly into FE product folder (handles duplicate names)
+        [HttpPost("UploadToProduct")]
+        [Consumes("multipart/form-data")]
+        public async Task<IActionResult> UploadToProduct([FromForm] UploadFileRequest req)
+        {
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                var file = req?.file;
+                if (file == null) throw new Exception("File missing");
+
+                // target folder inside FE/wwwroot/assets_user/img/product
+                var folder = GetImagesFolder();
+                if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
+
+                var safeName = SanitizeFileName(file.FileName ?? ("upload_" + DateTime.UtcNow.ToString("yyyyMMddHHmmss") + ".dat"));
+                var target = Path.Combine(folder, safeName);
+                var baseName = Path.GetFileNameWithoutExtension(safeName);
+                var ext = Path.GetExtension(safeName);
+                int counter = 1;
+                // ensure uniqueness by appending _N
+                while (System.IO.File.Exists(target))
+                {
+                    var newName = baseName + "_" + counter + ext;
+                    target = Path.Combine(folder, newName);
+                    counter++;
+                }
+
+                using (var stream = System.IO.File.Create(target))
+                {
+                    await file.CopyToAsync(stream);
+                }
+
+                return Path.GetFileName(target);
+            });
+
+            return Ok(response);
+        }
+
+        // Serve a temp-uploaded file for preview before finalizing
+        [HttpGet("GetTemp")]
+        public IActionResult GetTemp([FromQuery] string? filename)
+        {
+            if (string.IsNullOrWhiteSpace(filename)) return NotFound();
+            var folder = GetTempUploadFolder();
+            var safe = SanitizeFileName(Path.GetFileName(filename));
+            var path = Path.Combine(folder, safe);
+            if (!System.IO.File.Exists(path)) return NotFound();
+
+            var ext = Path.GetExtension(path).ToLowerInvariant();
+            var contentType = ext switch
+            {
+                ".png" => "image/png",
+                ".jpg" => "image/jpeg",
+                ".jpeg" => "image/jpeg",
+                ".webp" => "image/webp",
+                ".gif" => "image/gif",
+                ".avif" => "image/avif",
+                _ => "application/octet-stream",
+            };
+
+            var bytes = System.IO.File.ReadAllBytes(path);
+            return File(bytes, contentType);
         }
 
         // Move file from temp to product folder (called when user clicks Save)
