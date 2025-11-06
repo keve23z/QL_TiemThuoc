@@ -1,7 +1,6 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using BE_QLTiemThuoc.Data;
 using BE_QLTiemThuoc.Model;
-using Microsoft.EntityFrameworkCore;
+using BE_QLTiemThuoc.Services;
 
 namespace BE_QLTiemThuoc.Controllers
 {
@@ -9,52 +8,26 @@ namespace BE_QLTiemThuoc.Controllers
     [Route("api/[controller]")]
     public class KhachHangController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly KhachHangService _service;
 
-        public KhachHangController(AppDbContext context)
+        public KhachHangController(KhachHangService service)
         {
-            _context = context;
+            _service = service;
         }
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<KhachHang>>> GetAll()
         {
-            return await _context.KhachHangs.ToListAsync();
+            var list = await _service.GetAllAsync();
+            return Ok(list);
         }
-
 
 
         [HttpPost]
         public async Task<ActionResult<KhachHang>> CreateKhachHang(KhachHang dto)
         {
-            var newMaKH = GenerateAccountCode();
-
-            var kh = new KhachHang
-            {
-                MAKH = newMaKH,
-                HoTen = dto.HoTen,
-                NgaySinh = dto.NgaySinh,
-                DienThoai = dto.DienThoai,
-                GioiTinh = dto.GioiTinh,
-                DiaChi = dto.DiaChi
-            };
-
-            _context.KhachHangs.Add(kh);
-            await _context.SaveChangesAsync();
-
-            return CreatedAtAction(nameof(GetAll), new { id = kh.MAKH }, kh);
-        }
-
-        // Hàm tạo mã khách hàng tự động
-        private string GenerateAccountCode()
-        {
-            var lastAccount = _context.KhachHangs
-                .OrderByDescending(t => t.MAKH)
-                .FirstOrDefault();
-
-            string lastCode = lastAccount?.MAKH ?? "KH0000";
-            int number = int.Parse(lastCode.Substring(2)) + 1;
-            return "KH" + number.ToString("D4");
+            var created = await _service.CreateAsync(dto);
+            return CreatedAtAction(nameof(GetAll), new { id = created.MAKH }, created);
         }
         //[HttpPut("UpdateThongTin/{maKH}")]
         //public async Task<IActionResult> UpdateThongTin(string maKH, [FromBody] KhachHangUpdateDto dto)

@@ -1,9 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using BE_QLTiemThuoc.Data;
 using BE_QLTiemThuoc.Model.Thuoc;
 using BE_QLTiemThuoc.Services;
-using System.Threading.Tasks;
 
 namespace BE_QLTiemThuoc.Controllers
 {
@@ -11,11 +8,11 @@ namespace BE_QLTiemThuoc.Controllers
     [ApiController]
     public class NhaCungCapController : ControllerBase
     {
-        private readonly AppDbContext _context;
+        private readonly NhaCungCapService _service;
 
-        public NhaCungCapController(AppDbContext context)
+        public NhaCungCapController(NhaCungCapService service)
         {
-            _context = context;
+            _service = service;
         }
 
         // GET: api/NhaCungCap
@@ -24,7 +21,7 @@ namespace BE_QLTiemThuoc.Controllers
         {
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
-                var list = await _context.NhaCungCaps.ToListAsync();
+                var list = await _service.GetAllAsync();
                 return list;
             });
             return Ok(response);
@@ -36,8 +33,7 @@ namespace BE_QLTiemThuoc.Controllers
         {
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
-                var item = await _context.NhaCungCaps.FirstOrDefaultAsync(n => n.MaNCC == id);
-                if (item == null) throw new System.Exception("Không tìm thấy nhà cung cấp.");
+                var item = await _service.GetByIdAsync(id);
                 return item;
             });
             return Ok(response);
@@ -50,10 +46,8 @@ namespace BE_QLTiemThuoc.Controllers
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
                 if (!ModelState.IsValid) throw new System.Exception("Dữ liệu không hợp lệ.");
-                if (await _context.NhaCungCaps.AnyAsync(x => x.MaNCC == ncc.MaNCC)) throw new System.Exception("Mã nhà cung cấp đã tồn tại.");
-                _context.NhaCungCaps.Add(ncc);
-                await _context.SaveChangesAsync();
-                return ncc;
+                var created = await _service.CreateAsync(ncc);
+                return created;
             });
             return Ok(response);
         }
@@ -64,12 +58,9 @@ namespace BE_QLTiemThuoc.Controllers
         {
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
-                if (id != ncc.MaNCC) throw new System.Exception("Mã nhà cung cấp không khớp.");
-                var entity = await _context.NhaCungCaps.FindAsync(id);
-                if (entity == null) throw new System.Exception("Không tìm thấy nhà cung cấp.");
-                _context.Entry(entity).CurrentValues.SetValues(ncc);
-                await _context.SaveChangesAsync();
-                return ncc;
+                if (!ModelState.IsValid) throw new System.Exception("Dữ liệu không hợp lệ.");
+                var updated = await _service.UpdateAsync(id, ncc);
+                return updated;
             });
             return Ok(response);
         }

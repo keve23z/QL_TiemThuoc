@@ -1,12 +1,5 @@
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
-using System;
-using System.IO;
-using System.Linq;
-using System.Net.Http;
-using System.Threading.Tasks;
 using BE_QLTiemThuoc.Services;
-using Microsoft.AspNetCore.Http;
 
 namespace BE_QLTiemThuoc.Controllers
 {
@@ -14,35 +7,11 @@ namespace BE_QLTiemThuoc.Controllers
     [ApiController]
     public class ImagesController : ControllerBase
     {
-        private static readonly HttpClient _http = new HttpClient();
-        private readonly IWebHostEnvironment _env;
+        private readonly ImagesService _service;
 
-        public ImagesController(IWebHostEnvironment env)
+        public ImagesController(ImagesService service)
         {
-            _env = env ?? throw new ArgumentNullException(nameof(env));
-        }
-
-        // Temp upload folder (outside wwwroot to avoid triggering hot reload during development)
-        private string GetTempUploadFolder()
-        {
-            // Use ContentRootPath for predictable project root instead of Directory.GetCurrentDirectory()
-            var beRoot = _env.ContentRootPath ?? Directory.GetCurrentDirectory();
-            var candidate = Path.GetFullPath(Path.Combine(beRoot, "..", "TempImages"));
-            if (!Directory.Exists(candidate))
-                Directory.CreateDirectory(candidate);
-            return candidate;
-        }
-
-        // Final product images folder (inside FE wwwroot)
-        private string GetImagesFolder()
-        {
-            var beRoot = _env.ContentRootPath ?? Directory.GetCurrentDirectory();
-            var candidate = Path.GetFullPath(Path.Combine(beRoot, "..", "FE_QLTiemThuoc", "wwwroot", "assets_user", "img", "product"));
-            if (!Directory.Exists(candidate))
-            {
-                try { Directory.CreateDirectory(candidate); } catch { /* ignore */ }
-            }
-            return candidate;
+            _service = service ?? throw new ArgumentNullException(nameof(service));
         }
 
         [HttpGet("List")]
@@ -50,12 +19,7 @@ namespace BE_QLTiemThuoc.Controllers
         {
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
-                var folder = GetImagesFolder();
-                if (!Directory.Exists(folder)) return Array.Empty<string>();
-                var files = Directory.GetFiles(folder)
-                    .Select(f => Path.GetFileName(f))
-                    .OrderBy(n => n)
-                    .ToArray();
+                var files = await _service.ListAsync();
                 return files;
             });
 
@@ -75,32 +39,8 @@ namespace BE_QLTiemThuoc.Controllers
         {
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
-                if (req == null || string.IsNullOrWhiteSpace(req.url)) throw new Exception("Missing url");
-                var uri = new Uri(req.url);
-                var fileName = Path.GetFileName(uri.LocalPath);
-                if (string.IsNullOrWhiteSpace(fileName)) fileName = "imported-image" + DateTime.UtcNow.ToString("yyyyMMddHHmmss") + ".jpg";
-
-                var folder = GetImagesFolder();
-                if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
-
-                // normalize filename and ensure uniqueness
-                var safeName = SanitizeFileName(fileName);
-                var target = Path.Combine(folder, safeName);
-                var baseName = Path.GetFileNameWithoutExtension(safeName);
-                var ext = Path.GetExtension(safeName);
-                int counter = 1;
-                while (System.IO.File.Exists(target))
-                {
-                    var newName = baseName + "_" + counter + ext;
-                    target = Path.Combine(folder, newName);
-                    counter++;
-                }
-
-                // download content
-                var bytes = await _http.GetByteArrayAsync(req.url);
-                await System.IO.File.WriteAllBytesAsync(target, bytes);
-
-                return Path.GetFileName(target);
+                var file = await _service.UploadExternalAsync(req?.url);
+                return file;
             });
 
             return Ok(response);
@@ -112,31 +52,9 @@ namespace BE_QLTiemThuoc.Controllers
         {
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
-        var file = req?.file;
-        if (file == null) throw new Exception("File missing");
-
-                // Upload to TEMP folder first (not wwwroot, so no hot reload)
-                var folder = GetTempUploadFolder();
-                if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
-
-                var safeName = SanitizeFileName(file.FileName ?? ("upload_" + DateTime.UtcNow.ToString("yyyyMMddHHmmss") + ".dat"));
-                var target = Path.Combine(folder, safeName);
-                var baseName = Path.GetFileNameWithoutExtension(safeName);
-                var ext = Path.GetExtension(safeName);
-                int counter = 1;
-                while (System.IO.File.Exists(target))
-                {
-                    var newName = baseName + "_" + counter + ext;
-                    target = Path.Combine(folder, newName);
-                    counter++;
-                }
-
-                using (var stream = System.IO.File.Create(target))
-                {
-                    await file.CopyToAsync(stream);
-                }
-
-                return Path.GetFileName(target);
+                var file = req?.file;
+                var name = await _service.UploadFileAsync(file!);
+                return name;
             });
 
             return Ok(response);
@@ -150,31 +68,8 @@ namespace BE_QLTiemThuoc.Controllers
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
                 var file = req?.file;
-                if (file == null) throw new Exception("File missing");
-
-                // target folder inside FE/wwwroot/assets_user/img/product
-                var folder = GetImagesFolder();
-                if (!Directory.Exists(folder)) Directory.CreateDirectory(folder);
-
-                var safeName = SanitizeFileName(file.FileName ?? ("upload_" + DateTime.UtcNow.ToString("yyyyMMddHHmmss") + ".dat"));
-                var target = Path.Combine(folder, safeName);
-                var baseName = Path.GetFileNameWithoutExtension(safeName);
-                var ext = Path.GetExtension(safeName);
-                int counter = 1;
-                // ensure uniqueness by appending _N
-                while (System.IO.File.Exists(target))
-                {
-                    var newName = baseName + "_" + counter + ext;
-                    target = Path.Combine(folder, newName);
-                    counter++;
-                }
-
-                using (var stream = System.IO.File.Create(target))
-                {
-                    await file.CopyToAsync(stream);
-                }
-
-                return Path.GetFileName(target);
+                var name = await _service.UploadToProductAsync(file!);
+                return name;
             });
 
             return Ok(response);
@@ -184,26 +79,15 @@ namespace BE_QLTiemThuoc.Controllers
         [HttpGet("GetTemp")]
         public IActionResult GetTemp([FromQuery] string? filename)
         {
-            if (string.IsNullOrWhiteSpace(filename)) return NotFound();
-            var folder = GetTempUploadFolder();
-            var safe = SanitizeFileName(Path.GetFileName(filename));
-            var path = Path.Combine(folder, safe);
-            if (!System.IO.File.Exists(path)) return NotFound();
-
-            var ext = Path.GetExtension(path).ToLowerInvariant();
-            var contentType = ext switch
+            try
             {
-                ".png" => "image/png",
-                ".jpg" => "image/jpeg",
-                ".jpeg" => "image/jpeg",
-                ".webp" => "image/webp",
-                ".gif" => "image/gif",
-                ".avif" => "image/avif",
-                _ => "application/octet-stream",
-            };
-
-            var bytes = System.IO.File.ReadAllBytes(path);
-            return File(bytes, contentType);
+                var tup = _service.GetTempFile(filename);
+                return File(tup.bytes, tup.contentType);
+            }
+            catch
+            {
+                return NotFound();
+            }
         }
 
         // Move file from temp to product folder (called when user clicks Save)
@@ -213,44 +97,15 @@ namespace BE_QLTiemThuoc.Controllers
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
                 var fileName = req?.fileName as string;
-                if (string.IsNullOrEmpty(fileName)) throw new Exception("fileName required");
-
-                var tempFolder = GetTempUploadFolder();
-                var tempPath = Path.Combine(tempFolder, fileName);
-                if (!System.IO.File.Exists(tempPath))
-                    throw new Exception("File not found in temp folder");
-
-                var finalFolder = GetImagesFolder();
-                if (!Directory.Exists(finalFolder)) Directory.CreateDirectory(finalFolder);
-                var finalPath = Path.Combine(finalFolder, fileName);
-
-                // If file already exists in final folder, overwrite or rename
-                var baseName = Path.GetFileNameWithoutExtension(fileName);
-                var ext = Path.GetExtension(fileName);
-                int counter = 1;
-                while (System.IO.File.Exists(finalPath))
-                {
-                    var newName = baseName + "_" + counter + ext;
-                    finalPath = Path.Combine(finalFolder, newName);
-                    counter++;
-                }
-
-                // Copy from temp to final
-                System.IO.File.Copy(tempPath, finalPath, overwrite: true);
-                // Delete temp file
-                System.IO.File.Delete(tempPath);
-
-                return Path.GetFileName(finalPath);
+                var name = await _service.FinalizeImageAsync(fileName!);
+                return name;
             });
 
             return Ok(response);
         }
 
-        // basic filename sanitizer
-        private string SanitizeFileName(string name)
-        {
-            foreach (var c in Path.GetInvalidFileNameChars()) name = name.Replace(c, '_');
-            return name.Replace(' ', '_');
-        }
+        // wrapper types preserved for API surface
+        // basic filename sanitizer is now in service
+        
     }
 }

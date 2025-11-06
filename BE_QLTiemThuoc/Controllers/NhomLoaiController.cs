@@ -1,10 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
-using BE_QLTiemThuoc.Data;
-using BE_QLTiemThuoc.Model.Thuoc;
 using BE_QLTiemThuoc.Services;
-using System.Linq;
-using System.Threading.Tasks;
 
 namespace BE_QLTiemThuoc.Controllers
 {
@@ -12,10 +7,11 @@ namespace BE_QLTiemThuoc.Controllers
     [ApiController]
     public class NhomLoaiController : ControllerBase
     {
-        private readonly AppDbContext _context;
-        public NhomLoaiController(AppDbContext context)
+        private readonly NhomLoaiService _service;
+
+        public NhomLoaiController(NhomLoaiService service)
         {
-            _context = context;
+            _service = service;
         }
 
         // GET: api/NhomLoai
@@ -24,7 +20,7 @@ namespace BE_QLTiemThuoc.Controllers
         {
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
-                var list = await _context.NhomLoai.ToListAsync();
+                var list = await _service.GetAllAsync();
                 return list;
             });
             return Ok(response);
@@ -36,8 +32,7 @@ namespace BE_QLTiemThuoc.Controllers
         {
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
-                var item = await _context.NhomLoai.FindAsync(maNhom);
-                if (item == null) throw new System.Exception("Không tìm thấy nhóm loại.");
+                var item = await _service.GetByIdAsync(maNhom);
                 return item;
             });
             return Ok(response);
@@ -49,7 +44,7 @@ namespace BE_QLTiemThuoc.Controllers
         {
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
-                var list = await _context.LoaiThuoc.Where(l => l.MaNhomLoai == maNhom).ToListAsync();
+                var list = await _service.GetLoaiByNhomAsync(maNhom);
                 return list;
             });
             return Ok(response);
@@ -61,14 +56,7 @@ namespace BE_QLTiemThuoc.Controllers
         {
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
-                var groups = await _context.NhomLoai
-                    .Select(g => new {
-                        g.MaNhomLoai,
-                        g.TenNhomLoai,
-                        Loai = _context.LoaiThuoc.Where(l => l.MaNhomLoai == g.MaNhomLoai)
-                            .Select(l => new { l.MaLoaiThuoc, l.TenLoaiThuoc, l.Icon }).ToList()
-                    }).ToListAsync();
-
+                var groups = await _service.GetGroupsWithLoaiAsync();
                 return groups;
             });
 

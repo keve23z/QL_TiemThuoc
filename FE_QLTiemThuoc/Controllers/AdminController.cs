@@ -260,6 +260,34 @@ namespace FE_QLTiemThuoc.Controllers
             ViewBag.DefaultNgayNhap = DateTime.Now.ToString("yyyy-MM-ddTHH:mm");
             return View();
         }
+        
+        // Kho - Thuốc: hiển thị danh sách Chưa tách lẻ / Đã tách lẻ
+        [HttpGet]
+        public IActionResult ThuocKho()
+        {
+            try
+            {
+                var c0 = _http.CreateClient("MyApi");
+                var raw = c0.BaseAddress?.ToString() ?? "/api";
+                // normalize: remove trailing slash and remove trailing '/api' if present
+                var norm = raw.TrimEnd('/');
+                if (norm.EndsWith("/api", StringComparison.OrdinalIgnoreCase))
+                {
+                    norm = norm.Substring(0, norm.Length - 4); // remove '/api'
+                }
+                ViewBag.ApiBase = norm;
+            }
+            catch { ViewBag.ApiBase = "/api"; }
+
+            try
+            {
+                ViewBag.MaNV = HttpContext.Session.GetString("MaNhanVien") ?? string.Empty;
+                ViewBag.TenNV = HttpContext.Session.GetString("TenNhanVien") ?? string.Empty;
+            }
+            catch { ViewBag.MaNV = string.Empty; ViewBag.TenNV = string.Empty; }
+
+            return View();
+        }
 
         [HttpGet]
         public async Task<IActionResult> AddPhieuNhap()
