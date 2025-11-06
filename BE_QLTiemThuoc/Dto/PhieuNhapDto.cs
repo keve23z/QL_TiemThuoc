@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-
-namespace BE_QLTiemThuoc.Dto
+﻿namespace BE_QLTiemThuoc.Dto
 {
     public class PhieuNhapDto
     {
@@ -14,6 +11,6 @@ namespace BE_QLTiemThuoc.Dto
         public string? GhiChu { get; set; }
 
         public List<ChiTietPhieuNhapDto> ChiTietPhieuNhaps { get; set; } = new();
-        // No longer uses LoThuocHSD; TON_KHO rows are generated server-side from ChiTietPhieuNhaps
+       
     }
 }

@@ -248,28 +248,5 @@ namespace BE_QLTiemThuoc.Services
             return new { PhieuNhap = phieuNhap, ChiTiet = chiTietPhieuNhaps };
         }
 
-        public async Task<List<object>> GetTonKhoByMaPNAsync(string maPN)
-        {
-            var ctx = _repo.Context;
-            var rows = await (
-                from tk in ctx.TonKhos
-                join ct in ctx.ChiTietPhieuNhaps.Where(c => c.MaPN == maPN)
-                    on new { tk.MaThuoc, tk.HanSuDung } equals new { ct.MaThuoc, HanSuDung = ct.HanSuDung!.Value }
-                select new
-                {
-                    tk.MaLo,
-                    tk.MaThuoc,
-                    tk.HanSuDung,
-                    TrangThaiSeal = tk.TrangThaiSeal ? 1 : 0,
-                    tk.DonViTinh,
-                    tk.SoLuongNhap,
-                    tk.SoLuongCon,
-                    tk.GhiChu
-                }
-            ).Distinct().ToListAsync();
-
-            return rows.Cast<object>().ToList();
-        }
-
     }
 }
