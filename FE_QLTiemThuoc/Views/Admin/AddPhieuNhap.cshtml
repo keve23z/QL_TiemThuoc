@@ -1,709 +1,907 @@
 @model FE_QLTiemThuoc.Models.PhieuNhapDto
 @{
-    ViewData["Title"] = "Thêm phiếu nhập";
+	ViewData["Title"] = "Thêm phiếu nhập";
 }
 
-@section Styles {
 <style>
-    body {
-        background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-    }
-    .main-card {
-        background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 50%, #6c757d 100%);
-        border: none;
-        border-radius: 15px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
-        padding: 2rem;
-        margin: 2rem auto;
-        max-width: 1200px;
-    }
-    .section-header {
-        color: #6c757d;
-        font-weight: bold;
-        margin-bottom: 1.5rem;
-        text-align: center;
-        font-size: 1.5rem;
-    }
-    .form-control, .form-select {
-        border: 2px solid #6c757d;
-        border-radius: 8px;
-        transition: border-color 0.3s, box-shadow 0.3s;
-    }
-    .form-control:focus, .form-select:focus {
-        border-color: #495057;
-        box-shadow: 0 0 10px rgba(108, 117, 125, 0.5);
-    }
-    .btn-primary {
-        background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
-        border: none;
-        border-radius: 8px;
-        padding: 0.75rem 1.5rem;
-        font-weight: bold;
-        transition: transform 0.2s;
-    }
-    .btn-primary:hover {
-        transform: translateY(-2px);
-        background: linear-gradient(135deg, #495057 0%, #6c757d 100%);
-    }
-    .btn-outline-primary {
-        border-color: #6c757d;
-        color: #6c757d;
-        border-radius: 8px;
-    }
-    .btn-outline-primary:hover {
-        background-color: #6c757d;
-        color: white;
-    }
-    .btn-danger {
-        background-color: #dc3545;
-        border: none;
-        border-radius: 8px;
-    }
-    .btn-secondary {
-        background-color: #6c757d;
-        border: none;
-        border-radius: 8px;
-    }
-    .highlight-total {
-        background: linear-gradient(135deg, #6c757d 0%, #495057 100%);
-        color: white;
-        padding: 1rem;
-        border-radius: 8px;
-        text-align: center;
-        font-size: 1.25rem;
-        font-weight: bold;
-        margin-bottom: 1rem;
-        box-shadow: 0 4px 8px rgba(0,0,0,0.2);
-    }
-    .highlight-total #TongTienDisplay {
-        color: #ffd700; /* vàng sáng */
-        font-size: 1.5rem;
-        text-shadow: 0 0 10px rgba(255, 215, 0, 0.8), 0 0 20px rgba(255, 215, 0, 0.6);
-        font-weight: bolder;
-    }
-    .chi-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-top: 1rem;
-    }
-    .chi-table th {
-        background-color: #6c757d;
-        color: white;
-        padding: 0.75rem;
-        text-align: center;
-        font-weight: bold;
-    }
-    .chi-table td {
-        padding: 0.75rem;
-        border-bottom: 1px solid #dee2e6;
-        text-align: center;
-    }
-    .chi-table tbody tr:nth-child(even) {
-        background-color: #f8f9fa;
-    }
-    .chi-table tbody tr:hover {
-        background-color: #e9ecef;
-    }
-    .icon-highlight {
-        color: #6c757d;
-        margin-right: 0.5rem;
-    }
-    .alert {
-        border-radius: 8px;
-    }
+/* Bright tweaks scoped to this view */
+.add-phieu .card-header { background: #f6fbff !important; color: #0b3d91 !important; border: none; }
+.add-phieu .card { background: #fff; }
+.add-phieu .bg-dark { background: linear-gradient(90deg,#eef6ff,#ffffff) !important; color: #0b3d91 !important; }
+.add-phieu .total-box { min-height:56px; display:flex; align-items:center; justify-content:space-between; padding:12px 16px; border-radius:6px; background:linear-gradient(90deg,#f1fbf8,#fff); color:#0b7f66; font-weight:700 }
+.add-phieu .col-md-6 { display:flex; flex-direction:column; }
+.add-phieu .col-md-6 .form-label { margin-bottom:6px }
+.add-phieu .col-md-6 .form-control { flex:0 0 auto }
+.add-phieu .table thead th { background:#f6fbff !important; color:#0b3d91 !important }
+.add-phieu .table td, .add-phieu .table th { vertical-align:middle }
+.add-phieu .remove-row { display:inline-flex; align-items:center; justify-content:center; height:38px; padding:6px 12px }
+.add-phieu .remove-row .bi { margin-right:6px }
+.add-phieu .form-control, .add-phieu .form-select { background:#fff }
+.add-phieu .btn-primary { background:#0bb199; border-color:#0bb199 }
+.add-phieu .row.g-3.mt-2 > .col-md-6 .form-control { min-height:56px }
 </style>
-}
 
-<div class="container-fluid">
-    <div class="main-card">
-        <h4 class="section-header"><i class="bi bi-receipt icon-highlight"></i>Thêm phiếu nhập</h4>
-        <div id="formAlert"></div>
-        <form method="post" asp-action="AddPhieuNhap">
-            <input type="hidden" name="MaPN" id="MaPNHidden" />
-            <div class="row g-3">
-                <div class="col-md-4">
-                    <label class="form-label"><i class="bi bi-calendar icon-highlight"></i>Ngày nhập</label>
-                    <input asp-for="NgayNhap" class="form-control" type="datetime-local" />
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label"><i class="bi bi-building icon-highlight"></i>Nhà cung cấp</label>
-                    <input id="nccNameInput" class="form-control" list="nccOptions" placeholder="-- Chọn nhà cung cấp --" autocomplete="off" />
-                    <datalist id="nccOptions"></datalist>
-                    <input type="hidden" asp-for="MaNCC" id="MaNCCHidden" />
-                    <small><a href="/admin/QuanLyNCC" class="text-muted">Quản lý nhà cung cấp</a></small>
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label"><i class="bi bi-person icon-highlight"></i>Nhân viên</label>
-                    <input class="form-control" value="@(ViewBag.TenNV ?? ViewBag.MaNV ?? String.Empty)" readonly />
-                    <input type="hidden" asp-for="MaNV" value="@(ViewBag.MaNV ?? String.Empty)" />
-                </div>
-            </div>
+<div class="container-fluid py-4 add-phieu">
+	<div class="card shadow border-0">
+		<div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+			<h5 class="mb-0"><i class="bi bi-receipt me-2"></i>Thêm phiếu nhập</h5>
+			<button class="btn btn-outline-light btn-sm" id="btnBackList"><i class="bi bi-list-ul me-1"></i>Danh sách phiếu</button>
+		</div>
+		<div class="card-body">
+			<div id="formAlert"></div>
+			<form id="phieuNhapForm" novalidate>
+				<input type="hidden" asp-for="MaPN" id="MaPNHidden" />
+				<div class="row g-3">
+					<div class="col-md-4">
+						<label class="form-label">Ngày nhập</label>
+						<input asp-for="NgayNhap" class="form-control" type="datetime-local" value="@(ViewBag.DefaultNgayNhap ?? DateTime.Now.ToString("yyyy-MM-ddTHH:mm"))" />
+					</div>
+					<div class="col-md-4">
+						<label class="form-label">Nhà cung cấp</label>
+						<input class="form-control" id="nccNameInput" list="nccOptions" placeholder="-- Chọn nhà cung cấp --" autocomplete="off" />
+						<datalist id="nccOptions"></datalist>
+						<input asp-for="MaNCC" type="hidden" id="MaNCCHidden" />
+						<small><a href="/Admin/QuanLyNCC" class="text-muted">Quản lý nhà cung cấp</a></small>
+					</div>
+					<div class="col-md-4">
+						<label class="form-label">Nhân viên</label>
+						<input class="form-control" value="@(ViewBag.TenNV ?? ViewBag.MaNV ?? string.Empty)" readonly />
+						<input asp-for="MaNV" type="hidden" value="@(ViewBag.MaNV ?? string.Empty)" />
+					</div>
+				</div>
 
-            <div class="row g-3 mt-2">
-                <div class="col-md-6">
-                    <div class="highlight-total">
-                        <i class="bi bi-cash-stack icon-highlight"></i>Tổng tiền: <span id="TongTienDisplay">0.00</span>
-                        <input asp-for="TongTien" id="TongTien" type="hidden" />
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <label class="form-label"><i class="bi bi-sticky icon-highlight"></i>Ghi chú</label>
-                    <input asp-for="GhiChu" class="form-control" />
-                </div>
-            </div>
+				<div class="row g-3 mt-2">
+					<div class="col-md-6">
+						<label class="form-label">Tổng tiền</label>
+						<div class="bg-dark text-white rounded p-3 d-flex justify-content-between align-items-center total-box">
+							<span>Tổng tiền</span>
+							<strong id="TongTienDisplay">0</strong>
+							<input asp-for="TongTien" type="hidden" id="TongTien" value="0" />
+						</div>
+					</div>
+					<div class="col-md-6">
+						<label class="form-label">Ghi chú</label>
+						<input asp-for="GhiChu" class="form-control" placeholder="Ghi chú (không bắt buộc)" />
+					</div>
+				</div>
 
-            <hr class="my-4" style="border-color: #6c757d;" />
-            <h5 class="section-header"><i class="bi bi-list-ul icon-highlight"></i>Chi tiết phiếu nhập</h5>
-            <table class="chi-table" id="chiTietTable">
-                <thead>
-                    <tr>
-                        <th>Thuốc</th>
-                        <th>Số lượng</th>
-                        <th>Đơn giá</th>
-                        <th>Thành tiền</th>
-                        <th>Hạn dùng</th>
-                        <th>Đơn vị</th>
-                        <th>Hành động</th>
-                    </tr>
-                </thead>
-                <tbody id="chiTietContainer">
-                    <tr class="chi-item">
-                        <td>
-                            <input class="form-control ma-thuoc-display" list="thuocOptions" placeholder="Tên / Mã thuốc" autocomplete="off" />
-                            <input type="hidden" name="ChiTietPhieuNhaps[0].MaThuoc" class="ma-thuoc-hidden" />
-                        </td>
-                        <td><input name="ChiTietPhieuNhaps[0].SoLuong" class="form-control" placeholder="Số lượng" type="number" /></td>
-                        <td><input name="ChiTietPhieuNhaps[0].DonGia" class="form-control" placeholder="Đơn giá" type="number" step="0.01" /></td>
-                        <td><input name="ChiTietPhieuNhaps[0].ThanhTien" class="form-control" placeholder="Thành tiền" type="number" step="0.01" readonly /></td>
-                        <td><input name="ChiTietPhieuNhaps[0].HanSuDung" class="form-control" placeholder="Hạn dùng" type="date" /></td>
-                        <td><select name="ChiTietPhieuNhaps[0].MaLoaiDonViNhap" class="form-select chi-maloai-select"><option value="">-- Đơn vị --</option></select></td>
-                        <td><button type="button" class="btn btn-danger btn-sm remove-chi">Xóa</button></td>
-                    </tr>
-                </tbody>
-            </table>
-            <datalist id="thuocOptions"></datalist>
-            <div class="mt-3">
-                <button id="addChiBtn" type="button" class="btn btn-outline-primary"><i class="bi bi-plus-circle icon-highlight"></i>Thêm chi tiết</button>
-            </div>
+				<hr />
+				<div class="d-flex justify-content-between align-items-center mb-2">
+					<h6 class="mb-0"><i class="bi bi-list-ul me-2"></i>Chi tiết phiếu nhập</h6>
+					<button class="btn btn-outline-primary btn-sm" type="button" id="addChiTiet"><i class="bi bi-plus-circle me-1"></i>Thêm dòng</button>
+				</div>
+				<div class="table-responsive">
+					<table class="table table-bordered align-middle" id="chiTietTable">
+						<thead class="table-dark">
+							<tr>
+								<th style="width:16%">Thuốc</th>
+								<th style="width:9%">Số lượng</th>
+								<th style="width:11%">Đơn giá</th>
+								<th style="width:11%">Thành tiền</th>
+								<th style="width:14%">Ghi chú</th>
+								<th style="width:13%">Hạn dùng</th>
+								<th style="width:14%">Đơn vị tồn kho</th>
+								<th style="width:8%"></th>
+							</tr>
+						</thead>
+						<tbody id="chiTietBody"></tbody>
+					</table>
+				</div>
 
-            <div class="mt-4 text-center">
-                <button type="submit" class="btn btn-primary me-2"><i class="bi bi-save icon-highlight"></i>Lưu phiếu nhập</button>
-                <a asp-action="NhapThuoc" class="btn btn-secondary"><i class="bi bi-x-circle icon-highlight"></i>Hủy</a>
-            </div>
-        </form>
-    </div>
+				<div class="mt-3 text-center">
+					<button type="submit" class="btn btn-primary me-2" id="btnSubmit"><i class="bi bi-save me-1"></i>Lưu &amp; cập nhật tồn kho</button>
+					<button type="button" class="btn btn-secondary" id="btnReset"><i class="bi bi-arrow-clockwise me-1"></i>Làm mới</button>
+				</div>
+			</form>
+
+			<div class="mt-4 text-center" id="postSaveActions" style="display:none">
+				<button class="btn btn-success me-2" id="btnNhapTiep"><i class="bi bi-plus-circle me-1"></i>Thêm phiếu khác</button>
+				<button class="btn btn-outline-primary me-2" id="btnPrint"><i class="bi bi-printer me-1"></i>In phiếu</button>
+				<a class="btn btn-outline-secondary" href="/Admin/NhapThuocList"><i class="bi bi-arrow-left-circle me-1"></i>Về danh sách</a>
+			</div>
+		</div>
+	</div>
 </div>
+
+<div id="addPhieuDebug" style="position:fixed; right:12px; bottom:12px; background:#fff; border:1px solid #ddd; padding:8px 10px; border-radius:6px; box-shadow:0 6px 18px rgba(0,0,0,0.06); font-size:12px; z-index:9999; max-width:320px;">
+	<strong>Debug</strong>
+	<div id="dbg_lastMatched">last: -</div>
+	<div id="dbg_lastUnit">unit: -</div>
+</div>
+
+<datalist id="thuocOptions"></datalist>
 
 @section Scripts {
 <script>
-    (function(){
-        // api base from server (falls back to /api)
-        var apiBase = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.ApiBase ?? "/api/"));
-        if (typeof apiBase !== 'string' || !apiBase) apiBase = '/api';
-        apiBase = apiBase.replace(/\/$/, '');
-        function reindex(containerSelector, itemSelector, inputNameBase) {
-            var container = document.querySelector(containerSelector);
-            if (!container) return;
-            var items = container.querySelectorAll(itemSelector);
-            for (var i = 0; i < items.length; i++) {
-                var inputs = items[i].querySelectorAll('input,select,textarea');
-                inputs.forEach(function(inp){
-                    var name = inp.getAttribute('name');
-                    if (!name) return;
-                    var newName = name.replace(/\[\d+\]/, '['+i+']');
-                    inp.setAttribute('name', newName);
-                });
-            }
-        }
+(function(){
+	const apiBaseRaw = '@(ViewBag.ApiBase ?? "/api")';
+	const apiBase = (typeof apiBaseRaw === 'string' ? apiBaseRaw : '/api').replace(/\/+$/, '');
+	const PRINTED_BY = '@(ViewBag.TenNV ?? "")';
+	console.debug && console.debug('Api base for AddPhieuNhap:', apiBase);
 
-    document.getElementById('addChiBtn').addEventListener('click', async function(){
-            var tbody = document.getElementById('chiTietContainer');
-            var idx = tbody.querySelectorAll('.chi-item').length;
-            var tr = document.createElement('tr'); tr.className = 'chi-item';
-            tr.innerHTML = '<td><input class="form-control ma-thuoc-display" list="thuocOptions" placeholder="Tên / Mã thuốc" autocomplete="off" /><input type="hidden" name="ChiTietPhieuNhaps['+idx+'].MaThuoc" class="ma-thuoc-hidden" /></td><td><input name="ChiTietPhieuNhaps['+idx+'].SoLuong" class="form-control" placeholder="Số lượng" type="number" /></td><td><input name="ChiTietPhieuNhaps['+idx+'].DonGia" class="form-control" placeholder="Đơn giá" type="number" step="0.01" /></td><td><input name="ChiTietPhieuNhaps['+idx+'].ThanhTien" class="form-control" placeholder="Thành tiền" type="number" step="0.01" readonly /></td><td><input name="ChiTietPhieuNhaps['+idx+'].HanSuDung" class="form-control" placeholder="Hạn dùng" type="date" /></td><td><select name="ChiTietPhieuNhaps['+idx+'].MaLoaiDonViNhap" class="form-select chi-maloai-select"><option value="">-- Đơn vị --</option></select></td><td><button type="button" class="btn btn-danger btn-sm remove-chi">Xóa</button></td>';
-            tbody.appendChild(tr);
-            // attach handlers for display->hidden mapping and row calc
-            var disp = tr.querySelector('.ma-thuoc-display');
-            var hidden = tr.querySelector('.ma-thuoc-hidden');
-            if (disp && hidden) attachMaThuocDisplayHandler(disp, hidden);
-            attachRowHandlers(tr);
-            // populate unit select (wait for unit list if still loading)
-            var select = tr.querySelector('.chi-maloai-select');
-            if (select) {
-                try {
-                    if (typeof unitPromise === 'undefined' || unitPromise === null) unitPromise = loadUnitList();
-                    await unitPromise;
-                } catch(e) { console.warn('Unit list load failed while adding row', e); }
-                populateUnitSelect(select, '');
-            }
-        });
+	const NCC_PRELOAD = (function(){
+		try {
+			const encoded = '@System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(ViewBag.NCCList ?? new List<FE_QLTiemThuoc.Models.NhaCungCap>())))';
+			return JSON.parse(atob(encoded));
+		} catch { return []; }
+	})();
+	const THUOC_PRELOAD = (function(){
+		try {
+			const encoded = '@System.Convert.ToBase64String(System.Text.Encoding.UTF8.GetBytes(System.Text.Json.JsonSerializer.Serialize(ViewBag.ThuocList ?? new List<FE_QLTiemThuoc.Models.ThuocViewModel>())))';
+			return JSON.parse(atob(encoded));
+		} catch { return []; }
+	})();
 
-        // Lo (lot) UI removed; expiry and unit are captured per chi tiet row now.
+	const form = document.getElementById('phieuNhapForm');
+	const chiBody = document.getElementById('chiTietBody');
+	const totalField = document.getElementById('TongTien');
+	const totalDisplay = document.getElementById('TongTienDisplay');
+	const btnSubmit = document.getElementById('btnSubmit');
+	const btnReset = document.getElementById('btnReset');
+	const btnBackList = document.getElementById('btnBackList');
+	const btnPrint = document.getElementById('btnPrint');
+	const btnNhapTiep = document.getElementById('btnNhapTiep');
+	const postActions = document.getElementById('postSaveActions');
+	const nccNameInput = document.getElementById('nccNameInput');
+	const nccHidden = document.getElementById('MaNCCHidden');
+	const nccOptions = document.getElementById('nccOptions');
 
-        document.addEventListener('click', function(e){
-            if (e.target && e.target.classList.contains('remove-chi')) {
-                e.target.closest('.chi-item').remove();
-                reindex('#chiTietContainer', '.chi-item');
-                recalcTotal();
-            }
-            
-        });
+	const state = {
+		suppliers: [],
+		supplierMap: {},
+		drugs: [],
+		drugLookup: {},
+		drugUnits: {},
+		drugRaw: {},
+		unitList: [],
+		savedMaPN: null
+	};
 
-        // drug lookup: fetch list and populate datalist
-        var thuocLookup = {}; // display -> code
-        var thuocReverse = {}; // code -> display
-        async function loadThuocOptions() {
-            try {
-                var res = await fetch(apiBase + '/Thuoc/ListThuocDetail');
-                if (!res.ok) return;
-                var j = await res.json();
-                var data = j.data ?? j;
-                var dl = document.getElementById('thuocOptions');
-                if (!dl) return;
-                dl.innerHTML = '';
-                if (Array.isArray(data)) {
-                    data.forEach(function(t) {
-                        var code = (t.MaThuoc ?? t.maThuoc ?? '').trim();
-                        var name = (t.TenThuoc ?? t.tenThuoc ?? '').trim();
-                        if (!code && !name) return;
-                        // show 'Ma - Ten' in the datalist to avoid ambiguous names, map display -> code
-                        var display = code && name ? (code + ' - ' + name) : (name || code);
-                        thuocLookup[display] = code;
-                        thuocReverse[code] = display;
-                        var opt = document.createElement('option'); opt.value = display; dl.appendChild(opt);
-                    });
-                }
-                // initialize any existing hidden inputs -> set display values
-                document.querySelectorAll('.ma-thuoc-hidden').forEach(function(h){
-                    var v = (h.value||'').trim();
-                    if (!v) return;
-                    var display = thuocReverse[v] || v;
-                    var disp = h.closest('.chi-item')?.querySelector('.ma-thuoc-display');
-                    if (disp) disp.value = display;
-                });
-                console.log('loadThuocOptions: loaded', Array.isArray(data) ? data.length : 0);
-                return data;
-            } catch(e) { console.error('loadThuocOptions', e); }
-        }
+	function normalize(text){
+		if (!text) return '';
+		try { return text.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+		catch { return text.toLowerCase(); }
+	}
 
-        // attach handler to a display input and its corresponding hidden input
-        function attachMaThuocDisplayHandler(displayInp, hiddenInp) {
-            function sync() {
-                var v = (displayInp.value||'').trim();
-                if (!v) { hiddenInp.value = ''; return; }
-                // match by name
-                var code = thuocLookup[v];
-                if (code) {
-                    hiddenInp.value = code;
-                } else {
-                    // if user typed 'CODE - Name', try to extract code
-                    var m = v.match(/^([A-Za-z0-9_-]+)\s*-\s*/);
-                    if (m) hiddenInp.value = m[1]; else hiddenInp.value = '';
-                }
-            }
-            displayInp.addEventListener('change', sync);
-            displayInp.addEventListener('blur', sync);
-        }
+	function showAlert(type, message){
+		const box = document.getElementById('formAlert');
+		if (!box) return;
+		const cls = type === 'success' ? 'alert-success' : 'alert-danger';
+		box.innerHTML = `<div class="alert ${cls} alert-dismissible" role="alert">${message}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>`;
+		box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+	}
 
-        
+	btnBackList?.addEventListener('click', () => window.location.href = '/Admin/NhapThuocList');
 
-        // initialize existing display inputs
-        document.querySelectorAll('.ma-thuoc-display').forEach(function(d){
-            var hidden = d.closest('.chi-item')?.querySelector('.ma-thuoc-hidden');
-            if (hidden) attachMaThuocDisplayHandler(d, hidden);
-        });
-        
-    // pre-load thuoc list
-    var thuocPromise = loadThuocOptions();
-        // load unit list and populate unit selects
-        var unitList = [];
-        async function loadUnitList(){
-            try{
-                var r = await fetch(apiBase + '/Thuoc/LoaiDonVi');
-                if (!r.ok) throw new Error('LoaiDonVi fetch failed');
-                var j = await r.json();
-                var data = j.data ?? j;
-                if (Array.isArray(data)) unitList = data;
-            }catch(e){ console.warn('loadUnitList', e); }
-            // populate existing selects
-            document.querySelectorAll('.chi-maloai-select').forEach(function(s){ populateUnitSelect(s, s.value); });
-            console.log('loadUnitList: loaded', unitList.length);
-            return unitList;
-        }
-        function populateUnitSelect(selectEl, selected){
-            if (!selectEl) return;
-            selectEl.innerHTML = '<option value="">-- Đơn vị --</option>';
-            unitList.forEach(function(u){
-                var code = (u.MaLoaiDonVi || u.maLoaiDonVi || '').trim();
-                var name = (u.TenLoaiDonVi || u.tenLoaiDonVi || code) || '';
-                var opt = document.createElement('option'); opt.value = code; opt.textContent = name;
-                if (selected && selected === code) opt.selected = true;
-                selectEl.appendChild(opt);
-            });
-        }
-    // start unit loading and keep promise for awaits
-    var unitPromise = loadUnitList();
+	function renderSupplierOptions(query){
+		const normalized = normalize(query);
+		const ranked = state.suppliers.slice().sort((a,b) => {
+			const ra = supplierRank(normalized, a.norm), rb = supplierRank(normalized, b.norm);
+			if (ra.tier !== rb.tier) return ra.tier - rb.tier;
+			if (ra.dist !== rb.dist) return ra.dist - rb.dist;
+			return a.name.localeCompare(b.name);
+		}).slice(0, 20);
+		nccOptions.innerHTML = '';
+		ranked.forEach(item => {
+			const opt = document.createElement('option');
+			opt.value = item.name;
+			nccOptions.appendChild(opt);
+		});
+	}
 
-        // helper to get code from a display string (used on submit)
-        function getThuocCodeFromDisplay(displayValue) {
-            var v = (displayValue||'').trim();
-            if (!v) return '';
-            if (thuocLookup[v]) return thuocLookup[v];
-            var m = v.match(/^([A-Za-z0-9_-]+)\s*-\s*/);
-            return m ? m[1] : '';
-        }
+	function supplierRank(q, name){
+		if (!q) return { tier: 0, dist: name.length };
+		const idx = name.indexOf(q);
+		if (idx === 0) return { tier: 0, dist: Math.abs(name.length - q.length) };
+		if (name.split(/\s+/).some(word => word.startsWith(q))) return { tier: 1, dist: 0 };
+		if (idx > 0) return { tier: 2, dist: idx };
+		return { tier: 3, dist: levenshtein(q, name) };
+	}
 
-        // async submit handler: generate MaPN/MaCTPN/MaLo on FE then submit
-        var form = document.querySelector('form[asp-action="AddPhieuNhap"]') || document.querySelector('form');
-        if (form) {
-            form.addEventListener('submit', async function(ev){
-                ev.preventDefault();
-                // first sync visible->hidden for MaThuoc and MaNCC
-                document.querySelectorAll('.ma-thuoc-display').forEach(function(d){
-                    var hidden = d.closest('.chi-item')?.querySelector('.ma-thuoc-hidden');
-                    if (hidden) hidden.value = getThuocCodeFromDisplay(d.value);
-                });
-                document.querySelectorAll('.lo-ma-thuoc-display').forEach(function(d){
-                    var hidden = d.closest('.lo-item')?.querySelector('.lo-ma-thuoc-hidden');
-                    if (hidden) hidden.value = getThuocCodeFromDisplay(d.value);
-                });
-                // ensure MaNCC set
-                try { document.getElementById('nccNameInput')?.dispatchEvent(new Event('blur')); } catch(e){}
+	function levenshtein(a, b){
+		const m = a.length, n = b.length;
+		if (!m) return n;
+		if (!n) return m;
+		const dp = Array.from({ length: m + 1 }, () => new Array(n + 1));
+		for (let i = 0; i <= m; i++) dp[i][0] = i;
+		for (let j = 0; j <= n; j++) dp[0][j] = j;
+		for (let i = 1; i <= m; i++){
+			for (let j = 1; j <= n; j++){
+				const cost = a[i-1] === b[j-1] ? 0 : 1;
+				dp[i][j] = Math.min(
+					dp[i-1][j] + 1,
+					dp[i][j-1] + 1,
+					dp[i-1][j-1] + cost
+				);
+			}
+		}
+		return dp[m][n];
+	}
 
-                // We no longer compute MaPN/MaCTPN/MaLo on the client or call GetByDateRange.
-                // Let the server generate identifiers and lots. We only collect ChiTietPhieuNhaps and
-                // include HanSuDung and MaLoaiDonViNhap so the server can create LoThuocHSD entries as needed.
+	function loadSupplierData(list){
+		state.suppliers = (list || []).map(item => {
+			const name = (item.TenNCC ?? item.tenNCC ?? '').trim();
+			const code = (item.MaNCC ?? item.maNCC ?? '').trim();
+			if (!name) return null;
+			state.supplierMap[name] = code;
+			return { name, code, norm: normalize(name) };
+		}).filter(Boolean);
+		renderSupplierOptions(nccNameInput?.value || '');
+	}
 
-                // prepare payload objects
-                var phieu = {};
-                phieu.MaPN = document.getElementById('MaPNHidden').value || '';
-                phieu.NgayNhap = document.querySelector('input[name="NgayNhap"]')?.value || new Date().toISOString();
-                var nccCode = document.getElementById('MaNCCHidden')?.value || '';
-                // if user left supplier blank, send null instead of empty string to avoid FK mismatch
-                phieu.MaNCC = nccCode && nccCode.trim() ? nccCode.trim() : null;
-                phieu.MaNV = document.querySelector('input[name="MaNV"]')?.value || '';
-                phieu.TongTien = parseFloat(document.getElementById('TongTien')?.value) || 0;
-                phieu.GhiChu = document.querySelector('input[name="GhiChu"]')?.value || '';
+	function syncSupplier(){
+		const raw = (nccNameInput?.value || '').trim();
+		if (!raw) { nccHidden.value = ''; return; }
+		// direct exact match from prebuilt map
+		if (state.supplierMap[raw]) {
+			nccHidden.value = state.supplierMap[raw];
+			return;
+		}
+		// try normalized matching (best-effort)
+		const q = normalize(raw);
+		let found = state.suppliers.find(s => s.norm === q);
+		if (!found) {
+			// startsWith or contains
+			found = state.suppliers.find(s => s.norm.startsWith(q) || s.norm.includes(q));
+		}
+		if (found) {
+			nccHidden.value = found.code || '';
+			return;
+		}
+		// fallback: try case-insensitive exact on displayed name
+		found = state.suppliers.find(s => s.name.toLowerCase() === raw.toLowerCase());
+		if (found) {
+			nccHidden.value = found.code || '';
+			return;
+		}
+		// not found -> clear hidden so backend won't receive stale value
+		nccHidden.value = '';
+	}
 
-                // build chi tiet array
-                var chiArr = [];
-                var chiRows2 = Array.from(document.querySelectorAll('#chiTietContainer .chi-item'));
-                for (var i=0;i<chiRows2.length;i++){
-                    var r = chiRows2[i];
-                    var obj = {};
-                    // Do not send MaCTPN/MaPN - let server generate them to avoid FK conflicts
-                    obj.MaThuoc = (r.querySelector('.ma-thuoc-hidden')?.value||'').trim();
-                    obj.SoLuong = parseFloat(r.querySelector('input[name$=".SoLuong"]')?.value) || 0;
-                    obj.DonGia = parseFloat(r.querySelector('input[name$=".DonGia"]')?.value) || 0;
-                    obj.ThanhTien = parseFloat(r.querySelector('input[name$=".ThanhTien"]')?.value) || 0;
-                    obj.HanSuDung = (r.querySelector('input[name$=".HanSuDung"]')?.value||'').trim();
-                    obj.MaLoaiDonViNhap = (r.querySelector('select[name$=".MaLoaiDonViNhap"]')?.value||'').trim();
-                    chiArr.push(obj);
-                }
-                phieu.ChiTietPhieuNhaps = chiArr;
+	async function ensureSuppliers(){
+		if (state.suppliers.length) return;
+		loadSupplierData(NCC_PRELOAD);
+		if (state.suppliers.length) return;
+		try {
+			const res = await fetch(`${apiBase}/NhaCungCap`);
+			if (!res.ok) throw new Error(res.statusText);
+			const json = await res.json();
+			const data = json?.data ?? json ?? [];
+			loadSupplierData(Array.isArray(data) ? data : []);
+		} catch (err) {
+			console.warn('Load NCC thất bại', err);
+		}
+	}
 
-                // Do not build or send LoThuocHSDs from the client.
-                // Server will generate LoThuocHSD entries 1-to-1 from ChiTietPhieuNhaps.
+	function renderThuocOptions(query){
+		const dl = document.getElementById('thuocOptions');
+		if (!dl) return;
+		dl.innerHTML = '';
+		const normalized = normalize(query);
+		let count = 0;
+		state.drugs.forEach(item => {
+			if (!normalized || item.normName.includes(normalized) || item.normCode.includes(normalized)){
+				const opt = document.createElement('option');
+				opt.value = `${item.code} - ${item.name}`;
+				dl.appendChild(opt);
+				if (++count >= 200) return;
+			}
+		});
+	}
 
-                // Client-side validation: ensure required fields exist to avoid DB save exceptions
-                var errors = [];
-                phieu.ChiTietPhieuNhaps.forEach(function(c, idx){
-                    if (!c.MaThuoc || c.MaThuoc === '') errors.push('ChiTietPhieuNhaps['+idx+'].MaThuoc is required');
-                });
-                // Validate han su dung and units on chi tiet rows
-                document.querySelectorAll('#chiTietContainer .chi-item').forEach(function(r, idx){
-                    var han = (r.querySelector('input[name$=".HanSuDung"]')?.value||'').trim();
-                    if (!han) errors.push('ChiTietPhieuNhaps['+idx+'].HanSuDung is required');
-                    var unit = (r.querySelector('select[name$=".MaLoaiDonViNhap"]')?.value||'').trim();
-                    if (!unit) errors.push('ChiTietPhieuNhaps['+idx+'].MaLoaiDonViNhap is required');
-                });
-                if (errors.length > 0) {
-                    showAlert('error', 'Dữ liệu không hợp lệ: <br/>' + errors.join('<br/>'));
-                    if (submitBtn) { submitBtn.disabled = false; submitBtn.innerText = 'Lưu phiếu nhập'; }
-                    return;
-                }
+	function loadDrugData(list){
+		const data = list || [];
+		state.drugs = [];
+		state.drugLookup = {};
+		state.drugUnits = {};
+		state.drugRaw = {};
+		data.forEach(item => {
+			const code = (item.MaThuoc ?? item.maThuoc ?? '').trim();
+			const name = (item.TenThuoc ?? item.tenThuoc ?? '').trim();
+			if (!code && !name) return; // nothing useful
+			// skip registering entries that lack a code to avoid creating a "" key in drugUnits/drugRaw
+			if (!code) return;
+			const maLDV = (item.MaLoaiDonVi ?? item.maLoaiDonVi ?? '').trim();
+			const tenLDV = (item.TenLoaiDonVi ?? item.tenLoaiDonVi ?? maLDV) || '';
+			state.drugs.push({ code, name, normCode: normalize(code), normName: normalize(name) });
+			state.drugLookup[`${code} - ${name}`] = code;
+			state.drugLookup[`${name} - ${code}`] = code;
+			state.drugLookup[code] = code;
+			state.drugUnits[code] = { code: maLDV, name: tenLDV };
+			state.drugRaw[code] = item;
+		});
+		console.debug && console.debug('Loaded drugs:', state.drugs.length, 'units:', Object.keys(state.drugUnits).length);
+		renderThuocOptions('');
+	}
 
-                // disable submit button and show loading state
-                var submitBtn = form.querySelector('button[type="submit"]');
-                if (submitBtn) { submitBtn.disabled = true; submitBtn.innerText = 'Đang lưu...'; }
+	function findDrugCode(input){
+		if (!input) return '';
+		const v = input.trim();
+		// exact lookup
+		if (state.drugLookup[v]) return state.drugLookup[v];
+		// if user typed 'CODE - NAME' take the left part
+		if (v.indexOf(' - ') > -1) return v.split(' - ')[0];
+		// normalized search: match by code or name contains
+		const nv = normalize(v);
+		for (const d of state.drugs){
+			if (d.normCode === nv || d.normName === nv) return d.code;
+			if (d.normCode.includes(nv) || d.normName.includes(nv)) return d.code;
+		}
+		return '';
+	}
 
-                function showAlert(type, msg){
-                    var out = document.getElementById('formAlert');
-                    if (!out) return;
-                    out.innerHTML = '<div class="alert alert-'+(type==='success'?'success':'danger')+' alert-dismissible" role="alert">'+
-                        msg + '<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>';
-                    out.scrollIntoView({behavior:'smooth', block:'center'});
-                }
+	async function ensureDrugs(){
+		if (state.drugs.length) return;
+		loadDrugData(THUOC_PRELOAD);
+		if (state.drugs.length) return;
+		try {
+			const res = await fetch(`${apiBase}/Thuoc/ListThuocDetail`);
+			if (!res.ok) throw new Error(res.statusText);
+			const json = await res.json();
+			const data = json?.data ?? json ?? [];
+			loadDrugData(Array.isArray(data) ? data : []);
+		} catch (err) {
+			console.warn('Load thuốc thất bại', err);
+		}
+	}
 
-                // no pre-open print window — restore original post-save behavior
+	async function loadUnitList(){
+		if (state.unitList.length) return state.unitList;
+		try {
+			const res = await fetch(`${apiBase}/Thuoc/LoaiDonVi`);
+			if (!res.ok) throw new Error(res.statusText);
+			const json = await res.json();
+			const data = json?.data ?? json ?? [];
+			if (Array.isArray(data)) state.unitList = data;
+		} catch (err) {
+			console.warn('Load đơn vị thất bại', err);
+		}
+		return state.unitList;
+	}
 
-                try {
-                    var apiUrl = apiBase + '/PhieuNhap/AddPhieuNhap';
-                    console.log('Outgoing payload for PhieuNhap:', phieu);
-                    var resp = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(phieu) });
-                    if (resp.ok) {
-                        // try parse json message
-                        var j = null;
-                        try { j = await resp.json(); } catch(e){}
-                        // The backend returns ApiResponse wrapper. If success, j.data contains created MaPN (string)
-                        var createdMaPN = null;
-                        try { createdMaPN = (j && j.data) ? j.data : null; } catch(e){}
-                        var msg = (j && (j.message || j?.msg)) || 'Lưu phiếu nhập thành công.';
-                        showAlert('success', msg + (createdMaPN ? (' (Mã: ' + createdMaPN + ')') : ''));
-                        // optionally reset form
-                        form.reset(); document.getElementById('MaPNHidden').value = '';
-                        // if user checked print-after-save and we have a MaPN, fetch details and print
-                        try {
-                                // original behavior: always fetch details and open print window after save if backend returned MaPN
-                                if (createdMaPN) {
-                                    try {
-                                        var r = await fetch(apiBase + '/PhieuNhap/GetChiTietPhieuNhapByMaPN?maPN=' + encodeURIComponent(createdMaPN));
-                                        if (r.ok) {
-                                            var detail = await r.json();
-                                            var payload = detail.data ?? detail;
-                                            openPrintWindow(payload);
-                                        } else {
-                                            console.warn('Failed to fetch print details', r.status);
-                                        }
-                                    } catch(e){ console.error('Fetch for print failed', e); }
-                                }
-                        } catch(e){ console.warn('print after save flow failed', e); }
+	function createRow(){
+		const idx = chiBody.querySelectorAll('tr').length;
+		const tr = document.createElement('tr');
+		tr.className = 'chi-item';
+		tr.innerHTML = `
+			<td>
+				<input class="form-control form-control-sm ma-thuoc-display" list="thuocOptions" placeholder="Mã / Tên thuốc" autocomplete="off" />
+				<input type="hidden" name="ChiTietPhieuNhaps[${idx}].MaThuoc" class="ma-thuoc-hidden" />
+			</td>
+			<td><input class="form-control form-control-sm so-luong" name="ChiTietPhieuNhaps[${idx}].SoLuong" type="number" min="1" value="1" /></td>
+			<td><input class="form-control form-control-sm don-gia" name="ChiTietPhieuNhaps[${idx}].DonGia" type="number" min="0" step="0.01" value="0" /></td>
+			<td><input class="form-control form-control-sm thanh-tien" name="ChiTietPhieuNhaps[${idx}].ThanhTien" type="number" step="0.01" value="0" readonly /></td>
+				<td><input class="form-control form-control-sm ghi-chu" name="ChiTietPhieuNhaps[${idx}].GhiChu" type="text" placeholder="Ghi chú (không bắt buộc)" /></td>
+				<td><input class="form-control form-control-sm han-su-dung" name="ChiTietPhieuNhaps[${idx}].HanSuDung" type="date" /></td>
+			<td>
+				<select class="form-select form-select-sm don-vi-select" name="ChiTietPhieuNhaps[${idx}].MaLoaiDonViNhap">
+					<option value="">-- Đơn vị tồn kho --</option>
+				</select>
+			</td>
+			<td class="text-center"><button class="btn btn-outline-danger btn-sm remove-row" type="button" title="Xóa dòng"><i class="bi bi-x-lg"></i> <span class="d-none d-sm-inline">Xóa</span></button></td>
+		`;
+		chiBody.appendChild(tr);
+		attachRowHandlers(tr);
+		// focus the new drug input so user can continue typing quickly
+		try {
+			const newDisp = tr.querySelector('.ma-thuoc-display');
+			if (newDisp) setTimeout(() => { try { newDisp.focus(); } catch(e){} }, 30);
+		} catch(e) { /* ignore focus failures */ }
+		return tr;
+	}
 
-        // reset dynamic chi rows to single blank row
-                        var tbody = document.getElementById('chiTietContainer'); tbody.innerHTML = '';
-                        var tr = document.createElement('tr'); tr.className = 'chi-item';
-                        tr.innerHTML = '<td><input class="form-control ma-thuoc-display" list="thuocOptions" placeholder="Tên / Mã thuốc" autocomplete="off" /><input type="hidden" name="ChiTietPhieuNhaps[0].MaThuoc" class="ma-thuoc-hidden" /></td><td><input name="ChiTietPhieuNhaps[0].SoLuong" class="form-control" placeholder="Số lượng" type="number" /></td><td><input name="ChiTietPhieuNhaps[0].DonGia" class="form-control" placeholder="Đơn giá" type="number" step="0.01" /></td><td><input name="ChiTietPhieuNhaps[0].ThanhTien" class="form-control" placeholder="Thành tiền" type="number" step="0.01" readonly /></td><td><input name="ChiTietPhieuNhaps[0].HanSuDung" class="form-control" placeholder="Hạn dùng" type="date" /></td><td><select name="ChiTietPhieuNhaps[0].MaLoaiDonViNhap" class="form-select chi-maloai-select"><option value="">-- Đơn vị --</option></select></td><td><button type="button" class="btn btn-danger btn-sm remove-chi">Xóa</button></td>';
-                        tbody.appendChild(tr);
-                        // re-init lists/handlers
-                        loadThuocOptions(); loadUnitList();
-                    } else {
-                        var text = await resp.text();
-                        console.error('Server responded with non-OK status:', resp.status, text);
-                        // try parse json
-                        try { var j2 = JSON.parse(text); showAlert('error', j2.message || (j2?.errors && JSON.stringify(j2.errors)) || text); } catch(e){ showAlert('error', text || 'Lỗi khi lưu phiếu nhập'); }
-                    }
-                } catch(e) {
-                    console.error('Fetch error', e);
-                    showAlert('error', 'Lỗi mạng hoặc server: ' + (e.message||e));
-                } finally {
-                    if (submitBtn) { submitBtn.disabled = false; submitBtn.innerText = 'Lưu phiếu nhập'; }
-                }
-            });
-        }
+	function attachRowHandlers(row){
+		const disp = row.querySelector('.ma-thuoc-display');
+		const hidden = row.querySelector('.ma-thuoc-hidden');
+		const qty = row.querySelector('.so-luong');
+		const price = row.querySelector('.don-gia');
+		const amount = row.querySelector('.thanh-tien');
+		const unitSelect = row.querySelector('.don-vi-select');
 
-        // simple handler for single MaThuoc inputs (Lo rows) - replace display with code on blur
-        function attachMaThuocHandler(inp) {
-            inp.addEventListener('blur', function(){
-                var v = (inp.value||'').trim();
-                if (!v) return;
-                var code = getThuocCodeFromDisplay(v);
-                if (code) inp.value = code;
-            });
-        }
+		// when user types, show suggestions and if they type a recognized code/value,
+		// immediately set the hidden code and lock the unit select to the drug's default unit
+		disp?.addEventListener('input', async () => {
+			renderThuocOptions(disp.value || '');
+			const val = (disp.value || '').trim();
+			if (!val) return;
+			// ensure drug & unit metadata are loaded before attempting to lock/select unit
+			await ensureDrugs();
+			await loadUnitList();
+			const matched = findDrugCode(val);
+			if (matched) {
+				hidden.value = matched;
+				console.log && console.log('Matched drug for input', val, '->', matched, state.drugUnits[matched]);
+				// update on-screen debug
+				document.getElementById('dbg_lastMatched').textContent = 'last: ' + val + ' -> ' + matched;
+				// if we don't have unit info for this drug (missing code or empty), try reloading full detail once
+				const unitEntry = state.drugUnits[matched];
+				if (!unitEntry || !unitEntry.code) {
+					console.log && console.log('No unit code for', matched, '-> reloading ListThuocDetail');
+					try{
+						const r = await fetch(`${apiBase}/Thuoc/ListThuocDetail`);
+						if (r.ok){
+							const j = await r.json();
+							const data = j?.data ?? j ?? [];
+							loadDrugData(Array.isArray(data) ? data : []);
+							console.log && console.log('After reload, unit for', matched, '->', state.drugUnits[matched]);
+						}
+					} catch(e){ console.warn('Reload thuốc failed', e); }
+				}
+				lockUnitByDrug(unitSelect, hidden.value);
+			}
+		});
 
-        // helper: attach handlers to a chi row for live calculation
-        function attachRowHandlers(rowEl) {
-            var soEl = rowEl.querySelector('input[name$=".SoLuong"]');
-            var dgEl = rowEl.querySelector('input[name$=".DonGia"]');
-            var ttEl = rowEl.querySelector('input[name$=".ThanhTien"]');
-            function calcRow() {
-                var so = parseFloat(soEl.value) || 0;
-                var dg = parseFloat(dgEl.value) || 0;
-                var tt = so * dg;
-                ttEl.value = tt.toFixed(2);
-                recalcTotal();
-            }
-            if (soEl) soEl.addEventListener('input', calcRow);
-            if (dgEl) dgEl.addEventListener('input', calcRow);
-        }
+		// when input receives focus ensure options are ready and render suggestions
+		disp?.addEventListener('focus', async () => {
+			try {
+				await ensureDrugs();
+				renderThuocOptions(disp.value || '');
+			} catch(e) { /* ignore */ }
+		});
 
-        // attach handlers to existing rows on load
-        document.querySelectorAll('#chiTietContainer .chi-item').forEach(function(r){ attachRowHandlers(r); });
+		// also on blur ensure final selection is applied (covers pick-from-datalist)
+		disp?.addEventListener('blur', async () => {
+			const value = (disp.value || '').trim();
+			await ensureDrugs();
+			await loadUnitList();
+			const code = findDrugCode(value);
+			hidden.value = code;
+			console.log && console.log('Blur drug input', value, '->', code);
+			document.getElementById('dbg_lastMatched').textContent = 'last (blur): ' + value + ' -> ' + code;
+			lockUnitByDrug(unitSelect, hidden.value);
+		});
 
-        function recalcTotal() {
-            var sum = 0;
-            document.querySelectorAll('#chiTietContainer .chi-item').forEach(function(r){
-                var tt = r.querySelector('input[name$=".ThanhTien"]');
-                if (tt) sum += parseFloat(tt.value) || 0;
-            });
-            var out = document.getElementById('TongTien');
-            if (out) out.value = sum.toFixed(2);
-            var display = document.getElementById('TongTienDisplay');
-            if (display) display.textContent = sum.toFixed(2);
-        }
+		// datalist selection can also trigger change event - handle it immediately
+		disp?.addEventListener('change', async () => {
+			const value = (disp.value || '').trim();
+			if (!value) return;
+			await ensureDrugs();
+			await loadUnitList();
+			const code = findDrugCode(value);
+			hidden.value = code;
+			console.log && console.log('Change drug input', value, '->', code);
+			document.getElementById('dbg_lastMatched').textContent = 'last (change): ' + value + ' -> ' + code;
+			lockUnitByDrug(unitSelect, hidden.value);
+		});
 
-        // render a printable window given payload from GetChiTietPhieuNhapByMaPN
-        // Accept optional pre-opened window reference to avoid popup blockers: openPrintWindow(payload, printWindow)
-        function openPrintWindow(payload, printWin) {
-            try {
-                if (!payload) { alert('Dữ liệu in rỗng'); return; }
+		row.querySelector('.remove-row')?.addEventListener('click', () => {
+			row.remove();
+			renumberRows();
+			recalcTotal();
+		});
 
-                // Unwrap common ApiResponse wrapper
-                var p = payload;
-                if (p.data) p = p.data;
+		const onChange = () => {
+			const sl = parseFloat(qty.value) || 0;
+			const dg = parseFloat(price.value) || 0;
+			const tt = sl * dg;
+			amount.value = tt.toFixed(2);
+			recalcTotal();
+		};
+		qty?.addEventListener('input', onChange);
+		price?.addEventListener('input', onChange);
 
-                // try common shapes for parent and children
-                var ph = p.phieuNhap || p.PhieuNhap || p.phieuNhapDto || p.phieuNhapVm || null;
-                var chi = p.chiTiet || p.ChiTiet || p.items || p.chi || null;
+		// ensure unit options are present; populate with known units and try to preselect
+		loadUnitList().then(() => populateUnitSelect(unitSelect));
+	}
 
-                // If p looks like a top-level object with fields, use them
-                if (!ph) {
-                    var hasTop = (p.MaPN || p.maPN || p.NgayNhap || p.ngayNhap || p.TongTien || p.tongTien);
-                    if (hasTop) {
-                        ph = {
-                            MaPN: p.MaPN || p.maPN || '',
-                            NgayNhap: p.NgayNhap || p.ngayNhap || p.NgayNhap || '',
-                            TenNCC: p.TenNCC || p.NhaCungCap || p.NhaCungCap || '',
-                            TenNV: p.TenNV || p.TenNhanVien || p.TenNV || '',
-                            GhiChu: p.GhiChu || p.GhiChu || '' ,
-                            TongTien: p.TongTien || p.tongTien || null
-                        };
-                    }
-                }
+	function renumberRows(){
+		chiBody.querySelectorAll('.chi-item').forEach((row, index) => {
+			row.querySelectorAll('input, select').forEach(el => {
+				const name = el.getAttribute('name');
+				if (!name) return;
+				el.setAttribute('name', name.replace(/ChiTietPhieuNhaps\[\d+\]/, `ChiTietPhieuNhaps[${index}]`));
+			});
+		});
+	}
 
-                // If chi is missing but payload is array, treat it as chi list
-                if (!chi && Array.isArray(p)) chi = p;
+	function recalcTotal(){
+		let sum = 0;
+		chiBody.querySelectorAll('.thanh-tien').forEach(inp => {
+			sum += parseFloat(inp.value) || 0;
+		});
+		totalField.value = sum.toFixed(2);
+		totalDisplay.textContent = sum.toLocaleString('vi-VN');
+	}
 
-                // If ph still missing, try to derive from first chi entry's parent fields
-                if (!ph && Array.isArray(chi) && chi.length > 0) {
-                    var first = chi[0];
-                    ph = {
-                        MaPN: first.MaPN || first.maPN || '',
-                        NgayNhap: first.NgayNhap || first.ngayNhap || '',
-                        TenNCC: first.TenNCC || first.NhaCungCap || '',
-                        TenNV: first.TenNV || first.NhanVien || '',
-                        GhiChu: first.GhiChu || ''
-                    };
-                }
+	function populateUnitSelect(select){
+		if (!select) return;
+		select.innerHTML = '<option value="">-- Đơn vị tồn kho --</option>';
+		state.unitList.forEach(item => {
+			const code = (item.MaLoaiDonVi ?? item.maLoaiDonVi ?? '').trim();
+			const name = (item.TenLoaiDonVi ?? item.tenLoaiDonVi ?? code) || '';
+			if (!code) return;
+			const opt = document.createElement('option');
+			opt.value = code;
+			opt.textContent = name;
+			select.appendChild(opt);
+		});
+		// if the row already has a MaThuoc, try to preselect its unit (but don't disable here)
+		try {
+			const tr = select.closest('tr');
+			const hidden = tr?.querySelector('.ma-thuoc-hidden');
+			const drugCode = hidden?.value || '';
+			if (drugCode) {
+				const info = state.drugUnits[drugCode];
+				if (info && info.code) {
+					// if option exists, select it; otherwise append then select
+					let found = Array.from(select.options).find(o => o.value === info.code);
+					if (!found) {
+						const opt = document.createElement('option');
+						opt.value = info.code;
+						opt.textContent = info.name || info.code;
+						select.appendChild(opt);
+					}
+					select.value = info.code;
+				}
+			}
+		} catch (e) { /* ignore */ }
+		select.disabled = false;
+	}
 
-                // Ensure chi is an array
-                if (!Array.isArray(chi)) chi = Array.isArray(p.chiTiet) ? p.chiTiet : (Array.isArray(p.ChiTiet) ? p.ChiTiet : []);
+	function lockUnitByDrug(select, drugCode){
+		if (!select) return;
+		const info = state.drugUnits[drugCode];
+		// if info missing or has empty code, try extracting from raw payload
+		let unitInfo = info && info.code ? info : null;
+		if ((!unitInfo || !unitInfo.code) && state.drugRaw[drugCode]){
+			const raw = state.drugRaw[drugCode];
+			const ma = (raw.MaLoaiDonVi ?? raw.maLoaiDonVi ?? raw.maLoaiDonViId ?? raw.maLoaiDonViNhap ?? '').trim();
+			const ten = (raw.TenLoaiDonVi ?? raw.tenLoaiDonVi ?? raw.tenDonVi ?? raw.tenLoaiDonViNhap ?? '').trim();
+			if (ma) {
+				unitInfo = { code: ma, name: ten || ma };
+				state.drugUnits[drugCode] = unitInfo; // cache it
+				console.debug && console.debug('Recovered unit from raw for', drugCode, unitInfo);
+			}
+		}
+		// populate the select with available units then pre-select the drug's default unit
+		populateUnitSelect(select);
+		try {
+			const codeToSelect = (unitInfo && unitInfo.code) || '';
+			if (codeToSelect) {
+				let found = Array.from(select.options).find(o => o.value === codeToSelect);
+				if (!found) {
+					const opt = document.createElement('option');
+					opt.value = codeToSelect;
+					opt.textContent = (unitInfo && unitInfo.name) || codeToSelect;
+					select.appendChild(opt);
+				}
+				select.value = codeToSelect;
+				// update debug panel and log raw object for diagnosis
+				document.getElementById('dbg_lastUnit').textContent = 'unit: ' + codeToSelect + ' (' + ((unitInfo && unitInfo.name) || '') + ')';
+				console.log && console.log('lockUnitByDrug: raw=', state.drugRaw[drugCode], 'unitInfo=', unitInfo, 'unitListLen=', state.unitList.length);
+			}
+			// leave select enabled so user can change unit if desired
+			select.disabled = false;
+		} catch (e) { console.warn('lockUnitByDrug error', e); }
+	}
 
-                // Compute total if missing
-                var total = (ph && (ph.TongTien || ph.tongTien)) ? (ph.TongTien || ph.tongTien) : null;
-                if (!total) {
-                    total = 0;
-                    chi.forEach(function(c){
-                        var t = parseFloat(c.ThanhTien || c.thanhTien || c.ThanhTien) || 0;
-                        total += t;
-                    });
-                }
+	btnReset?.addEventListener('click', () => {
+		form.reset();
+		nccHidden.value = '';
+		chiBody.innerHTML = '';
+		createRow();
+		recalcTotal();
+		showAlert('success', 'Đã làm mới biểu mẫu.');
+	});
 
-                // Safe getters
-                function safe(x, alts) {
-                    if (!x) return '';
-                    if (x !== null && x !== undefined) return x;
-                    if (Array.isArray(alts)) {
-                        for (var i=0;i<alts.length;i++) if (alts[i] !== undefined) return alts[i];
-                    }
-                    return '';
-                }
+	nccNameInput?.addEventListener('input', () => {
+		renderSupplierOptions(nccNameInput.value || '');
+	});
+	nccNameInput?.addEventListener('blur', syncSupplier);
+	nccNameInput?.addEventListener('change', syncSupplier);
 
-                var maPN = ph?.MaPN || ph?.maPN || '';
-                var ngay = ph?.NgayNhap || ph?.ngayNhap || '';
-                var tenNCC = ph?.TenNCC || ph?.NhaCungCap || ph?.NhaCungCap || '';
-                var tenNV = ph?.TenNV || ph?.TenNV || '';
-                var ghi = ph?.GhiChu || ph?.GhiChu || '';
+	document.getElementById('addChiTiet')?.addEventListener('click', () => {
+		createRow();
+	});
 
-                var html = [];
-                html.push('<html><head><title>Phiếu nhập '+(maPN||'')+'</title>');
-                html.push('<meta charset="utf-8"/><style>body{font-family:Arial, Helvetica, sans-serif;font-size:12px;padding:16px}table{width:100%;border-collapse:collapse}td,th{border:1px solid #333;padding:6px;text-align:left}h2{margin:0 0 8px 0} .header-row{margin-bottom:8px}</style>');
-                html.push('</head><body>');
-                html.push('<h2>Phiếu nhập</h2>');
-                html.push('<div class="header-row"><strong>Mã PN:</strong> ' + (maPN || '') + '</div>');
-                html.push('<div class="header-row"><strong>Ngày nhập:</strong> ' + (ngay ? (new Date(ngay)).toLocaleString() : '') + '</div>');
-                html.push('<div class="header-row"><strong>Nhà cung cấp:</strong> ' + (tenNCC || '') + '</div>');
-                html.push('<div class="header-row"><strong>Nhân viên:</strong> ' + (tenNV || '') + '</div>');
-                html.push('<div style="margin-top:8px"><strong>Ghi chú:</strong> ' + (ghi || '') + '</div>');
-                html.push('<hr/>');
-                html.push('<table><thead><tr><th>STT</th><th>Mã thuốc</th><th>Tên thuốc</th><th>Số lượng</th><th>Đơn giá</th><th>Thành tiền</th><th>Hạn sử dụng</th></tr></thead><tbody>');
+	form?.addEventListener('submit', async (ev) => {
+		ev.preventDefault();
+		await ensureSuppliers();
+		await ensureDrugs();
+		await loadUnitList();
+		syncSupplier();
 
-                if (Array.isArray(chi) && chi.length>0) {
-                    for (var i=0;i<chi.length;i++){
-                        var c = chi[i] || {};
-                        var ten = c.TenThuoc || c.tenThuoc || c.Ten || c.TenThuoc || '';
-                        var ma = c.MaThuoc || c.maThuoc || '';
-                        var so = (c.SoLuong !== undefined && c.SoLuong !== null) ? c.SoLuong : (c.soLuong || '');
-                        var dg = (c.DonGia !== undefined && c.DonGia !== null) ? c.DonGia : (c.donGia || '');
-                        var tt = (c.ThanhTien !== undefined && c.ThanhTien !== null) ? c.ThanhTien : (c.thanhTien || '');
-                        var hs = c.HanSuDung || c.hanSuDung || '';
-                        try { hs = hs ? (new Date(hs)).toLocaleDateString() : ''; } catch(e){ hs = hs || ''; }
-                        html.push('<tr><td>'+(i+1)+'</td><td>'+ma+'</td><td>'+ten+'</td><td>'+so+'</td><td>'+dg+'</td><td>'+tt+'</td><td>'+hs+'</td></tr>');
-                    }
-                } else {
-                    html.push('<tr><td colspan="7" style="text-align:center">(Không có chi tiết)</td></tr>');
-                }
+		const errors = [];
+		const chiTiet = [];
+		chiBody.querySelectorAll('.chi-item').forEach((row, index) => {
+			const maThuoc = (row.querySelector('.ma-thuoc-hidden')?.value || '').trim();
+			const soLuong = parseFloat(row.querySelector('.so-luong')?.value) || 0;
+			const donGia = parseFloat(row.querySelector('.don-gia')?.value) || 0;
+			const thanhTien = parseFloat(row.querySelector('.thanh-tien')?.value) || 0;
+			const hanSuDung = (row.querySelector('.han-su-dung')?.value || '').trim();
+			const ghiChuItem = (row.querySelector('.ghi-chu')?.value || '').trim();
+			const donVi = (row.querySelector('.don-vi-select')?.value || '').trim();
+			const rowLabel = index + 1;
+			if (!maThuoc) errors.push(`Dòng ${rowLabel}: chưa chọn thuốc.`);
+			if (!hanSuDung) errors.push(`Dòng ${rowLabel}: chưa nhập hạn sử dụng.`);
+			if (!donVi) errors.push(`Dòng ${rowLabel}: chưa chọn đơn vị tồn kho.`);
+			if (soLuong <= 0) errors.push(`Dòng ${rowLabel}: số lượng phải lớn hơn 0.`);
+			chiTiet.push({
+				MaThuoc: maThuoc,
+				SoLuong: soLuong,
+				DonGia: donGia,
+				ThanhTien: thanhTien,
+				HanSuDung: hanSuDung || null,
+				GhiChu: ghiChuItem || null,
+				MaLoaiDonViNhap: donVi || null
+			});
+		});
 
-                html.push('</tbody></table>');
-                html.push('<div style="margin-top:12px"><strong>Tổng tiền:</strong> ' + (total !== null ? total : '') + '</div>');
-                html.push('</body></html>');
+		if (!chiTiet.length) errors.push('Phiếu nhập phải có ít nhất một dòng chi tiết.');
+		if (errors.length){
+			showAlert('error', errors.join('<br/>'));
+			return;
+		}
 
-                var w = printWin;
-                if (!w || w.closed) {
-                    // try to open another window (may be blocked)
-                    w = window.open('', '_blank', 'width=1200,height=700');
-                }
-                if (!w) { alert('Trình duyệt chặn popup in. Vui lòng cho phép popup và thử lại.'); return; }
+		const payload = {
+			MaPN: document.getElementById('MaPNHidden').value || undefined,
+			NgayNhap: document.querySelector('input[name="NgayNhap"]').value || new Date().toISOString(),
+			MaNCC: nccHidden.value || null,
+			MaNV: document.querySelector('input[name="MaNV"]').value || null,
+			TongTien: parseFloat(totalField.value) || 0,
+			GhiChu: document.querySelector('input[name="GhiChu"]').value || '',
+			ChiTietPhieuNhaps: chiTiet
+		};
 
-                try {
-                    w.document.open();
-                    w.document.write(html.join('\n'));
-                    w.document.close();
-                } catch (e) {
-                    // fallback: navigate to data URL if direct write fails
-                    try {
-                        w.location.href = 'data:text/html;charset=utf-8,' + encodeURIComponent(html.join('\n'));
-                    } catch (e2) {
-                        console.error('Failed to set print content', e2);
-                    }
-                }
+		btnSubmit.disabled = true;
+		btnSubmit.innerHTML = '<span class="spinner-border spinner-border-sm me-1" role="status"></span>Đang lưu...';
 
-                // give the new window a bit to render before printing
-                setTimeout(function(){ try{ w.focus(); w.print(); }catch(e){ console.error('Printing failed', e); } }, 600);
-            } catch(e){ console.error('openPrintWindow error', e); }
-        }
-    })();
-</script>
-<script>
-    // populate supplier datalist and map selection to hidden MaNCC
-    (function(){
-        var nccList = @Html.Raw(System.Text.Json.JsonSerializer.Serialize(ViewBag.NCCList ?? new List<FE_QLTiemThuoc.Models.NhaCungCap>()));
-        var options = document.getElementById('nccOptions');
-        var nameInput = document.getElementById('nccNameInput');
-        var hidden = document.getElementById('MaNCCHidden');
-        var lookup = {};
-        if (Array.isArray(nccList)) {
-            nccList.forEach(function(n){
-                var name = (n.TenNCC ?? n.tenNCC ?? '').trim();
-                var code = (n.MaNCC ?? n.maNCC ?? '').trim();
-                if (!name) return;
-                lookup[name] = code;
-                var opt = document.createElement('option'); opt.value = name; options.appendChild(opt);
-            });
-        }
+		try {
+			const res = await fetch(`${apiBase}/PhieuNhap/AddPhieuNhap`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify(payload)
+			});
+			if (!res.ok) throw new Error(await res.text());
+			const json = await res.json();
+			const message = json?.message || 'Lưu phiếu nhập thành công.';
+			const maPN = json?.data || payload.MaPN || null;
+			state.savedMaPN = maPN;
+			showAlert('success', `${message}${maPN ? ` (Mã: ${maPN})` : ''}`);
+			// disable inputs and selects to prevent edits after save
+			form.querySelectorAll('input, select').forEach(el => el.disabled = true);
+			// hide the primary action buttons (Lưu & Làm mới) temporarily
+			try {
+				if (btnSubmit) btnSubmit.style.display = 'none';
+				if (btnReset) btnReset.style.display = 'none';
+			} catch(e) { /* ignore */ }
+			// also disable other buttons except Back to list and post-save actions
+			form.querySelectorAll('button').forEach(el => {
+				if (['btnBackList','btnNhapTiep','btnPrint'].includes(el.id)) return;
+				if (el !== btnSubmit && el !== btnReset) el.disabled = true;
+			});
+			postActions.style.display = '';
+		} catch (err) {
+			console.error('Save failed', err);
+			showAlert('error', `Lưu thất bại: ${err.message || err}`);
+		} finally {
+			btnSubmit.disabled = false;
+			btnSubmit.innerHTML = '<i class="bi bi-save me-1"></i>Lưu &amp; cập nhật tồn kho';
+		}
+	});
 
-        // try initialize if model.MaNCC already set (server roundtrip)
-        try {
-            var currentCode = document.getElementById('MaNCCHidden').value;
-            if (currentCode && !nameInput.value) {
-                // find matching name
-                for (var k in lookup) { if (lookup[k] === currentCode) { nameInput.value = k; break; } }
-            }
-        } catch(e){}
+	btnNhapTiep?.addEventListener('click', () => {
+			// restore buttons and re-enable inputs
+			form.querySelectorAll('input, select, button').forEach(el => el.disabled = false);
+			if (btnSubmit) { btnSubmit.style.display = ''; btnSubmit.disabled = false; }
+			if (btnReset) { btnReset.style.display = ''; btnReset.disabled = false; }
+			form.reset();
+			nccHidden.value = '';
+			chiBody.innerHTML = '';
+			createRow();
+			recalcTotal();
+			postActions.style.display = 'none';
+			state.savedMaPN = null;
+	});
 
-        // on blur or change, set hidden MaNCC from chosen name (or clear if not found)
-        function sync() {
-            var v = nameInput.value?.trim();
-            if (v && lookup[v]) hidden.value = lookup[v]; else hidden.value = '';
-        }
-        nameInput && nameInput.addEventListener('change', sync);
-        nameInput && nameInput.addEventListener('blur', sync);
+	btnPrint?.addEventListener('click', async () => {
+		if (!state.savedMaPN){
+			showAlert('error', 'Chưa có mã phiếu để in.');
+			return;
+		}
+		try {
+			const res = await fetch(`${apiBase}/PhieuNhap/GetChiTietPhieuNhapByMaPN?maPN=${encodeURIComponent(state.savedMaPN)}`);
+			if (!res.ok) throw new Error(res.statusText);
+			const json = await res.json();
+			openPrintWindow(json?.data ?? json, state.savedMaPN);
+		} catch (err){
+			showAlert('error', `Không thể tải dữ liệu in: ${err.message || err}`);
+		}
+	});
 
-        // ensure mapping before submit
-        var form = document.querySelector('form[asp-action="AddPhieuNhap"]') || document.querySelector('form');
-        if (form) {
-            form.addEventListener('submit', function(){ sync(); });
-        }
-    })();
+	function openPrintWindow(payload, maPN){
+		if (!payload) return;
+		const phieu = payload.phieuNhap ?? payload.PhieuNhap ?? payload;
+		const items = payload.chiTiet ?? payload.ChiTiet ?? payload.items ?? payload;
+		let total = phieu?.TongTien ?? phieu?.tongTien ?? 0;
+		if (!total && Array.isArray(items)){
+			total = items.reduce((sum, item) => sum + (item.ThanhTien ?? item.thanhTien ?? 0), 0);
+		}
+		const rows = Array.isArray(items) ? items.map((item, idx) => {
+			const ten = item.TenThuoc ?? item.tenThuoc ?? '';
+			const ma = item.MaThuoc ?? item.maThuoc ?? '';
+			const so = item.SoLuong ?? item.soLuong ?? 0;
+			const donGia = item.DonGia ?? item.donGia ?? 0;
+			const thanhTien = item.ThanhTien ?? item.thanhTien ?? 0;
+			const hsd = item.HanSuDung ?? item.hanSuDung ?? '';
+			const hsdDisplay = hsd ? new Date(hsd).toLocaleDateString('vi-VN') : '';
+			return `<tr><td>${idx + 1}</td><td>${ma}</td><td>${ten}</td><td>${so}</td><td>${donGia.toLocaleString('vi-VN')}</td><td>${thanhTien.toLocaleString('vi-VN')}</td><td>${hsdDisplay}</td></tr>`;
+		}).join('') : '<tr><td colspan="7" class="text-center">Không có chi tiết</td></tr>';
+
+		function numberToVietnameseWords(n){
+			if (n === 0) return 'Không đồng';
+			const chuSo = ['không','một','hai','ba','bốn','năm','sáu','bảy','tám','chín'];
+			const tien = ['', 'nghìn', 'triệu', 'tỷ', 'nghìn tỷ', 'triệu tỷ'];
+			function read3Digits(num){
+				let tram = Math.floor(num/100);
+				let chuc = Math.floor((num%100)/10);
+				let donvi = num%10;
+				let str = '';
+				if (tram>0) str += chuSo[tram] + ' trăm';
+				if (chuc>1) {
+					str += (str? ' ' : '') + chuSo[chuc] + ' mươi';
+					if (donvi===1) str += ' mốt';
+					else if (donvi===5) str += ' lăm';
+					else if (donvi>0) str += ' ' + chuSo[donvi];
+				} else if (chuc===1) {
+					str += (str? ' ' : '') + 'mười';
+					if (donvi===1) str += ' một';
+					else if (donvi===5) str += ' lăm';
+					else if (donvi>0) str += ' ' + chuSo[donvi];
+				} else if (chuc===0) {
+					if (donvi>0) str += (str? ' lẻ ' : '') + chuSo[donvi];
+				}
+				return str;
+			}
+			let i = 0; let words = [];
+			while (n>0){
+				const part = n % 1000;
+				if (part>0){
+					const partWords = read3Digits(part);
+					words.unshift(partWords + (tien[i]? ' ' + tien[i] : ''));
+				}
+				n = Math.floor(n/1000);
+				i++;
+			}
+			let result = words.join(' ').replace(/\s+/g,' ').trim();
+			// capitalize first letter
+			result = result.charAt(0).toUpperCase() + result.slice(1) + ' đồng';
+			return result;
+		}
+
+	const printedAt = new Date().toLocaleString('vi-VN');
+	const printedBy = PRINTED_BY || phieu?.TenNV || phieu?.tenNV || '';
+		const html = `
+			<html><head><meta charset="utf-8" />
+				<title>Phiếu nhập ${maPN || ''}</title>
+				<style>
+					@@page { size: A4; margin: 1.5cm; }
+					body { font-family: 'Times New Roman', serif; font-size: 13pt; line-height: 1.3; color: #000; margin: 0; }
+					.header { text-align: center; margin-bottom: 20px; }
+					.company { font-size: 14pt; font-weight: bold; text-transform: uppercase; }
+					.company-info { font-size: 11pt; }
+					.title { font-size: 18pt; font-weight: bold; text-transform: uppercase; margin: 20px 0; }
+					.receipt-no { font-style: italic; }
+					.info-section { margin: 15px 0; }
+					.info-row { display: flex; margin: 5px 0; }
+					.info-label { width: 120px; }
+					table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+					th, td { border: 1px solid #000; padding: 8px; }
+					th { background: #f8f8f8; text-align: center; }
+					td { vertical-align: middle; }
+					.text-center { text-align: center; }
+					.text-right { text-align: right; }
+					.summary { margin: 15px 0; }
+					.total-text { margin-top: 5px; font-style: italic; }
+					.signature-section { display: flex; justify-content: space-between; margin-top: 40px; }
+					.signature-block { flex: 1; text-align: center; max-width: 200px; }
+					.signature-title { font-weight: bold; margin-bottom: 80px; }
+					.signature-name { margin-top: 5px; }
+					.footer { position: fixed; bottom: 20px; left: 0; right: 0; text-align: center; font-size: 11pt; }
+					.no-break { page-break-inside: avoid; }
+				</style>
+			</head>
+			<body>
+				<div class="header">
+					<div class="company">NHÀ THUỐC MELON</div>
+					<div class="company-info">Địa chỉ: 140 Lê Trọng Tấn, Tân Phú, TP. Đà Nẵng</div>
+					<div class="company-info">Điện thoại: (0236) 3 888 999 - MST: 0123456789</div>
+					
+					<div class="title">PHIẾU NHẬP KHO</div>
+					<div class="receipt-no">Số: ${maPN || phieu?.MaPN || phieu?.maPN || ''}</div>
+				</div>
+
+				<div class="info-section">
+					<div class="info-row">
+						<span class="info-label">Ngày nhập:</span>
+						<span>${(phieu?.NgayNhap ?? phieu?.ngayNhap) ? new Date(phieu?.NgayNhap ?? phieu?.ngayNhap).toLocaleString('vi-VN', {
+							year: 'numeric',
+							month: 'numeric',
+							day: 'numeric',
+							hour: '2-digit',
+							minute: '2-digit'
+						}) : ''}</span>
+					</div>
+					<div class="info-row">
+						<span class="info-label">Nhà cung cấp:</span>
+						<span>${phieu?.TenNCC ?? phieu?.tenNCC ?? ''}</span>
+					</div>
+					<div class="info-row">
+						<span class="info-label">Người lập:</span>
+						<span>${phieu?.TenNV ?? phieu?.tenNV ?? ''}</span>
+					</div>
+					${(phieu?.GhiChu ?? phieu?.ghiChu) ? `
+					<div class="info-row">
+						<span class="info-label">Ghi chú:</span>
+						<span>${phieu?.GhiChu ?? phieu?.ghiChu}</span>
+					</div>
+					` : ''}
+				</div>
+				
+				<div class="no-break">
+				<table>
+					<thead>
+						<tr>
+							<th style="width:40px">STT</th>
+							<th style="width:80px">Mã thuốc</th>
+							<th>Tên thuốc</th>
+							<th style="width:80px">Số lượng</th>
+							<th style="width:100px">Đơn giá<br/><span style="font-size:9pt">(VNĐ)</span></th>
+							<th style="width:120px">Thành tiền<br/><span style="font-size:9pt">(VNĐ)</span></th>
+							<th style="width:100px">Hạn dùng</th>
+						</tr>
+					</thead>
+					<tbody>${rows}</tbody>
+				</table>
+
+				<div class="summary">
+					<div style="font-weight:bold">Tổng tiền: ${Number(total || 0).toLocaleString('vi-VN')} VNĐ</div>
+					<div class="total-text">Bằng chữ: ${numberToVietnameseWords(Math.round(total) || 0)}</div>
+				</div>
+				</div>
+
+				<div class="signature-section">
+					<div class="signature-block">
+						<div class="signature-title">Người giao hàng</div>
+						<div class="signature-name">(Ký, họ tên)</div>
+					</div>
+					<div class="signature-block">
+						<div class="signature-title">Người lập phiếu</div>
+						<div class="signature-name">${phieu?.TenNV ?? phieu?.tenNV ?? ''}</div>
+					</div>
+					<div class="signature-block">
+						<div class="signature-title">Thủ kho</div>
+						<div class="signature-name">(Ký, họ tên)</div>
+					</div>
+					<div class="signature-block">
+						<div class="signature-title">Kế toán</div>
+						<div class="signature-name">(Ký, họ tên)</div>
+					</div>
+				</div>
+
+				<div class="footer">
+					<div>In lúc: ${printedAt} - Người in: ${printedBy}</div>
+				</div>
+			</body></html>`;
+
+		const win = window.open('', '_blank', 'width=1024,height=700');
+		if (!win) {
+			alert('Trình duyệt chặn cửa sổ in. Vui lòng cho phép popup.');
+			return;
+		}
+		win.document.write(html);
+		win.document.close();
+		setTimeout(() => {
+			try { win.focus(); win.print(); } catch {}
+		}, 600);
+	}
+
+	Promise.all([ensureSuppliers(), ensureDrugs(), loadUnitList()]).then(() => {
+		if (!chiBody.querySelector('.chi-item')) createRow();
+	});
+
+})();
 </script>
 }
+
+

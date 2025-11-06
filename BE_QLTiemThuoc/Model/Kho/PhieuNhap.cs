@@ -12,8 +12,9 @@ namespace BE_QLTiemThuoc.Model.Kho
         [StringLength(20)]
         public string MaPN { get; set; } = null!;
 
-        [Required]
-        public DateTime NgayNhap { get; set; }
+    [Required]
+    [Column(TypeName = "date")] // match SQL: PhieuNhap.NgayNhap DATE
+    public DateTime NgayNhap { get; set; }
 
         [StringLength(10)]
         public string? MaNCC { get; set; }

@@ -1,5 +1,5 @@
 ﻿﻿@{
-    Layout = null;
+Layout = null;
 }
 
 <!DOCTYPE html>
@@ -51,15 +51,15 @@
 
     <!-- Sidebar trái -->
     @* giữ nguyên phần <aside id="ms-side-nav"> ... </aside> từ file gốc *@
-    @Html.Partial("AdminSH/_AdminSidebar")
+    <partial name="AdminSH/_AdminSidebar" />
 
     <!-- Sidebar phải -->
-    @Html.Partial("AdminSH/_AdminRightSidebar")
+    <partial name="AdminSH/_AdminRightSidebar" />
 
     <!-- Nội dung chính -->
     <main class="body-content">
         <!-- Navbar -->
-        @Html.Partial("AdminSH/_AdminNavbar")
+        <partial name="AdminSH/_AdminNavbar" />
 
         <!-- Nội dung trang con sẽ được render tại đây -->
         <div class="ms-content-wrapper">
@@ -80,9 +80,7 @@
     <!-- Slick + Main -->
     <script src="~/assets_admin/js/slick.min.js"></script>
     <!-- <script src="~/assets_admin/js/main.js"></script> -->
+    @await RenderSectionAsync("Scripts", required: false)
 
-
-
-    @RenderSection("Scripts", required: false)
 </body>
 </html>

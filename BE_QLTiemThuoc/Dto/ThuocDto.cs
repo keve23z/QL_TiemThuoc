@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace BE_QLTiemThuoc.Model.Thuoc
+namespace BE_QLTiemThuoc.Dto
 {
     public class ThuocDto
     {

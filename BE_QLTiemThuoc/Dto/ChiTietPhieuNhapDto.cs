@@ -1,6 +1,6 @@
 using System;
 
-namespace BE_QLTiemThuoc.Model.Kho.Dto
+namespace BE_QLTiemThuoc.Dto
 {
     public class ChiTietPhieuNhapDto
     {

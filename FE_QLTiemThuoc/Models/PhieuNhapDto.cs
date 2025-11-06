@@ -13,6 +13,5 @@ namespace FE_QLTiemThuoc.Models
         public string? GhiChu { get; set; }
 
         public List<ChiTietPhieuNhapDto> ChiTietPhieuNhaps { get; set; } = new();
-        public List<LoThuocHSDDto> LoThuocHSDs { get; set; } = new();
     }
 }

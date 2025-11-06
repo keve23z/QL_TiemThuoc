@@ -5,7 +5,7 @@ using BE_QLTiemThuoc.Model.Thuoc;
 using BE_QLTiemThuoc.Services;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using BE_QLTiemThuoc.Model.Kho.Dto; // Add this using directive
+using BE_QLTiemThuoc.Dto; 
 
 namespace BE_QLTiemThuoc.Controllers
 {
@@ -154,7 +154,9 @@ namespace BE_QLTiemThuoc.Controllers
                             MaThuoc = dto.MaThuoc ?? string.Empty,
                             SoLuong = dto.SoLuong,
                             DonGia = dto.DonGia,
-                            ThanhTien = dto.ThanhTien
+                            ThanhTien = dto.ThanhTien,
+                            HanSuDung = dto.HanSuDung ?? phieuNhap.NgayNhap,
+                            GhiChu = null
                         };
                         chiTietEntities.Add(ent);
                     }
@@ -165,83 +167,100 @@ namespace BE_QLTiemThuoc.Controllers
                         await _context.SaveChangesAsync(); // persist CTPN rows so Lo can FK to them
                     }
 
-                    // 3) Build LoThuocHSD list 1-to-1 from each ChiTiet (MaCTPN -> Lo)
-                    var loList = new List<LoThuocHSD>();
+                    // 3) Upsert TON_KHO rows by (MaThuoc, HanSuDung):
+                    //    - If an existing lot matches same MaThuoc + HanSuDung, increment SoLuongNhap & SoLuongCon
+                    //    - Otherwise create a new lot with generated MaLo
+                    // Map MaLoaiDonViNhap (code) -> DonViTinh (name)
+                    var unitCodes = phieuNhapDto.ChiTietPhieuNhaps
+                        .Select(x => x.MaLoaiDonViNhap)
+                        .Where(s => !string.IsNullOrWhiteSpace(s))
+                        .Select(s => s!.Trim())
+                        .Distinct()
+                        .ToList();
+
+                    var unitNameByCode = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                    if (unitCodes.Any())
+                    {
+                        var unitRows = await _context.Set<LoaiDonVi>()
+                            .Where(ld => ld.MaLoaiDonVi != null && unitCodes.Contains(ld.MaLoaiDonVi!))
+                            .Select(ld => new { ld.MaLoaiDonVi, ld.TenLoaiDonVi })
+                            .ToListAsync();
+                        foreach (var u in unitRows)
+                        {
+                            if (!string.IsNullOrEmpty(u.MaLoaiDonVi))
+                                unitNameByCode[u.MaLoaiDonVi] = u.TenLoaiDonVi ?? u.MaLoaiDonVi;
+                        }
+                    }
+
+                    // Helper to generate unique MaLo under 20 chars: LO + yyMMddHHmmss + idx(2)
+                    string GenMaLo(int index)
+                    {
+                        var ts = DateTime.UtcNow.ToString("yyMMddHHmmss");
+                        var id = $"LO{ts}{index:D2}"; // length ~ 2 + 12 + 2 = 16
+                        return id;
+                    }
+
+                    // Build key sets to fetch existing lots in bulk
+                    var keyPairs = phieuNhapDto.ChiTietPhieuNhaps
+                        .Select(d => new { MaThuoc = d.MaThuoc ?? string.Empty, HSD = d.HanSuDung ?? phieuNhap.NgayNhap })
+                        .ToList();
+                    var maThuocSet = keyPairs.Select(k => k.MaThuoc).Distinct().ToList();
+                    var hsdSet = keyPairs.Select(k => k.HSD.Date).Distinct().ToList();
+
+                    var existingLotsQuery = _context.TonKhos
+                        .Where(t => maThuocSet.Contains(t.MaThuoc) && hsdSet.Contains(t.HanSuDung.Date));
+                    var existingLots = await existingLotsQuery.ToListAsync();
+
+                    // Create a lookup by (MaThuoc, HSD)
+                    var lotLookup = new Dictionary<(string, DateTime), TonKho>();
+                    foreach (var lot in existingLots)
+                    {
+                        var key = (lot.MaThuoc, lot.HanSuDung.Date);
+                        if (!lotLookup.ContainsKey(key)) lotLookup[key] = lot; // pick first if duplicates
+                    }
+
+                    int lotIndex = 0;
                     foreach (var dto in phieuNhapDto.ChiTietPhieuNhaps)
                     {
-                        var maCTPN = dto.MaCTPN ?? string.Empty;
-                        var lo = new LoThuocHSD
-                        {
-                            MaLoThuocHSD = string.Empty, // will generate below
-                            MaThuoc = dto.MaThuoc ?? string.Empty,
-                            MaCTPN = maCTPN,
-                            HanSuDung = dto.HanSuDung ?? phieuNhap.NgayNhap,
-                            SoLuong = dto.SoLuong,
-                            MaLoaiDonViNhap = dto.MaLoaiDonViNhap ?? string.Empty
-                        };
-                        loList.Add(lo);
-                    }
+                        var maThuoc = dto.MaThuoc ?? string.Empty;
+                        var hsd = (dto.HanSuDung ?? phieuNhap.NgayNhap).Date;
+                        var key = (maThuoc, hsd);
 
-                    // Validate MaLoaiDonViNhap existence
-                    var maLoaiDonViUsed = loList.Where(l => !string.IsNullOrEmpty(l.MaLoaiDonViNhap)).Select(l => l.MaLoaiDonViNhap).Distinct().ToList();
-                    if (maLoaiDonViUsed.Any())
-                    {
-                        var existing = await _context.Set<LoaiDonVi>()
-                            .Where(ld => ld.MaLoaiDonVi != null && maLoaiDonViUsed.Contains(ld.MaLoaiDonVi!))
-                            .Select(ld => ld.MaLoaiDonVi!)
-                            .ToListAsync();
-                        var missing = maLoaiDonViUsed.Except(existing).ToList();
-                        if (missing.Any())
+                        if (lotLookup.TryGetValue(key, out var existing))
                         {
-                            throw new Exception($"Missing MaLoaiDonVi entries: {string.Join(',', missing)}. Please provide valid MaLoaiDonViNhap values.");
+                            // Increment quantities on existing lot
+                            existing.SoLuongNhap += dto.SoLuong;
+                            existing.SoLuongCon += dto.SoLuong;
+                            // Keep existing DonViTinh/TrangThaiSeal as-is
                         }
-                    }
-
-                    // Generate MaLoThuocHSD values and add
-                    // We'll keep per-CTPN counters to create unique LHS numbers
-                    var lotSeqByCTPN = new Dictionary<string, int>();
-                    foreach (var lo in loList)
-                    {
-                        var targetCTPN = lo.MaCTPN ?? string.Empty;
-                        var existingLotCount = await _context.Set<LoThuocHSD>().Where(l => l.MaCTPN == targetCTPN).CountAsync();
-                        int localSeq = 1;
-                        if (lotSeqByCTPN.TryGetValue(targetCTPN, out var cur)) localSeq = cur + 1;
-                        lotSeqByCTPN[targetCTPN] = localSeq;
-                        var finalSeq = existingLotCount + localSeq;
-
-                        // derive suffix from targetCTPN
-                        string ctpnSuffix = "000";
-                        try
+                        else
                         {
-                            var partsC = (targetCTPN ?? string.Empty).Split('/');
-                            if (partsC.Length > 0)
+                            lotIndex++;
+                            var maLo = GenMaLo(lotIndex);
+                            var code = (dto.MaLoaiDonViNhap ?? string.Empty).Trim();
+                            var rawDonViTinh = unitNameByCode.ContainsKey(code) ? unitNameByCode[code] : (string.IsNullOrEmpty(code) ? "" : code);
+                            var donViTinh = (rawDonViTinh ?? string.Empty);
+                            if (donViTinh.Length > 20) donViTinh = donViTinh.Substring(0, 20);
+                            var ghi = phieuNhapDto.GhiChu ?? string.Empty;
+                            if (ghi.Length > 255) ghi = ghi.Substring(0, 255);
+
+                            var newLot = new TonKho
                             {
-                                var leftC = partsC[0];
-                                if (leftC.StartsWith("CTPN")) leftC = leftC.Substring(4);
-                                if (!string.IsNullOrEmpty(leftC))
-                                {
-                                    var digs = leftC.Length <= 3 ? leftC : leftC.Substring(leftC.Length - 3);
-                                    ctpnSuffix = digs.PadLeft(3, '0');
-                                }
-                            }
+                                MaLo = maLo,
+                                MaThuoc = maThuoc,
+                                HanSuDung = hsd,
+                                TrangThaiSeal = false,
+                                DonViTinh = donViTinh,
+                                SoLuongNhap = dto.SoLuong,
+                                SoLuongCon = dto.SoLuong,
+                                GhiChu = ghi
+                            };
+                            await _context.TonKhos.AddAsync(newLot);
+                            lotLookup[key] = newLot;
                         }
-                        catch { ctpnSuffix = "000"; }
-
-                        string maLo = lo.MaLoThuocHSD;
-                        if (string.IsNullOrEmpty(maLo))
-                        {
-                            var yy = phieuNhap.NgayNhap.Year % 100;
-                            var mm = phieuNhap.NgayNhap.Month;
-                            maLo = $"LHS{finalSeq.ToString("D3")}/{ctpnSuffix}/{maPNSuffix}/{yy:D2}-{mm:D2}";
-                        }
-                        lo.MaLoThuocHSD = maLo;
                     }
 
-                    if (loList.Any())
-                    {
-                        await _context.Set<LoThuocHSD>().AddRangeAsync(loList);
-                        await _context.SaveChangesAsync();
-                    }
+                    await _context.SaveChangesAsync();
 
                     await tx.CommitAsync();
 
@@ -258,7 +277,7 @@ namespace BE_QLTiemThuoc.Controllers
             return Ok(response);
         }
 
-        [HttpGet("GetChiTietPhieuNhapByMaPN")]
+    [HttpGet("GetChiTietPhieuNhapByMaPN")]
         public async Task<IActionResult> GetChiTietPhieuNhapByMaPN(string maPN)
         {
             if (string.IsNullOrEmpty(maPN))
@@ -307,7 +326,9 @@ namespace BE_QLTiemThuoc.Controllers
                             .FirstOrDefault(),
                         ctpn.SoLuong,
                         ctpn.DonGia,
-                        ctpn.ThanhTien
+                        ctpn.ThanhTien,
+                        HanSuDung = ctpn.HanSuDung,
+                        ctpn.GhiChu
                     })
                     .ToListAsync();
 
@@ -315,6 +336,46 @@ namespace BE_QLTiemThuoc.Controllers
                     PhieuNhap = phieuNhap,
                     ChiTiet = chiTietPhieuNhaps
                 };
+            });
+
+            return Ok(response);
+        }
+
+        // GET: api/PhieuNhap/TonKhoByMaPN?maPN=PN0001/25-11
+        // Since TON_KHO no longer stores MaPN, we derive affected lots by joining (MaThuoc, HanSuDung)
+        // from ChiTietPhieuNhap with TON_KHO. TrangThaiSeal is returned as 0/1 for FE compatibility.
+        [HttpGet("TonKhoByMaPN")]
+        public async Task<IActionResult> GetTonKhoByMaPN(string maPN)
+        {
+            if (string.IsNullOrEmpty(maPN))
+            {
+                return BadRequest(new ApiResponse<string>
+                {
+                    Status = -1,
+                    Message = "MaPN cannot be null or empty.",
+                    Data = null
+                });
+            }
+
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                var rows = await (
+                    from tk in _context.TonKhos
+                    join ct in _context.ChiTietPhieuNhaps.Where(c => c.MaPN == maPN)
+                        on new { tk.MaThuoc, tk.HanSuDung } equals new { ct.MaThuoc, HanSuDung = ct.HanSuDung!.Value }
+                    select new
+                    {
+                        tk.MaLo,
+                        tk.MaThuoc,
+                        tk.HanSuDung,
+                        TrangThaiSeal = tk.TrangThaiSeal ? 1 : 0,
+                        tk.DonViTinh,
+                        tk.SoLuongNhap,
+                        tk.SoLuongCon,
+                        tk.GhiChu
+                    }
+                ).Distinct().ToListAsync();
+                return rows;
             });
 
             return Ok(response);

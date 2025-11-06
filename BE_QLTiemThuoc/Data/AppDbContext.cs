@@ -19,9 +19,9 @@ namespace BE_QLTiemThuoc.Data
         public DbSet<LoaiThuoc> LoaiThuoc { get; set; }
         public DbSet<LoaiDonVi> LoaiDonVi { get; set; }
         public DbSet<NhomLoai> NhomLoai { get; set; }
-        public DbSet<PhieuNhap> PhieuNhaps { get; set; } // Add this property
-        public DbSet<ChiTietPhieuNhap> ChiTietPhieuNhaps { get; set; }
-        public DbSet<LoThuocHSD> LoThuocHSDs { get; set; }
+    public DbSet<PhieuNhap> PhieuNhaps { get; set; } // Add this property
+    public DbSet<ChiTietPhieuNhap> ChiTietPhieuNhaps { get; set; }
+    public DbSet<TonKho> TonKhos { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -36,7 +36,8 @@ namespace BE_QLTiemThuoc.Data
             modelBuilder.Entity<NhomLoai>().ToTable("NhomLoai");
             modelBuilder.Entity<PhieuNhap>().ToTable("PhieuNhap");
             modelBuilder.Entity<ChiTietPhieuNhap>().ToTable("ChiTietPhieuNhap");
-            modelBuilder.Entity<LoThuocHSD>().ToTable("LoThuocHSD");
+            // TON_KHO replaces LoThuocHSD
+            modelBuilder.Entity<TonKho>().ToTable("TON_KHO");
 
             //modelBuilder.Entity<DanhMucNguoiDung>()
             //    .HasOne(dm => dm.KhachHang)

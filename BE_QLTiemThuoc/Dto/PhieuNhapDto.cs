@@ -1,8 +1,8 @@
-﻿namespace BE_QLTiemThuoc.Model.Kho.Dto
-{
-    using System;
-    using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
+namespace BE_QLTiemThuoc.Dto
+{
     public class PhieuNhapDto
     {
         // Allow MaPN to be omitted by the caller so the server can generate it when null/empty
@@ -14,7 +14,6 @@
         public string? GhiChu { get; set; }
 
         public List<ChiTietPhieuNhapDto> ChiTietPhieuNhaps { get; set; } = new();
-        // LoThuocHSDs is optional; if missing, server will generate from ChiTietPhieuNhaps
-        public List<LoThuocHSD>? LoThuocHSDs { get; set; } = null;
+        // No longer uses LoThuocHSD; TON_KHO rows are generated server-side from ChiTietPhieuNhaps
     }
 }

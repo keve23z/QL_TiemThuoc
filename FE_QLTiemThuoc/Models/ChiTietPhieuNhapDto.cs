@@ -13,5 +13,6 @@ namespace FE_QLTiemThuoc.Models
         // added: expiry and unit per chi tiet (moved from Lo)
         public DateTime HanSuDung { get; set; }
         public string? MaLoaiDonViNhap { get; set; }
+        public string? GhiChu { get; set; }
     }
 }

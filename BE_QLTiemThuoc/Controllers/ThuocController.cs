@@ -1,5 +1,5 @@
 ﻿using BE_QLTiemThuoc.Data;
-using BE_QLTiemThuoc.Model;
+using BE_QLTiemThuoc.Dto;
 using BE_QLTiemThuoc.Model.Thuoc;
 using BE_QLTiemThuoc.Services;
 using CloudinaryDotNet;
@@ -453,7 +453,7 @@ namespace BE_QLTiemThuoc.Controllers
 
         // PUT: api/Thuoc/{id}
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutThuoc(string id, [FromForm] Model.Thuoc.ThuocDto thuocDto)
+        public async Task<IActionResult> PutThuoc(string id, [FromForm] ThuocDto thuocDto)
         {
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {

@@ -23,5 +23,12 @@ namespace BE_QLTiemThuoc.Model.Kho
 
         [Column(TypeName = "decimal(18,2)")]
         public decimal ThanhTien { get; set; }
+
+    // New columns per latest schema
+    [Column(TypeName = "date")] // match SQL: ChiTietPhieuNhap.HanSuDung DATE (nullable)
+    public DateTime? HanSuDung { get; set; }
+
+        // NVARCHAR(MAX) by default in EF when no StringLength specified
+        public string? GhiChu { get; set; }
     }
 }

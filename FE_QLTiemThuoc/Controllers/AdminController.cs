@@ -147,24 +147,24 @@ namespace FE_QLTiemThuoc.Controllers
                     using var doc = System.Text.Json.JsonDocument.Parse(json);
                     if (doc.RootElement.TryGetProperty("data", out var dataElement))
                     {
-                        var result = System.Text.Json.JsonSerializer.Deserialize<List<Models.NhaCungCap>>(dataElement.GetRawText(), options);
-                        nccList = result ?? new List<Models.NhaCungCap>();
+                        var result = System.Text.Json.JsonSerializer.Deserialize<List<NhaCungCap>>(dataElement.GetRawText(), options);
+                        nccList = result ?? new List<NhaCungCap>();
                     }
                     else if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
                     {
-                        var result = System.Text.Json.JsonSerializer.Deserialize<List<Models.NhaCungCap>>(json, options);
-                        nccList = result ?? new List<Models.NhaCungCap>();
+                        var result = System.Text.Json.JsonSerializer.Deserialize<List<NhaCungCap>>(json, options);
+                        nccList = result ?? new List<NhaCungCap>();
                     }
                     else
                     {
                         // Try to deserialize root element directly
-                        var result = System.Text.Json.JsonSerializer.Deserialize<List<Models.NhaCungCap>>(doc.RootElement.GetRawText(), options);
-                        nccList = result ?? new List<Models.NhaCungCap>();
+                        var result = System.Text.Json.JsonSerializer.Deserialize<List<NhaCungCap>>(doc.RootElement.GetRawText(), options);
+                        nccList = result ?? new List<NhaCungCap>();
                     }
                 }
                 catch (Exception)
                 {
-                    nccList = new List<Models.NhaCungCap>();
+                    nccList = new List<NhaCungCap>();
                 }
             }
             
@@ -175,45 +175,7 @@ namespace FE_QLTiemThuoc.Controllers
             return View();
         }
 
-        // Nhập thuốc view (filter form + list)
-        [HttpGet]
-        public IActionResult NhapThuoc()
-        {
-            // provide default date range for the view: first day of current month -> today
-            var today = System.DateTime.Now;
-            var firstOfMonth = new System.DateTime(today.Year, today.Month, 1);
-            ViewBag.DefaultFrom = firstOfMonth.ToString("yyyy-MM-dd");
-            ViewBag.DefaultTo = today.ToString("yyyy-MM-dd");
-            // expose API base address (as configured in Program.cs) so client-side JS can call backend
-            try
-            {
-                var client = _http.CreateClient("MyApi");
-                ViewBag.ApiBase = client.BaseAddress?.ToString() ?? "/api";
-            }
-            catch
-            {
-                ViewBag.ApiBase = "/api";
-            }
-
-            // expose current logged-in employee code (if any) so the view can auto-fill MaNV
-            try
-            {
-                var maNV = HttpContext.Session.GetString("MaNhanVien");
-                var tenNV = HttpContext.Session.GetString("TenNhanVien");
-                ViewBag.MaNV = maNV ?? string.Empty;
-                ViewBag.TenNV = tenNV ?? string.Empty;
-            }
-            catch
-            {
-                ViewBag.MaNV = string.Empty;
-                ViewBag.TenNV = string.Empty;
-            }
-
-            // default datetime-local value for inline add form
-            ViewBag.DefaultNgayNhap = System.DateTime.Now.ToString("yyyy-MM-ddTHH:mm");
-
-            return View();
-        }
+       
 
         // Debug: return current session-stored employee info
         [HttpGet]
@@ -230,102 +192,138 @@ namespace FE_QLTiemThuoc.Controllers
                 return Json(new { MaNhanVien = string.Empty, TenNhanVien = string.Empty });
             }
         }
+        [HttpGet]
+        public async Task<IActionResult> NhapThuocList()
+        {
+            // Api base for client-side fetch
+            try
+            {
+                var c0 = _http.CreateClient("MyApi");
+                ViewBag.ApiBase = c0.BaseAddress?.ToString() ?? "/api";
+            }
+            catch { ViewBag.ApiBase = "/api"; }
+
+            // Preload NCC and Thuoc list (optional but improves UX and offline resilience)
+            var client = _http.CreateClient("MyApi");
+
+            // NCC list
+            try
+            {
+                var r = await client.GetAsync("NhaCungCap");
+                var nccList = new List<NhaCungCap>();
+                if (r.IsSuccessStatusCode)
+                {
+                    var json = await r.Content.ReadAsStringAsync();
+                    var opt = new System.Text.Json.JsonSerializerOptions{ PropertyNameCaseInsensitive = true };
+                    using var doc = System.Text.Json.JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("data", out var dataEl))
+                        nccList = System.Text.Json.JsonSerializer.Deserialize<List<NhaCungCap>>(dataEl.GetRawText(), opt) ?? new();
+                    else if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        nccList = System.Text.Json.JsonSerializer.Deserialize<List<NhaCungCap>>(json, opt) ?? new();
+                }
+                ViewBag.NCCList = nccList;
+            }
+            catch { ViewBag.NCCList = new List<NhaCungCap>(); }
+
+            // Thuoc list (rich)
+            try
+            {
+                var r2 = await client.GetAsync("Thuoc/ListThuocDetail");
+                var thuocList = new List<ThuocViewModel>();
+                if (r2.IsSuccessStatusCode)
+                {
+                    var json = await r2.Content.ReadAsStringAsync();
+                    var opt = new System.Text.Json.JsonSerializerOptions{ PropertyNameCaseInsensitive = true };
+                    using var doc = System.Text.Json.JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("data", out var dataEl))
+                        thuocList = System.Text.Json.JsonSerializer.Deserialize<List<ThuocViewModel>>(dataEl.GetRawText(), opt) ?? new();
+                    else if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        thuocList = System.Text.Json.JsonSerializer.Deserialize<List<ThuocViewModel>>(json, opt) ?? new();
+                }
+                ViewBag.ThuocList = thuocList;
+            }
+            catch { ViewBag.ThuocList = new List<ThuocViewModel>(); }
+
+            // Employee info and defaults
+            try
+            {
+                ViewBag.MaNV = HttpContext.Session.GetString("MaNhanVien") ?? string.Empty;
+                ViewBag.TenNV = HttpContext.Session.GetString("TenNhanVien") ?? string.Empty;
+            }
+            catch { ViewBag.MaNV = string.Empty; ViewBag.TenNV = string.Empty; }
+
+            var today = DateTime.Now.Date;
+            var firstOfMonth = new DateTime(today.Year, today.Month, 1);
+            ViewBag.DefaultFrom = firstOfMonth.ToString("yyyy-MM-dd");
+            ViewBag.DefaultTo = today.ToString("yyyy-MM-dd");
+
+            ViewBag.DefaultNgayNhap = DateTime.Now.ToString("yyyy-MM-ddTHH:mm");
+            return View();
+        }
 
         [HttpGet]
-        public IActionResult AddPhieuNhap()
+        public async Task<IActionResult> AddPhieuNhap()
         {
-            // provide ApiBase for client JS if needed
+            // Api base for client-side fetch
             try
             {
-                var client = _http.CreateClient("MyApi");
-                ViewBag.ApiBase = client.BaseAddress?.ToString() ?? "/api";
+                var c0 = _http.CreateClient("MyApi");
+                ViewBag.ApiBase = c0.BaseAddress?.ToString() ?? "/api";
             }
-            catch
-            {
-                ViewBag.ApiBase = "/api";
-            }
+            catch { ViewBag.ApiBase = "/api"; }
 
-            // prepare an empty model with today's date
-            var model = new FE_QLTiemThuoc.Models.PhieuNhapDto { NgayNhap = System.DateTime.Now };
-
-            // Fetch supplier list to populate the select in the view
-            try
-            {
-                var client = _http.CreateClient("MyApi");
-                var listResponse = client.GetAsync("NhaCungCap").GetAwaiter().GetResult();
-                if (listResponse.IsSuccessStatusCode)
-                {
-                    var json = listResponse.Content.ReadAsStringAsync().GetAwaiter().GetResult();
-                    var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
-                    try
-                    {
-                        using var doc = System.Text.Json.JsonDocument.Parse(json);
-                        if (doc.RootElement.TryGetProperty("data", out var dataElement) && dataElement.ValueKind == System.Text.Json.JsonValueKind.Array)
-                        {
-                            var result = System.Text.Json.JsonSerializer.Deserialize<List<FE_QLTiemThuoc.Models.NhaCungCap>>(dataElement.GetRawText(), options);
-                            ViewBag.NCCList = result ?? new List<FE_QLTiemThuoc.Models.NhaCungCap>();
-                        }
-                        else if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
-                        {
-                            var result = System.Text.Json.JsonSerializer.Deserialize<List<FE_QLTiemThuoc.Models.NhaCungCap>>(json, options);
-                            ViewBag.NCCList = result ?? new List<FE_QLTiemThuoc.Models.NhaCungCap>();
-                        }
-                        else
-                        {
-                            ViewBag.NCCList = new List<FE_QLTiemThuoc.Models.NhaCungCap>();
-                        }
-                    }
-                    catch
-                    {
-                        ViewBag.NCCList = new List<FE_QLTiemThuoc.Models.NhaCungCap>();
-                    }
-                }
-                else
-                {
-                    ViewBag.NCCList = new List<FE_QLTiemThuoc.Models.NhaCungCap>();
-                }
-            }
-            catch
-            {
-                ViewBag.NCCList = new List<FE_QLTiemThuoc.Models.NhaCungCap>();
-            }
-
-            try
-            {
-                var maNV = HttpContext.Session.GetString("MaNhanVien");
-                var tenNV = HttpContext.Session.GetString("TenNhanVien");
-                ViewBag.MaNV = maNV ?? string.Empty;
-                ViewBag.TenNV = tenNV ?? string.Empty;
-            }
-            catch
-            {
-                ViewBag.MaNV = string.Empty;
-                ViewBag.TenNV = string.Empty;
-            }
-
-            return View(model);
-        }
-
-        [HttpPost]
-        public async Task<IActionResult> AddPhieuNhap(FE_QLTiemThuoc.Models.PhieuNhapDto model)
-        {
-            if (!ModelState.IsValid)
-            {
-                return View(model);
-            }
-
+            // Preload NCC and Thuoc list (optional but improves UX and offline resilience)
             var client = _http.CreateClient("MyApi");
-            var resp = await client.PostAsJsonAsync("PhieuNhap/AddPhieuNhap", model);
-            if (resp.IsSuccessStatusCode)
-            {
-                // optionally show success and redirect back to list
-                return RedirectToAction("NhapThuoc");
-            }
 
-            // read error and show
-            var text = await resp.Content.ReadAsStringAsync();
-            ModelState.AddModelError("", "Lỗi khi gọi API: " + resp.StatusCode + " - " + text);
-            return View(model);
+            // NCC list
+            try
+            {
+                var r = await client.GetAsync("NhaCungCap");
+                var nccList = new List<NhaCungCap>();
+                if (r.IsSuccessStatusCode)
+                {
+                    var json = await r.Content.ReadAsStringAsync();
+                    var opt = new System.Text.Json.JsonSerializerOptions{ PropertyNameCaseInsensitive = true };
+                    using var doc = System.Text.Json.JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("data", out var dataEl))
+                        nccList = System.Text.Json.JsonSerializer.Deserialize<List<NhaCungCap>>(dataEl.GetRawText(), opt) ?? new();
+                    else if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        nccList = System.Text.Json.JsonSerializer.Deserialize<List<NhaCungCap>>(json, opt) ?? new();
+                }
+                ViewBag.NCCList = nccList;
+            }
+            catch { ViewBag.NCCList = new List<NhaCungCap>(); }
+
+            // Thuoc list (rich)
+            try
+            {
+                var r2 = await client.GetAsync("Thuoc/ListThuocDetail");
+                var thuocList = new List<ThuocViewModel>();
+                if (r2.IsSuccessStatusCode)
+                {
+                    var json = await r2.Content.ReadAsStringAsync();
+                    var opt = new System.Text.Json.JsonSerializerOptions{ PropertyNameCaseInsensitive = true };
+                    using var doc = System.Text.Json.JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("data", out var dataEl))
+                        thuocList = System.Text.Json.JsonSerializer.Deserialize<List<ThuocViewModel>>(dataEl.GetRawText(), opt) ?? new();
+                    else if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        thuocList = System.Text.Json.JsonSerializer.Deserialize<List<ThuocViewModel>>(json, opt) ?? new();
+                }
+                ViewBag.ThuocList = thuocList;
+            }
+            catch { ViewBag.ThuocList = new List<ThuocViewModel>(); }
+
+            // Employee info
+            try
+            {
+                ViewBag.MaNV = HttpContext.Session.GetString("MaNhanVien") ?? string.Empty;
+                ViewBag.TenNV = HttpContext.Session.GetString("TenNhanVien") ?? string.Empty;
+            }
+            catch { ViewBag.MaNV = string.Empty; ViewBag.TenNV = string.Empty; }
+
+            ViewBag.DefaultNgayNhap = DateTime.Now.ToString("yyyy-MM-ddTHH:mm");
+            return View();
         }
+        
     }
 }
