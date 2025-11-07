@@ -1,0 +1,14 @@
+using System;
+
+namespace BE_QLTiemThuoc.Model
+{
+    public class ChiTietHoaDon
+    {
+        public string MaHD { get; set; } = string.Empty;
+        public string MaLo { get; set; } = string.Empty;
+        public int SoLuong { get; set; }
+        public decimal DonGia { get; set; }
+        public decimal ThanhTien { get; set; }
+        public string? MaLD { get; set; }
+    }
+}

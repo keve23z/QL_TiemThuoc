@@ -1,0 +1,246 @@
+@{
+    ViewData["Title"] = "Danh sách Hoá đơn";
+}
+
+<div class="container mt-4">
+    <h2>Danh sách Hoá đơn</h2>
+
+    <form method="get" class="row g-2 align-items-end mb-3">
+        <div class="col-auto">
+            <label class="form-label">Từ</label>
+            <input type="date" name="from" class="form-control" value="@ViewBag.DefaultFrom" />
+        </div>
+        <div class="col-auto">
+            <label class="form-label">Đến</label>
+            <input type="date" name="to" class="form-control" value="@ViewBag.DefaultTo" />
+        </div>
+        <div class="col-auto">
+            <label class="form-label">Trạng thái</label>
+            <select name="status" class="form-select">
+                @{ var statusStr = (string)ViewBag.Status ?? string.Empty; }
+                @if (string.IsNullOrEmpty(statusStr)) { <option value="" selected>Tất cả</option> } else { <option value="">Tất cả</option> }
+                @if (statusStr == "-1") { <option value="-1" selected>Huỷ </option> } else { <option value="-1">Huỷ </option> }
+                @if (statusStr == "0") { <option value="0" selected>Đã đặt </option> } else { <option value="0">Đã đặt </option> }
+                @if (statusStr == "1") { <option value="1" selected>Đã xác nhận </option> } else { <option value="1">Đã xác nhận </option> }
+                @if (statusStr == "2") { <option value="2" selected>Đang giao </option> } else { <option value="2">Đang giao </option> }
+                @if (statusStr == "3") { <option value="3" selected>Đã nhận </option> } else { <option value="3">Đã nhận </option> }
+            </select>
+        </div>
+        <div class="col-auto">
+            <label class="form-label">Tìm kiếm</label>
+            <input type="text" name="q" id="searchInput" class="form-control" placeholder="Tìm MaHD, tên KH hoặc NV..." value="@((string)ViewBag.Query ?? string.Empty)" />
+        </div>
+        <div class="col-auto">
+            <button class="btn btn-primary">Lọc</button>
+        </div>
+    </form>
+
+    <div class="table-responsive">
+        <table class="table table-striped table-bordered">
+            <thead>
+                <tr>
+                    <th>MaHD</th>
+                    <th>Ngày lập</th>
+                    <th>Khách hàng</th>
+                    <th>Nhân viên</th>
+                    @{
+                        ViewData["Title"] = "Danh sách Hoá đơn";
+                    }
+
+                    <div class="container mt-4">
+                        <h2>Danh sách Hoá đơn</h2>
+
+                        <form method="get" class="row g-2 align-items-end mb-3">
+                            <div class="col-auto">
+                                <label class="form-label">Từ</label>
+                                <input type="date" name="from" class="form-control" value="@ViewBag.DefaultFrom" />
+                            </div>
+                            <div class="col-auto">
+                                <label class="form-label">Đến</label>
+                                <input type="date" name="to" class="form-control" value="@ViewBag.DefaultTo" />
+                            </div>
+                            <div class="col-auto">
+                                <label class="form-label">Trạng thái</label>
+                                <select name="status" class="form-select">
+                                    @{ var statusStr = (string)ViewBag.Status ?? string.Empty; }
+                                    @if (string.IsNullOrEmpty(statusStr)) { <option value="" selected>Tất cả</option> } else { <option value="">Tất cả</option> }
+                                    @if (statusStr == "-1") { <option value="-1" selected>Huỷ (-1)</option> } else { <option value="-1">Huỷ (-1)</option> }
+                                    @if (statusStr == "0") { <option value="0" selected>Đã đặt (0)</option> } else { <option value="0">Đã đặt (0)</option> }
+                                    @if (statusStr == "1") { <option value="1" selected>Đã xác nhận (1)</option> } else { <option value="1">Đã xác nhận (1)</option> }
+                                    @if (statusStr == "2") { <option value="2" selected>Đang giao (2)</option> } else { <option value="2">Đang giao (2)</option> }
+                                    @if (statusStr == "3") { <option value="3" selected>Đã nhận (3)</option> } else { <option value="3">Đã nhận (3)</option> }
+                                </select>
+                            </div>
+                            <div class="col-auto">
+                                <label class="form-label">Tìm kiếm</label>
+                                <input type="text" name="q" id="searchInput" class="form-control" placeholder="Tìm MaHD, tên KH hoặc NV..." value="@((string)ViewBag.Query ?? string.Empty)" />
+                            </div>
+                            <div class="col-auto">
+                                <button class="btn btn-primary">Lọc</button>
+                            </div>
+                        </form>
+
+                        <div class="table-responsive">
+                            <table class="table table-striped table-bordered">
+                                <thead>
+                                    <tr>
+                                        <th>MaHD</th>
+                                        <th>Ngày lập</th>
+                                        <th>Khách hàng</th>
+                                        <th>Nhân viên</th>
+                                        <th>Tổng tiền</th>
+                                        <th>Trạng thái</th>
+                                        <th>Hành động</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    @{ var list = ViewBag.HoaDonList as System.Collections.Generic.List<System.Collections.Generic.Dictionary<string, object>> ?? new System.Collections.Generic.List<System.Collections.Generic.Dictionary<string, object>>(); }
+                                    @functions {
+                                        private object? GetVal(System.Collections.Generic.Dictionary<string, object> row, string key){
+                                            if (row == null) return null;
+                                            if (row.TryGetValue(key, out var v)) return v;
+                                            // case-insensitive search
+                                            foreach(var k in row.Keys){ if (string.Equals(k, key, System.StringComparison.OrdinalIgnoreCase)) return row[k]; }
+                                            return null;
+                                        }
+
+                                        private string FormatDate(object? val){
+                                            if (val == null) return string.Empty;
+                                            try{
+                                                // handle JsonElement from System.Text.Json
+                                                if (val is System.Text.Json.JsonElement je){
+                                                    if (je.ValueKind == System.Text.Json.JsonValueKind.String){
+                                                        var s = je.GetString();
+                                                        if (DateTime.TryParse(s, out var dt)) return dt.ToString("yyyy-MM-dd HH:mm");
+                                                    }
+                                                    if (je.ValueKind == System.Text.Json.JsonValueKind.Number){
+                                                        // try parse as epoch ticks or number -> fallback to ToString
+                                                        var s2 = je.ToString();
+                                                        if (DateTime.TryParse(s2, out var dt2)) return dt2.ToString("yyyy-MM-dd HH:mm");
+                                                    }
+                                                    return je.ToString();
+                                                }
+
+                                                if (val is DateTime dt) return dt.ToString("yyyy-MM-dd HH:mm");
+                                                var sval = val.ToString();
+                                                if (DateTime.TryParse(sval, out var dt3)) return dt3.ToString("yyyy-MM-dd HH:mm");
+                                                return sval ?? string.Empty;
+                                            }catch{ return string.Empty; }
+                                        }
+
+                                        private string FormatCurrency(object? val){
+                                            if (val == null) return string.Empty;
+                                            try{
+                                                if (val is System.Text.Json.JsonElement je){
+                                                    if (je.ValueKind == System.Text.Json.JsonValueKind.Number){
+                                                        if (je.TryGetDecimal(out var d)) return string.Format(System.Globalization.CultureInfo.GetCultureInfo("vi-VN"),"{0:N0}", d);
+                                                        var s = je.ToString();
+                                                        if (decimal.TryParse(s, out var d2)) return string.Format(System.Globalization.CultureInfo.GetCultureInfo("vi-VN"),"{0:N0}", d2);
+                                                    }
+                                                    if (je.ValueKind == System.Text.Json.JsonValueKind.String){
+                                                        var s = je.GetString(); if (decimal.TryParse(s, out var d3)) return string.Format(System.Globalization.CultureInfo.GetCultureInfo("vi-VN"),"{0:N0}", d3);
+                                                    }
+                                                    return je.ToString();
+                                                }
+
+                                                if (val is decimal dec) return string.Format(System.Globalization.CultureInfo.GetCultureInfo("vi-VN"),"{0:N0}", dec);
+                                                var sval = val.ToString();
+                                                if (decimal.TryParse(sval, out var d4)) return string.Format(System.Globalization.CultureInfo.GetCultureInfo("vi-VN"),"{0:N0}", d4);
+                                                return sval ?? string.Empty;
+                                            }catch{ return string.Empty; }
+                                        }
+                                    }
+
+                                    @foreach (var row in list)
+                                    {
+                                        var mahd = GetVal(row, "MaHD")?.ToString() ?? "";
+                                        var ngay = GetVal(row, "NgayLap");
+                                        var tenKH = GetVal(row, "TenKH")?.ToString() ?? (GetVal(row, "MaKH")?.ToString() ?? "");
+                                        var tenNV = GetVal(row, "TenNV")?.ToString() ?? (GetVal(row, "MaNV")?.ToString() ?? "");
+                                        var tong = GetVal(row, "TongTien");
+                                        var status = GetVal(row, "TrangThaiGiaoHang")?.ToString() ?? "";
+                                    <tr>
+                                        <td>@mahd</td>
+                                        <td>@(FormatDate(ngay))</td>
+                                        <td>@tenKH</td>
+                                        <td>@tenNV</td>
+                                        <td>@(FormatCurrency(tong))</td>
+                                        <td>@(status)</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-info" onclick="showDetails('@mahd')">Xem</button>
+                                        </td>
+                                    </tr>
+                                    }
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <!-- Details modal -->
+                        <div class="modal fade" id="detailsModal" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog modal-lg">
+                                <div class="modal-content">
+                                    <div class="modal-header">
+                                        <h5 class="modal-title">Chi tiết hoá đơn <span id="modalMaHD"></span></h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div id="invoiceHeader" class="mb-3"></div>
+                                        <div class="table-responsive">
+                                            <table class="table table-sm table-bordered" id="invoiceItemsTable">
+                                                <thead>
+                                                    <tr>
+                                                        <th>MaLo</th>
+                                                        <th>MaThuoc</th>
+                                                        <th>Tên thuốc</th>
+                                                        <th>Số lượng</th>
+                                                        <th>Đơn giá</th>
+                                                        <th>Thành tiền</th>
+                                                        <th>Liều dùng</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody></tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <script>
+                        async function showDetails(mahd) {
+                            if (!mahd) return alert('Missing MaHD');
+                            try {
+                                const res = await fetch('/api/HoaDon/' + encodeURIComponent(mahd) + '/ChiTiet');
+                                if (!res.ok) throw new Error('HTTP ' + res.status);
+                                const payload = await res.json();
+                                if (payload?.status === -1) return alert('Lỗi: ' + payload.message);
+                                const data = payload?.data || payload; // support both wrapped or raw
+                                const inv = data?.Invoice || data?.invoice || null;
+                                const items = data?.Items || data?.items || data || [];
+
+                                document.getElementById('modalMaHD').textContent = mahd;
+                                const headerEl = document.getElementById('invoiceHeader');
+                                headerEl.innerHTML = '';
+                                if (inv) {
+                                    headerEl.innerHTML = `<div><strong>Khách:</strong> ${inv.TenKH ?? inv.MaKH ?? ''}</div><div><strong>NV:</strong> ${inv.TenNV ?? inv.MaNV ?? ''}</div><div><strong>Ngày:</strong> ${inv.NgayLap}</div><div><strong>Tổng:</strong> ${inv.TongTien ?? ''}</div>`;
+                                }
+
+                                const tbody = document.querySelector('#invoiceItemsTable tbody');
+                                tbody.innerHTML = '';
+                                const list = (items && Array.isArray(items)) ? items : [];
+                                for (const it of list) {
+                                    const tr = document.createElement('tr');
+                                    tr.innerHTML = `<td>${it.MaLo ?? it.maLo ?? ''}</td><td>${it.MaThuoc ?? it.maThuoc ?? ''}</td><td>${it.TenThuoc ?? it.tenThuoc ?? ''}</td><td>${it.SoLuong ?? it.soLuong ?? ''}</td><td>${it.DonGia ?? it.donGia ?? ''}</td><td>${it.ThanhTien ?? it.thanhTien ?? ''}</td><td>${it.MaLD ?? it.maLD ?? ''}</td>`;
+                                    tbody.appendChild(tr);
+                                }
+
+                                var modal = new bootstrap.Modal(document.getElementById('detailsModal'));
+                                modal.show();
+                            } catch (e) { alert('Lỗi khi tải chi tiết: ' + e.message); }
+                        }
+                    </script>

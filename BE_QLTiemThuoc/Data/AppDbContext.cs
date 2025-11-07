@@ -22,6 +22,10 @@ namespace BE_QLTiemThuoc.Data
     public DbSet<PhieuNhap> PhieuNhaps { get; set; } // Add this property
     public DbSet<ChiTietPhieuNhap> ChiTietPhieuNhaps { get; set; }
     public DbSet<TonKho> TonKhos { get; set; }
+    // Sales / Invoice
+    public DbSet<HoaDon> HoaDons { get; set; }
+    public DbSet<ChiTietHoaDon> ChiTietHoaDons { get; set; }
+    public DbSet<LieuDung> LieuDungs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -38,6 +42,14 @@ namespace BE_QLTiemThuoc.Data
             modelBuilder.Entity<ChiTietPhieuNhap>().ToTable("ChiTietPhieuNhap");
             // TON_KHO replaces LoThuocHSD
             modelBuilder.Entity<TonKho>().ToTable("TON_KHO");
+            // Sales tables
+            modelBuilder.Entity<HoaDon>().ToTable("HoaDon");
+            // Primary key for HoaDon
+            modelBuilder.Entity<HoaDon>().HasKey(h => h.MaHD);
+            modelBuilder.Entity<ChiTietHoaDon>().ToTable("ChiTietHoaDon");
+            // Composite primary key: (MaHD, MaLo)
+            modelBuilder.Entity<ChiTietHoaDon>().HasKey(ct => new { ct.MaHD, ct.MaLo });
+            modelBuilder.Entity<LieuDung>().ToTable("LieuDung");
 
             //modelBuilder.Entity<DanhMucNguoiDung>()
             //    .HasOne(dm => dm.KhachHang)

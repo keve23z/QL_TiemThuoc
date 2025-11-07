@@ -261,6 +261,56 @@ namespace FE_QLTiemThuoc.Controllers
             return View();
         }
         
+        // Danh sách hoá đơn (Admin) - gọi BE api/HoaDon/Search
+        [HttpGet]
+        public async Task<IActionResult> HoaDonList(string? from = null, string? to = null, int? status = null, string? q = null)
+        {
+            var client = _http.CreateClient("MyApi");
+
+            // defaults: first of month -> today
+            var today = DateTime.Now.Date;
+            var firstOfMonth = new DateTime(today.Year, today.Month, 1);
+            var fromStr = from ?? firstOfMonth.ToString("yyyy-MM-dd");
+            var toStr = to ?? today.ToString("yyyy-MM-dd");
+
+            try
+            {
+                var url = $"HoaDon/Search?from={Uri.EscapeDataString(fromStr)}&to={Uri.EscapeDataString(toStr)}" + (status != null ? $"&status={status.Value}" : string.Empty) + (!string.IsNullOrEmpty(q) ? $"&q={Uri.EscapeDataString(q)}" : string.Empty);
+                var res = await client.GetAsync(url);
+                var list = new List<System.Collections.Generic.Dictionary<string, object>>();
+                if (res.IsSuccessStatusCode)
+                {
+                    var json = await res.Content.ReadAsStringAsync();
+                    try
+                    {
+                        var options = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                        using var doc = System.Text.Json.JsonDocument.Parse(json);
+                        if (doc.RootElement.TryGetProperty("data", out var dataEl) && dataEl.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        {
+                            list = System.Text.Json.JsonSerializer.Deserialize<List<System.Collections.Generic.Dictionary<string, object>>>(dataEl.GetRawText(), options) ?? new();
+                        }
+                        else if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        {
+                            list = System.Text.Json.JsonSerializer.Deserialize<List<System.Collections.Generic.Dictionary<string, object>>>(json, options) ?? new();
+                        }
+                    }
+                    catch { list = new(); }
+                }
+                ViewBag.HoaDonList = list;
+            }
+            catch
+            {
+                ViewBag.HoaDonList = new List<System.Collections.Generic.Dictionary<string, object>>();
+            }
+
+            ViewBag.DefaultFrom = fromStr;
+            ViewBag.DefaultTo = toStr;
+            ViewBag.Status = status?.ToString() ?? string.Empty;
+            ViewBag.Query = q ?? string.Empty;
+
+            return View();
+        }
+        
         // Kho - Thuốc: hiển thị danh sách Chưa tách lẻ / Đã tách lẻ
         [HttpGet]
         public IActionResult ThuocKho()

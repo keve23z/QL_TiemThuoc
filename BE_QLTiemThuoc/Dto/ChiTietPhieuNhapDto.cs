@@ -10,8 +10,8 @@ namespace BE_QLTiemThuoc.Dto
         public decimal DonGia { get; set; }
         public decimal ThanhTien { get; set; }
 
-        // additional fields coming from FE
         public DateTime? HanSuDung { get; set; }
         public string? MaLoaiDonViNhap { get; set; }
+        public string? GhiChu { get; set; }
     }
 }
