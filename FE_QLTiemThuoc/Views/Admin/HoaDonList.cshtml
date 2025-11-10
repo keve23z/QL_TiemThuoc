@@ -2,19 +2,84 @@
     ViewData["Title"] = "Danh sách Hoá đơn";
 }
 
-<div class="container mt-4">
-    <h2>Danh sách Hoá đơn</h2>
+@functions {
+    private object? GetVal(System.Collections.Generic.Dictionary<string, object> row, string key)
+    {
+        if (row == null) return null;
+        if (row.TryGetValue(key, out var v)) return v;
+        foreach (var kv in row)
+        {
+            if (string.Equals(kv.Key, key, System.StringComparison.OrdinalIgnoreCase)) return kv.Value;
+        }
+        return null;
+    }
+
+    private string FormatDate(object? val)
+    {
+        if (val == null) return string.Empty;
+        try
+        {
+            if (val is System.Text.Json.JsonElement je)
+            {
+                if (je.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    var s = je.GetString(); if (DateTime.TryParse(s, out var parsedDt)) return parsedDt.ToString("yyyy-MM-dd HH:mm");
+                }
+                if (je.ValueKind == System.Text.Json.JsonValueKind.Number)
+                {
+                    var s2 = je.ToString(); if (DateTime.TryParse(s2, out var dt2)) return dt2.ToString("yyyy-MM-dd HH:mm");
+                }
+                return je.ToString();
+            }
+            if (val is DateTime dt) return dt.ToString("yyyy-MM-dd HH:mm");
+            var sval = val.ToString(); if (DateTime.TryParse(sval, out var dt3)) return dt3.ToString("yyyy-MM-dd HH:mm");
+            return sval ?? string.Empty;
+        }
+        catch { return string.Empty; }
+    }
+
+    private string FormatCurrency(object? val)
+    {
+        if (val == null) return string.Empty;
+        try
+        {
+            if (val is System.Text.Json.JsonElement je)
+            {
+                if (je.ValueKind == System.Text.Json.JsonValueKind.Number)
+                {
+                    if (je.TryGetDecimal(out var d)) return string.Format(System.Globalization.CultureInfo.GetCultureInfo("vi-VN"), "{0:N0}", d);
+                    var s = je.ToString(); if (decimal.TryParse(s, out var d2)) return string.Format(System.Globalization.CultureInfo.GetCultureInfo("vi-VN"), "{0:N0}", d2);
+                }
+                if (je.ValueKind == System.Text.Json.JsonValueKind.String)
+                {
+                    var s = je.GetString(); if (decimal.TryParse(s, out var d3)) return string.Format(System.Globalization.CultureInfo.GetCultureInfo("vi-VN"), "{0:N0}", d3);
+                }
+                return je.ToString();
+            }
+            if (val is decimal dec) return string.Format(System.Globalization.CultureInfo.GetCultureInfo("vi-VN"), "{0:N0}", dec);
+            var sval = val.ToString(); if (decimal.TryParse(sval, out var d4)) return string.Format(System.Globalization.CultureInfo.GetCultureInfo("vi-VN"), "{0:N0}", d4);
+            return sval ?? string.Empty;
+        }
+        catch { return string.Empty; }
+    }
+}
+
+<div class="container-fluid mt-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2 class="mb-0">Danh sách Hoá đơn</h2>
+        <a class="btn btn-primary" href="@Url.Action("ThemHoaDon", "Admin")">Thêm hoá đơn</a>
+    </div>
 
     <form method="get" class="row g-2 align-items-end mb-3">
-        <div class="col-auto">
+        <div class="col-12 col-md-2">
             <label class="form-label">Từ</label>
             <input type="date" name="from" class="form-control" value="@ViewBag.DefaultFrom" />
         </div>
-        <div class="col-auto">
+        <div class="col-12 col-md-2">
             <label class="form-label">Đến</label>
             <input type="date" name="to" class="form-control" value="@ViewBag.DefaultTo" />
         </div>
-        <div class="col-auto">
+        <div class="col-12 col-md-2">
             <label class="form-label">Trạng thái</label>
             <select name="status" class="form-select">
                 @{ var statusStr = (string)ViewBag.Status ?? string.Empty; }
@@ -26,13 +91,11 @@
                 @if (statusStr == "3") { <option value="3" selected>Đã nhận </option> } else { <option value="3">Đã nhận </option> }
             </select>
         </div>
-        <div class="col-auto">
+        <div class="col-12 col-md-6">
             <label class="form-label">Tìm kiếm</label>
             <input type="text" name="q" id="searchInput" class="form-control" placeholder="Tìm MaHD, tên KH hoặc NV..." value="@((string)ViewBag.Query ?? string.Empty)" />
         </div>
-        <div class="col-auto">
-            <button class="btn btn-primary">Lọc</button>
-        </div>
+        @* No submit button: filters auto-submit on change *@
     </form>
 
     <div class="table-responsive">
@@ -43,204 +106,231 @@
                     <th>Ngày lập</th>
                     <th>Khách hàng</th>
                     <th>Nhân viên</th>
-                    @{
-                        ViewData["Title"] = "Danh sách Hoá đơn";
-                    }
+                    <th>Tổng tiền</th>
+                    <th>Trạng thái</th>
+                    <th>Hành động</th>
+                </tr>
+            </thead>
+            <tbody>
+                @{ var list = ViewBag.HoaDonList as System.Collections.Generic.List<System.Collections.Generic.Dictionary<string, object>> ?? new System.Collections.Generic.List<System.Collections.Generic.Dictionary<string, object>>(); }
+                @foreach (var row in list)
+                {
+                    var mahd = GetVal(row, "MaHD")?.ToString() ?? "";
+                    var ngay = GetVal(row, "NgayLap");
+                    var tenKH = GetVal(row, "TenKH")?.ToString() ?? (GetVal(row, "MaKH")?.ToString() ?? "");
+                    var tenNV = GetVal(row, "TenNV")?.ToString() ?? (GetVal(row, "MaNV")?.ToString() ?? "");
+                    var tong = GetVal(row, "TongTien");
+                    var status = GetVal(row, "TrangThaiGiaoHang")?.ToString() ?? "";
+                    var statusLabel = status switch
+                    {
+                        "-1" => "Huỷ",
+                        "0" => "Đã đặt",
+                        "1" => "Đã xác nhận",
+                        "2" => "Đang giao",
+                        "3" => "Đã nhận",
+                        _ => status
+                    };
+                <tr>
+                    <td>@mahd</td>
+                    <td>@(FormatDate(ngay))</td>
+                    <td>@tenKH</td>
+                    <td>@tenNV</td>
+                    <td>@(FormatCurrency(tong))</td>
+                    <td>@statusLabel</td>
+                    <td>
+                        <button class="btn btn-sm btn-info" onclick="showDetails('@mahd')">Xem</button>
+                    </td>
+                </tr>
+                }
+            </tbody>
+        </table>
+    </div>
 
-                    <div class="container mt-4">
-                        <h2>Danh sách Hoá đơn</h2>
-
-                        <form method="get" class="row g-2 align-items-end mb-3">
-                            <div class="col-auto">
-                                <label class="form-label">Từ</label>
-                                <input type="date" name="from" class="form-control" value="@ViewBag.DefaultFrom" />
-                            </div>
-                            <div class="col-auto">
-                                <label class="form-label">Đến</label>
-                                <input type="date" name="to" class="form-control" value="@ViewBag.DefaultTo" />
-                            </div>
-                            <div class="col-auto">
-                                <label class="form-label">Trạng thái</label>
-                                <select name="status" class="form-select">
-                                    @{ var statusStr = (string)ViewBag.Status ?? string.Empty; }
-                                    @if (string.IsNullOrEmpty(statusStr)) { <option value="" selected>Tất cả</option> } else { <option value="">Tất cả</option> }
-                                    @if (statusStr == "-1") { <option value="-1" selected>Huỷ (-1)</option> } else { <option value="-1">Huỷ (-1)</option> }
-                                    @if (statusStr == "0") { <option value="0" selected>Đã đặt (0)</option> } else { <option value="0">Đã đặt (0)</option> }
-                                    @if (statusStr == "1") { <option value="1" selected>Đã xác nhận (1)</option> } else { <option value="1">Đã xác nhận (1)</option> }
-                                    @if (statusStr == "2") { <option value="2" selected>Đang giao (2)</option> } else { <option value="2">Đang giao (2)</option> }
-                                    @if (statusStr == "3") { <option value="3" selected>Đã nhận (3)</option> } else { <option value="3">Đã nhận (3)</option> }
-                                </select>
-                            </div>
-                            <div class="col-auto">
-                                <label class="form-label">Tìm kiếm</label>
-                                <input type="text" name="q" id="searchInput" class="form-control" placeholder="Tìm MaHD, tên KH hoặc NV..." value="@((string)ViewBag.Query ?? string.Empty)" />
-                            </div>
-                            <div class="col-auto">
-                                <button class="btn btn-primary">Lọc</button>
-                            </div>
-                        </form>
-
-                        <div class="table-responsive">
-                            <table class="table table-striped table-bordered">
-                                <thead>
-                                    <tr>
-                                        <th>MaHD</th>
-                                        <th>Ngày lập</th>
-                                        <th>Khách hàng</th>
-                                        <th>Nhân viên</th>
-                                        <th>Tổng tiền</th>
-                                        <th>Trạng thái</th>
-                                        <th>Hành động</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    @{ var list = ViewBag.HoaDonList as System.Collections.Generic.List<System.Collections.Generic.Dictionary<string, object>> ?? new System.Collections.Generic.List<System.Collections.Generic.Dictionary<string, object>>(); }
-                                    @functions {
-                                        private object? GetVal(System.Collections.Generic.Dictionary<string, object> row, string key){
-                                            if (row == null) return null;
-                                            if (row.TryGetValue(key, out var v)) return v;
-                                            // case-insensitive search
-                                            foreach(var k in row.Keys){ if (string.Equals(k, key, System.StringComparison.OrdinalIgnoreCase)) return row[k]; }
-                                            return null;
-                                        }
-
-                                        private string FormatDate(object? val){
-                                            if (val == null) return string.Empty;
-                                            try{
-                                                // handle JsonElement from System.Text.Json
-                                                if (val is System.Text.Json.JsonElement je){
-                                                    if (je.ValueKind == System.Text.Json.JsonValueKind.String){
-                                                        var s = je.GetString();
-                                                        if (DateTime.TryParse(s, out var dt)) return dt.ToString("yyyy-MM-dd HH:mm");
-                                                    }
-                                                    if (je.ValueKind == System.Text.Json.JsonValueKind.Number){
-                                                        // try parse as epoch ticks or number -> fallback to ToString
-                                                        var s2 = je.ToString();
-                                                        if (DateTime.TryParse(s2, out var dt2)) return dt2.ToString("yyyy-MM-dd HH:mm");
-                                                    }
-                                                    return je.ToString();
-                                                }
-
-                                                if (val is DateTime dt) return dt.ToString("yyyy-MM-dd HH:mm");
-                                                var sval = val.ToString();
-                                                if (DateTime.TryParse(sval, out var dt3)) return dt3.ToString("yyyy-MM-dd HH:mm");
-                                                return sval ?? string.Empty;
-                                            }catch{ return string.Empty; }
-                                        }
-
-                                        private string FormatCurrency(object? val){
-                                            if (val == null) return string.Empty;
-                                            try{
-                                                if (val is System.Text.Json.JsonElement je){
-                                                    if (je.ValueKind == System.Text.Json.JsonValueKind.Number){
-                                                        if (je.TryGetDecimal(out var d)) return string.Format(System.Globalization.CultureInfo.GetCultureInfo("vi-VN"),"{0:N0}", d);
-                                                        var s = je.ToString();
-                                                        if (decimal.TryParse(s, out var d2)) return string.Format(System.Globalization.CultureInfo.GetCultureInfo("vi-VN"),"{0:N0}", d2);
-                                                    }
-                                                    if (je.ValueKind == System.Text.Json.JsonValueKind.String){
-                                                        var s = je.GetString(); if (decimal.TryParse(s, out var d3)) return string.Format(System.Globalization.CultureInfo.GetCultureInfo("vi-VN"),"{0:N0}", d3);
-                                                    }
-                                                    return je.ToString();
-                                                }
-
-                                                if (val is decimal dec) return string.Format(System.Globalization.CultureInfo.GetCultureInfo("vi-VN"),"{0:N0}", dec);
-                                                var sval = val.ToString();
-                                                if (decimal.TryParse(sval, out var d4)) return string.Format(System.Globalization.CultureInfo.GetCultureInfo("vi-VN"),"{0:N0}", d4);
-                                                return sval ?? string.Empty;
-                                            }catch{ return string.Empty; }
-                                        }
-                                    }
-
-                                    @foreach (var row in list)
-                                    {
-                                        var mahd = GetVal(row, "MaHD")?.ToString() ?? "";
-                                        var ngay = GetVal(row, "NgayLap");
-                                        var tenKH = GetVal(row, "TenKH")?.ToString() ?? (GetVal(row, "MaKH")?.ToString() ?? "");
-                                        var tenNV = GetVal(row, "TenNV")?.ToString() ?? (GetVal(row, "MaNV")?.ToString() ?? "");
-                                        var tong = GetVal(row, "TongTien");
-                                        var status = GetVal(row, "TrangThaiGiaoHang")?.ToString() ?? "";
-                                    <tr>
-                                        <td>@mahd</td>
-                                        <td>@(FormatDate(ngay))</td>
-                                        <td>@tenKH</td>
-                                        <td>@tenNV</td>
-                                        <td>@(FormatCurrency(tong))</td>
-                                        <td>@(status)</td>
-                                        <td>
-                                            <button class="btn btn-sm btn-info" onclick="showDetails('@mahd')">Xem</button>
-                                        </td>
-                                    </tr>
-                                    }
-                                </tbody>
-                            </table>
-                        </div>
-
-                        <!-- Details modal -->
-                        <div class="modal fade" id="detailsModal" tabindex="-1" aria-hidden="true">
-                            <div class="modal-dialog modal-lg">
-                                <div class="modal-content">
-                                    <div class="modal-header">
-                                        <h5 class="modal-title">Chi tiết hoá đơn <span id="modalMaHD"></span></h5>
-                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                                    </div>
-                                    <div class="modal-body">
-                                        <div id="invoiceHeader" class="mb-3"></div>
-                                        <div class="table-responsive">
-                                            <table class="table table-sm table-bordered" id="invoiceItemsTable">
-                                                <thead>
-                                                    <tr>
-                                                        <th>MaLo</th>
-                                                        <th>MaThuoc</th>
-                                                        <th>Tên thuốc</th>
-                                                        <th>Số lượng</th>
-                                                        <th>Đơn giá</th>
-                                                        <th>Thành tiền</th>
-                                                        <th>Liều dùng</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody></tbody>
-                                            </table>
-                                        </div>
-                                    </div>
-                                    <div class="modal-footer">
-                                        <button class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
+    @* Friendly placeholder when there are no invoices *@
+    @if (list.Count == 0)
+    {
+        <div class="text-center mt-5">
+            <div class="card border-0 bg-light p-4 mx-auto" style="max-width:720px;">
+                <div class="card-body">
+                    <h4 class="card-title">Chưa có hoá đơn</h4>
+                    <p class="card-text text-muted">Hiện chưa có dữ liệu hoá đơn trong khoảng lọc này. Thử mở rộng khoảng thời gian hoặc xóa bộ lọc để xem tất cả hoá đơn.</p>
+                    <div class="d-flex justify-content-center">
+                        <a href="@Url.Action("HoaDonList", "Admin")" class="btn btn-outline-primary me-2">Tải lại</a>
+                        <a href="@Url.Action("Index", "Admin")" class="btn btn-link">Quay lại trang quản trị</a>
                     </div>
+                </div>
+            </div>
+        </div>
+    }
 
-                    <script>
-                        async function showDetails(mahd) {
-                            if (!mahd) return alert('Missing MaHD');
-                            try {
-                                const res = await fetch('/api/HoaDon/' + encodeURIComponent(mahd) + '/ChiTiet');
-                                if (!res.ok) throw new Error('HTTP ' + res.status);
-                                const payload = await res.json();
-                                if (payload?.status === -1) return alert('Lỗi: ' + payload.message);
-                                const data = payload?.data || payload; // support both wrapped or raw
-                                const inv = data?.Invoice || data?.invoice || null;
-                                const items = data?.Items || data?.items || data || [];
+    <!-- Details modal -->
+    <div class="modal fade" id="detailsModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Chi tiết hoá đơn <span id="modalMaHD"></span></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div id="invoiceHeader" class="mb-3"></div>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered" id="invoiceItemsTable">
+                            <thead>
+                                <tr>
+                                    <th>MaLo</th>
+                                    <th>MaThuoc</th>
+                                    <th>Tên thuốc</th>
+                                    <th>Số lượng</th>
+                                    <th>Đơn giá</th>
+                                    <th>Thành tiền</th>
+                                    <th>Liều dùng</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-secondary" data-bs-dismiss="modal">Đóng</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
-                                document.getElementById('modalMaHD').textContent = mahd;
-                                const headerEl = document.getElementById('invoiceHeader');
-                                headerEl.innerHTML = '';
-                                if (inv) {
-                                    headerEl.innerHTML = `<div><strong>Khách:</strong> ${inv.TenKH ?? inv.MaKH ?? ''}</div><div><strong>NV:</strong> ${inv.TenNV ?? inv.MaNV ?? ''}</div><div><strong>Ngày:</strong> ${inv.NgayLap}</div><div><strong>Tổng:</strong> ${inv.TongTien ?? ''}</div>`;
-                                }
+@* Include the client-side script (keeps a single, well-formed script block) *@
+<script>
+    (function () {
+        'use strict';
 
-                                const tbody = document.querySelector('#invoiceItemsTable tbody');
-                                tbody.innerHTML = '';
-                                const list = (items && Array.isArray(items)) ? items : [];
-                                for (const it of list) {
-                                    const tr = document.createElement('tr');
-                                    tr.innerHTML = `<td>${it.MaLo ?? it.maLo ?? ''}</td><td>${it.MaThuoc ?? it.maThuoc ?? ''}</td><td>${it.TenThuoc ?? it.tenThuoc ?? ''}</td><td>${it.SoLuong ?? it.soLuong ?? ''}</td><td>${it.DonGia ?? it.donGia ?? ''}</td><td>${it.ThanhTien ?? it.thanhTien ?? ''}</td><td>${it.MaLD ?? it.maLD ?? ''}</td>`;
-                                    tbody.appendChild(tr);
-                                }
+        const apiBase = '@(ViewBag.ApiBase ?? "/api")';
 
-                                var modal = new bootstrap.Modal(document.getElementById('detailsModal'));
-                                modal.show();
-                            } catch (e) { alert('Lỗi khi tải chi tiết: ' + e.message); }
-                        }
-                    </script>
+        function toNumber(value) {
+            if (value === null || value === undefined) return 0;
+            if (typeof value === 'number') return Number.isFinite(value) ? value : 0;
+            const normalized = String(value).replace(/[^0-9,.-]/g, '').replace(/\.(?=\d{3}\b)/g, '').replace(',', '.');
+            const result = Number(normalized);
+            return Number.isFinite(result) ? result : 0;
+        }
+
+        function formatDateTime(raw) {
+            if (!raw) return '';
+            try {
+                const parsed = new Date(raw);
+                if (Number.isNaN(parsed.getTime())) return String(raw);
+                return parsed.toLocaleString('vi-VN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+            } catch (err) { return String(raw ?? ''); }
+        }
+
+        function formatCurrency(value) { return toNumber(value).toLocaleString('vi-VN') + ' ₫'; }
+
+        function pickFirst(obj, ...keys) { if (!obj) return ''; for (const key of keys) { if (obj[key] !== undefined && obj[key] !== null) return obj[key]; } return ''; }
+
+        function numberToWords(value) { /* same implementation as before (kept concise) */
+            const target = Math.round(toNumber(value)); if (!Number.isFinite(target) || target === 0) return 'Không đồng chẵn';
+            const words = []; const units = ['', ' nghìn', ' triệu', ' tỷ', ' nghìn tỷ']; const ones = ['không','một','hai','ba','bốn','năm','sáu','bảy','tám','chín'];
+            function readTriple(n, requireHundreds) { const hundred = Math.floor(n/100); const ten = Math.floor((n%100)/10); const one = n%10; const chunks=[]; if (hundred>0||requireHundreds){chunks.push(ones[hundred],'trăm'); if(ten===0&&one>0)chunks.push('lẻ');} if(ten>1){chunks.push(ones[ten],'mươi'); if(one===1)chunks.push('mốt'); else if(one===5)chunks.push('lăm'); else if(one>0)chunks.push(ones[one]);} else if(ten===1){chunks.push('mười'); if(one===5)chunks.push('lăm'); else if(one>0)chunks.push(ones[one]);} else if(one>0){chunks.push(ones[one]);} return chunks.join(' ').trim(); }
+            let remaining = target; let index = 0; while (remaining>0 && index<units.length){ const block = remaining%1000; if(block>0){ const phrase = readTriple(block, index>0); if(phrase) words.unshift(phrase+units[index]); } remaining = Math.floor(remaining/1000); index++; }
+            const combined = words.join(' ').replace(/\s+/g,' ').trim(); return combined ? combined.charAt(0).toUpperCase()+combined.slice(1)+' đồng chẵn' : 'Không đồng chẵn';
+        }
+
+        function buildPrintHtml(mahd, header, itemsHtml, totals, meta) {
+            const lines = [
+                '<!DOCTYPE html>','<html>','<head>','<meta charset="utf-8" />',`<title>Hoá đơn ${mahd}</title>`,'<style>',
+                "body { font-family: 'Times New Roman', serif; font-size:13px; margin:20px; color:#000; }",
+                '.invoice-header { text-align:center; margin-bottom:20px; }','.items-table { width:100%; border-collapse:collapse; margin-top:10px; }',
+                '.items-table th, .items-table td { border:1px solid #000; padding:6px; font-size:12px; }', '.items-table th { background:#f5f5f5; text-align:center; }',
+                '.text-end { text-align:right; }', '.total-section { margin-top:15px; font-weight:bold; }', '.signature-row { margin-top:30px; display:flex; justify-content:space-between; }',
+                '.signature-cell { text-align:center; }', '.note { margin-top:10px; }', '@@media print { body { margin:0; } }', '</style>','</head>','<body>',
+                '<div class="invoice-header">','<div style="font-weight:bold; font-size:16px;">TIỆM THUỐC MELON</div>','<div>Địa chỉ: 140 LÊ TRỌNG TẤN, TÂN PHÚ </div>',`<div>Hoá đơn bán hàng - Số: <strong>${mahd}</strong></div>`,'</div>','<div>',
+                `<div><strong>Khách hàng:</strong> ${header.khachHang}</div>`,`<div><strong>Địa chỉ:</strong> ${header.diaChi || 'Không có'}</div>`,`<div><strong>Điện thoại:</strong> ${header.dienThoai || 'Không có'}</div>`,`<div><strong>Ngày bán:</strong> ${header.ngayLap}</div>`,`<div><strong>Nhân viên:</strong> ${header.nhanVien}</div>`,'</div>',
+                '<table class="items-table">','<thead>','<tr>','<th style="width:40px;">STT</th>','<th>Tên hàng hoá, dịch vụ</th>','<th style="width:80px;">SL</th>','<th style="width:120px;">Đơn giá</th>','<th style="width:140px;">Thành tiền</th>','</tr>','</thead>','<tbody>',itemsHtml,'</tbody>','</table>',
+                '<div class="total-section">',`<div>Tổng cộng: ${totals.tongCong}</div>`,`<div>Bằng chữ: ${totals.bangChu}</div>`,'</div>'
+            ];
+            if (meta.ghiChu) lines.push(`<div class="note"><strong>Ghi chú:</strong> ${meta.ghiChu}</div>`);
+            lines.push('<div class="signature-row">','<div class="signature-cell">Người mua<br/><br/>(Ký, ghi rõ họ tên)</div>','<div class="signature-cell">Người bán<br/><br/>(Ký, ghi rõ họ tên)</div>','</div>',`<div style="margin-top:15px; text-align:center; font-size:11px; color:#666;">In lúc: ${meta.printTime} - Phần mềm quản lý tiệm thuốc</div>`,'</body>','</html>');
+            return lines.join('');
+        }
+
+        async function fetchInvoiceForPrint(mahd, itemsHtml) {
+            const res = await fetch(apiBase + '/HoaDon/' + encodeURIComponent(mahd) + '/ChiTiet');
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            const payload = await res.json();
+            const data = payload && payload.data ? payload.data : payload;
+            const inv = data && (data.Invoice || data.invoice) ? (data.Invoice || data.invoice) : null;
+            if (!inv) throw new Error('Không tìm thấy thông tin hoá đơn');
+            const header = { khachHang: pickFirst(inv, 'TenKH','tenKH','MaKH','maKH')||'Khách lẻ', diaChi: pickFirst(inv,'DiaChiKH','diaChiKH')||'', dienThoai: pickFirst(inv,'DienThoaiKH','dienThoaiKH')||'', nhanVien: pickFirst(inv,'TenNV','tenNV','MaNV','maNV')||'', ngayLap: formatDateTime(pickFirst(inv,'NgayLap','ngayLap')) };
+            const tongTienValue = toNumber(pickFirst(inv,'TongTien','tongTien'));
+            const totals = { tongCong: tongTienValue.toLocaleString('vi-VN') + ' ₫', bangChu: numberToWords(tongTienValue) };
+            const meta = { ghiChu: pickFirst(inv,'GhiChu','ghiChu')||'', printTime: new Date().toLocaleString('vi-VN',{ year:'numeric', month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit', second:'2-digit' }) };
+            const printWindow = window.open('','_blank'); printWindow.document.write(buildPrintHtml(mahd, header, itemsHtml, totals, meta)); printWindow.document.close(); printWindow.focus(); setTimeout(function(){ printWindow.print(); }, 500);
+        }
+
+        function renderItems(items) {
+            // Render rows to match the modal table header order:
+            // MaLo | MaThuoc | Tên thuốc | Số lượng | Đơn giá | Thành tiền | Liều dùng
+            const tbody = document.querySelector('#invoiceItemsTable tbody'); if (!tbody) return; tbody.innerHTML = ''; let total = 0;
+            (items || []).forEach(function (item, index) {
+                const maLo = item?.MaLo ?? item?.maLo ?? '';
+                const maThuoc = item?.MaThuoc ?? item?.maThuoc ?? '';
+                const ten = item?.TenThuoc ?? item?.tenThuoc ?? '';
+                const qty = toNumber(item && (item.SoLuong ?? item.soLuong));
+                const price = toNumber(item && (item.DonGia ?? item.donGia));
+                const sum = toNumber(item && (item.ThanhTien ?? item.thanhTien ?? qty * price));
+                total += sum;
+
+                const row = document.createElement('tr');
+                row.innerHTML = [
+                    `<td class="text-center">${maLo}</td>`,
+                    `<td class="text-center">${maThuoc}</td>`,
+                    `<td class="fw-bold">${ten}</td>`,
+                    `<td class="text-center">${qty}</td>`,
+                    `<td class="text-end">${price.toLocaleString('vi-VN')} ₫</td>`,
+                    `<td class="text-end fw-bold">${sum.toLocaleString('vi-VN')} ₫</td>`,
+                    `<td class="text-center"><span class="badge bg-info">${item?.TenLieuDung ?? item?.tenLieuDung ?? item?.MaLD ?? item?.maLD ?? 'Không có'}</span></td>`
+                ].join('');
+                tbody.appendChild(row);
+            });
+
+            const totalCell = document.getElementById('totalAmount'); if (totalCell) totalCell.textContent = total.toLocaleString('vi-VN') + ' ₫';
+        }
+
+        async function showDetails(mahd) {
+            if (!mahd) { alert('Missing MaHD'); return; }
+            try {
+                const res = await fetch(apiBase + '/HoaDon/' + encodeURIComponent(mahd) + '/ChiTiet'); if (!res.ok) throw new Error('HTTP ' + res.status);
+                const payload = await res.json(); if (payload && payload.status === -1) throw new Error(payload.message || 'Không thể tải hoá đơn');
+                const data = payload && payload.data ? payload.data : payload; const inv = data && (data.Invoice || data.invoice) ? (data.Invoice || data.invoice) : null; const rawItems = data && (data.Items ?? data.items); const items = Array.isArray(rawItems) ? rawItems : (Array.isArray(data) ? data : []);
+                document.getElementById('modalMaHD').textContent = mahd; const headerEl = document.getElementById('invoiceHeader'); if (headerEl) headerEl.innerHTML = '';
+                if (inv && headerEl) { const kh = pickFirst(inv,'TenKH','tenKH','MaKH','maKH'); const diaChi = pickFirst(inv,'DiaChiKH','diaChiKH'); const dienThoai = pickFirst(inv,'DienThoaiKH','dienThoaiKH'); const nv = pickFirst(inv,'TenNV','tenNV','MaNV','maNV'); const ngay = formatDateTime(pickFirst(inv,'NgayLap','ngayLap')); const tong = formatCurrency(pickFirst(inv,'TongTien','tongTien')); const ghiChu = pickFirst(inv,'GhiChu','ghiChu'); headerEl.innerHTML = ['<div class="row">','<div class="col-md-6">','<div class="info-item mb-3">','<label class="form-label text-muted">Khách hàng:</label>','<div class="fw-bold">'+kh+'</div>','</div>','<div class="info-item mb-3">','<label class="form-label text-muted">Địa chỉ:</label>','<div class="fw-bold">'+(diaChi||'Không có')+'</div>','</div>','<div class="info-item mb-3">','<label class="form-label text-muted">Điện thoại:</label>','<div class="fw-bold">'+(dienThoai||'Không có')+'</div>','</div>','</div>','<div class="col-md-6">','<div class="info-item mb-3">','<label class="form-label text-muted">Nhân viên:</label>','<div class="fw-bold">'+nv+'</div>','</div>','<div class="info-item mb-3">','<label class="form-label text-muted">Tổng tiền:</label>','<div class="fw-bold text-success fs-5">'+tong+'</div>','</div>','</div>','</div>'].join(''); if (ghiChu) headerEl.innerHTML += ['<div class="col-12 mt-2">','<div class="info-item">','<label class="form-label text-muted">Ghi chú:</label>','<div class="fw-bold">'+ghiChu+'</div>','</div>','</div>'].join(''); }
+                renderItems(items);
+                const modalEl = document.getElementById('detailsModal'); if (modalEl) new bootstrap.Modal(modalEl).show();
+            } catch (err) { alert('Lỗi khi tải chi tiết: ' + (err && err.message ? err.message : err)); }
+        }
+
+        async function printInvoice() {
+            const mahd = document.getElementById('modalMaHD').textContent; if (!mahd) { alert('Không tìm thấy mã hoá đơn'); return; }
+            const tableEl = document.getElementById('invoiceItemsTable'); if (!tableEl) { alert('Không tìm thấy bảng chi tiết hoá đơn'); return; }
+            const rows = tableEl.querySelectorAll('tbody tr'); let itemsHtml = '';
+            rows.forEach(function (row, index) {
+                const cells = row.querySelectorAll('td');
+                // table columns: 0=MaLo,1=MaThuoc,2=Ten,3=Qty,4=DonGia,5=ThanhTien,6=LieuDung
+                if (cells.length >= 6) {
+                    itemsHtml += ['<tr>', `<td class="text-center">${index + 1}</td>`, `<td>${cells[2].textContent}</td>`, `<td class="text-center">${cells[3].textContent}</td>`, `<td class="text-end">${cells[4].textContent}</td>`, `<td class="text-end">${cells[5].textContent}</td>`, '</tr>'].join('');
+                }
+            });
+            try { await fetchInvoiceForPrint(mahd, itemsHtml); } catch (err) { alert('Lỗi khi in hoá đơn: ' + (err && err.message ? err.message : err)); }
+        }
+
+        window.showDetails = showDetails; window.printInvoice = printInvoice;
+
+        (function initAutoSubmit() {
+            try {
+                const form = document.querySelector('form[method="get"].row'); if (!form) return; function submitNow() { form.submit(); }
+                ['input[name="from"]', 'input[name="to"]', 'select[name="status"]', 'select[name="loai"]'].forEach(function (selector) { const el = form.querySelector(selector); if (el) el.addEventListener('change', submitNow); });
+                const searchInput = form.querySelector('input[name="q"]'); if (searchInput) { let timer = null; searchInput.addEventListener('input', function () { if (timer) clearTimeout(timer); timer = setTimeout(submitNow, 400); }); }
+            } catch (err) { if (window.console && console.warn) console.warn('Auto-filter init failed', err); }
+        })();
+
+    })();
+</script>

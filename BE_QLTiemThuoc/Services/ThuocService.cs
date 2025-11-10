@@ -130,11 +130,71 @@ namespace BE_QLTiemThuoc.Services
                 .ContinueWith(t => (object)t.Result);
         }
 
+        // GET: list of Thuoc aggregated by available lots in TonKho (only lots with SoLuongCon>0 and TrangThaiSeal==0)
+        public async Task<object> GetListThuocTonKhoAsync()
+        {
+            var ctx = _repo.Context;
+
+            // Group TonKhos by MaThuoc to compute remaining quantities, then join to Thuoc to get details
+            var grouped = ctx.TonKhos
+                .Where(tk => tk.SoLuongCon > 0 && !tk.TrangThaiSeal)
+                .GroupBy(tk => tk.MaThuoc)
+                .Select(g => new
+                {
+                    MaThuoc = g.Key,
+                    TongSoLuongCon = g.Sum(tk => tk.SoLuongCon)
+                });
+
+            var result = await grouped
+                .Join(ctx.Thuoc,
+                      g => g.MaThuoc,
+                      t => t.MaThuoc,
+                      (g, t) => new
+                      {
+                          maThuoc = t.MaThuoc,
+                          maLoaiThuoc = t.MaLoaiThuoc,
+                          tenThuoc = t.TenThuoc,
+                          thanhPhan = t.ThanhPhan,
+                          moTa = t.MoTa,
+                          urlAnh = t.UrlAnh,
+                          donGiaSi = t.DonGiaSi,
+                          tongSoLuongCon = g.TongSoLuongCon
+                      })
+                .OrderBy(x => x.tenThuoc)
+                .ToListAsync();
+
+            return (object)result;
+        }
+
         public Task<object> GetThuocByLoaiAsync(string maLoaiThuoc)
         {
             var ctx = _repo.Context;
             return ctx.Thuoc
                 .Where(t => t.MaLoaiThuoc == maLoaiThuoc)
+                .Select(t => new
+                {
+                    t.MaThuoc,
+                    t.MaLoaiThuoc,
+                    t.TenThuoc,
+                    t.MoTa,
+                    t.UrlAnh,
+                    t.DonGiaSi,
+                    TenNCC = ctx.NhaCungCaps.Where(n => n.MaNCC == t.MaNCC).Select(n => n.TenNCC).FirstOrDefault(),
+                    TenLoaiDonVi = ctx.Set<Model.Thuoc.LoaiDonVi>().Where(d => d.MaLoaiDonVi == t.MaLoaiDonVi).Select(d => d.TenLoaiDonVi).FirstOrDefault()
+                })
+                .ToListAsync()
+                .ContinueWith(t => (object)t.Result);
+        }
+
+        // GET: api/Thuoc/ByLoaiTonKho/{maLoaiThuoc}
+        // Return Thuoc of a given MaLoai that have available stock in TonKho (SoLuongCon>0 and not sealed)
+        public Task<object> GetThuocByLoaiTonKhoAsync(string maLoaiThuoc)
+        {
+            var ctx = _repo.Context;
+
+            return ctx.Thuoc
+                .Where(t => t.MaLoaiThuoc == maLoaiThuoc
+                            && ctx.TonKhos.Any(tk => tk.MaThuoc == t.MaThuoc && tk.SoLuongCon > 0 && !tk.TrangThaiSeal))
                 .Select(t => new
                 {
                     t.MaThuoc,
@@ -271,8 +331,16 @@ namespace BE_QLTiemThuoc.Services
                 var urlToUse = !string.IsNullOrWhiteSpace(thuocDto?.UrlAnh) ? thuocDto.UrlAnh : providedUrlFromForm;
                 if (!string.IsNullOrWhiteSpace(urlToUse))
                 {
-                    var extracted = ExtractFileNameFromUrl(urlToUse);
-                    imageUrl = extracted ?? urlToUse;
+                    // If client provided an absolute URL, keep it as-is (do not extract filename)
+                    if (urlToUse.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || urlToUse.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        imageUrl = urlToUse;
+                    }
+                    else
+                    {
+                        var extracted = ExtractFileNameFromUrl(urlToUse);
+                        imageUrl = extracted ?? urlToUse;
+                    }
                 }
             }
 
@@ -393,8 +461,16 @@ namespace BE_QLTiemThuoc.Services
             {
                 if (!string.IsNullOrWhiteSpace(thuocDto.UrlAnh))
                 {
-                    var extracted = ExtractFileNameFromUrl(thuocDto.UrlAnh);
-                    entity.UrlAnh = extracted ?? thuocDto.UrlAnh;
+                    // Preserve absolute URLs provided by client
+                    if (thuocDto.UrlAnh.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || thuocDto.UrlAnh.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        entity.UrlAnh = thuocDto.UrlAnh;
+                    }
+                    else
+                    {
+                        var extracted = ExtractFileNameFromUrl(thuocDto.UrlAnh);
+                        entity.UrlAnh = extracted ?? thuocDto.UrlAnh;
+                    }
                 }
             }
 
@@ -415,8 +491,16 @@ namespace BE_QLTiemThuoc.Services
             {
                 if ((thuocDto.FileAnh == null || thuocDto.FileAnh.Length == 0) && !string.IsNullOrWhiteSpace(thuocDto.UrlAnh))
                 {
-                    var extracted2 = ExtractFileNameFromUrl(thuocDto.UrlAnh);
-                    entity.UrlAnh = extracted2 ?? thuocDto.UrlAnh;
+                    // If UrlAnh is absolute, preserve it. Otherwise try to extract the filename.
+                    if (thuocDto.UrlAnh.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || thuocDto.UrlAnh.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+                    {
+                        entity.UrlAnh = thuocDto.UrlAnh;
+                    }
+                    else
+                    {
+                        var extracted2 = ExtractFileNameFromUrl(thuocDto.UrlAnh);
+                        entity.UrlAnh = extracted2 ?? thuocDto.UrlAnh;
+                    }
                 }
             }
             catch { }

@@ -4,6 +4,8 @@ namespace BE_QLTiemThuoc.Model
 {
     public class ChiTietHoaDon
     {
+        // Primary key (newly added in DB schema)
+        public string MaCTHD { get; set; } = string.Empty;
         public string MaHD { get; set; } = string.Empty;
         public string MaLo { get; set; } = string.Empty;
         public int SoLuong { get; set; }

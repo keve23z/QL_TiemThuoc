@@ -107,6 +107,29 @@ namespace BE_QLTiemThuoc.Controllers
 
             return Ok(response);
         }
+
+        // GET: api/ListThuocTonKho
+        [HttpGet("ListThuocTonKho")]
+        public async Task<IActionResult> GetListThuocTonKho()
+        {
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                return await _service.GetListThuocTonKhoAsync();
+            });
+
+            return Ok(response);
+        }
+        // GET: api/Thuoc/ByLoaiTonKho/{maLoaiThuoc}
+        [HttpGet("ByLoaiTonKho/{maLoaiThuoc}")]
+        public async Task<IActionResult> GetThuocByLoaiTonKho(string maLoaiThuoc)
+        {
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                return await _service.GetThuocByLoaiTonKhoAsync(maLoaiThuoc);
+            });
+
+            return Ok(response);
+        }
         // GET: api/Thuoc/ByLoai/{maLoaiThuoc}
         [HttpGet("ByLoai/{maLoaiThuoc}")]
         public async Task<IActionResult> GetThuocByLoai(string maLoaiThuoc)
@@ -150,13 +173,6 @@ namespace BE_QLTiemThuoc.Controllers
             return Ok(response);
         }
 
-        // DELETE: api/Thuoc/{id}
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteThuoc(string id)
-        {
-            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () => await _service.DeleteThuocAsync(id));
-
-            return Ok(response);
-        }
+        
     }
 }

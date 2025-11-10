@@ -136,6 +136,15 @@
                                 string urlAnh = (item.TryGetProperty("urlAnh", out var imgProp) ? imgProp.GetString() :
                                                  (item.TryGetProperty("UrlAnh", out var imgProp2) ? imgProp2.GetString() : null))
                                                  ?? "default.png";
+                                string imgSrc;
+                                if (!string.IsNullOrWhiteSpace(urlAnh) && (urlAnh.StartsWith("http://", System.StringComparison.OrdinalIgnoreCase) || urlAnh.StartsWith("https://", System.StringComparison.OrdinalIgnoreCase) || urlAnh.StartsWith("/")))
+                                {
+                                    imgSrc = urlAnh;
+                                }
+                                else
+                                {
+                                    imgSrc = Url.Content("~/assets_user/img/product/" + urlAnh);
+                                }
                                 var formattedPrice = gia.ToString("N0", System.Globalization.CultureInfo.GetCultureInfo("vi-VN")) + " đ";
 
                                 if ((ViewBag.View as string ?? "grid") == "grid")
@@ -144,7 +153,7 @@
                                         <div class="product-item d-flex flex-column h-100" style="min-height:320px; border-radius:12px; background:#fff; padding:18px; box-shadow:0 6px 18px rgba(12,37,64,0.06);">
                                             <div class="product-img" style="flex:0 0 180px; display:flex; align-items:center; justify-content:center;">
                                                 <a href='@Url.Action("ItemDetail", "User", new { maThuoc = maThuoc })' style="display:block; width:100%; height:100%;">
-                                                    <img src="~/assets_user/img/product/@urlAnh" alt="@tenThuoc" style="max-width:100%; max-height:100%; object-fit:contain; display:block; margin:auto;" />
+                                                    <img src="@imgSrc" alt="@tenThuoc" style="max-width:100%; max-height:100%; object-fit:contain; display:block; margin:auto;" />
                                                 </a>
                                             </div>
 
@@ -166,7 +175,7 @@
                                             <!-- Left: large image -->
                                             <div class="product-list-img me-4" style="flex:0 0 220px; max-width:220px;">
                                                 <a href='@Url.Action("ItemDetail", "User", new { maThuoc = maThuoc })' style="display:block; width:100%; height:180px;">
-                                                    <img src="~/assets_user/img/product/@urlAnh" alt="@tenThuoc" style="width:100%; height:100%; object-fit:contain; display:block; margin:auto;" />
+                                                    <img src="@imgSrc" alt="@tenThuoc" style="width:100%; height:100%; object-fit:contain; display:block; margin:auto;" />
                                                 </a>
                                             </div>
 

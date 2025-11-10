@@ -22,6 +22,18 @@ namespace BE_QLTiemThuoc.Controllers
             return Ok(list);
         }
 
+        // GET: api/KhachHang/{maKhachHang}
+        [HttpGet("{maKhachHang}")]
+        public async Task<ActionResult<KhachHang>> GetById(string maKhachHang)
+        {
+            if (string.IsNullOrWhiteSpace(maKhachHang)) return BadRequest("maKhachHang is required");
+
+            var kh = await _service.GetByIdAsync(maKhachHang);
+            if (kh == null) return NotFound("Không tìm thấy khách hàng.");
+
+            return Ok(kh);
+        }
+
 
         [HttpPost]
         public async Task<ActionResult<KhachHang>> CreateKhachHang(KhachHang dto)

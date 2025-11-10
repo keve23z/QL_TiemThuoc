@@ -41,5 +41,10 @@ namespace BE_QLTiemThuoc.Services
             await _repo.AddAsync(kh);
             return kh;
         }
+
+        public async Task<KhachHang?> GetByIdAsync(string maKhachHang)
+        {
+            return await _repo.GetByIdAsync(maKhachHang);
+        }
     }
 }

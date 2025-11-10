@@ -53,18 +53,22 @@ namespace FE_QLTiemThuoc.Controllers
             }
 
             //  2. Lấy danh sách thuốc theo category (nếu có)
+            // Use TonKho-aware endpoints so frontend shows only items with available stock
             string? apiUrl;
             if (!string.IsNullOrEmpty(category))
             {
-                apiUrl = $"Thuoc/ByLoai/{category}";
+                // Use aggregated-by-category endpoint that only returns items with TonKho > 0
+                apiUrl = $"Thuoc/ByLoaiTonKho/{category}";
             }
             else if (!string.IsNullOrEmpty(search))
             {
+                // Keep search as-is (search endpoint remains unchanged)
                 apiUrl = $"Thuoc/Search?keyword={search}";
             }
             else
             {
-                apiUrl = $"Thuoc";
+                // Use aggregated list that returns all Thuoc with available stock
+                apiUrl = $"Thuoc/ListThuocTonKho";
             }
 
             JsonElement thuocResponse = default;
@@ -75,8 +79,8 @@ namespace FE_QLTiemThuoc.Controllers
 
             List<JsonElement>? products = null;
             if (thuocResponse.ValueKind == JsonValueKind.Object &&
-    thuocResponse.TryGetProperty("data", out var dataElement) &&
-    dataElement.ValueKind == JsonValueKind.Array)
+                    thuocResponse.TryGetProperty("data", out var dataElement) &&
+                    dataElement.ValueKind == JsonValueKind.Array)
             {
                 products = dataElement.EnumerateArray().ToList();
             }

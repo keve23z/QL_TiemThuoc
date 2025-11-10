@@ -3,6 +3,10 @@ using System;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Configure backend API base address. Use http port 5203 which is what the
+// backend (BE_QLTiemThuoc) is listening on during development.
+// If you prefer HTTPS, change to the appropriate port that the backend is
+// actually listening on (see BE Properties/launchSettings.json).
 builder.Services.AddHttpClient("MyApi", client =>
 {
     client.BaseAddress = new Uri("https://localhost:7283/api/");

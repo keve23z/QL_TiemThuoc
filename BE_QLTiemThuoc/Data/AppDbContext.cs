@@ -47,8 +47,8 @@ namespace BE_QLTiemThuoc.Data
             // Primary key for HoaDon
             modelBuilder.Entity<HoaDon>().HasKey(h => h.MaHD);
             modelBuilder.Entity<ChiTietHoaDon>().ToTable("ChiTietHoaDon");
-            // Composite primary key: (MaHD, MaLo)
-            modelBuilder.Entity<ChiTietHoaDon>().HasKey(ct => new { ct.MaHD, ct.MaLo });
+            // Primary key changed to MaCTHD (single column PK)
+            modelBuilder.Entity<ChiTietHoaDon>().HasKey(ct => ct.MaCTHD);
             modelBuilder.Entity<LieuDung>().ToTable("LieuDung");
 
             //modelBuilder.Entity<DanhMucNguoiDung>()

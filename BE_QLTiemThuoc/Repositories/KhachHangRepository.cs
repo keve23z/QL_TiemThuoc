@@ -30,5 +30,10 @@ namespace BE_QLTiemThuoc.Repositories
                 .OrderByDescending(t => t.MAKH)
                 .FirstOrDefault();
         }
+
+        public async Task<KhachHang?> GetByIdAsync(string maKhachHang)
+        {
+            return await _context.KhachHangs.FirstOrDefaultAsync(k => k.MAKH == maKhachHang);
+        }
     }
 }

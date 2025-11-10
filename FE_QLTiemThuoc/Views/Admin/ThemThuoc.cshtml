@@ -680,6 +680,10 @@ document.addEventListener('DOMContentLoaded', function () {
                         imageSelectorHtml += '    <input class="form-check-input img-choice" type="radio" name="imgChoice" id="imgChoiceUpload" value="upload" />';
                         imageSelectorHtml += '    <label class="form-check-label small" for="imgChoiceUpload">Upload ảnh</label>';
                         imageSelectorHtml += '  </div>';
+                        imageSelectorHtml += '  <div class="form-check form-check-inline">';
+                        imageSelectorHtml += '    <input class="form-check-input img-choice" type="radio" name="imgChoice" id="imgChoiceUrl" value="url" />';
+                        imageSelectorHtml += '    <label class="form-check-label small" for="imgChoiceUrl">Nhập URL ảnh</label>';
+                        imageSelectorHtml += '  </div>';
                         imageSelectorHtml += '</div>';
                         imageSelectorHtml += '<div class="image-existing-area mb-1">';
                         imageSelectorHtml += '  <select class="form-select form-select-sm edit-urlanh-select" style="max-width:260px;">';
@@ -691,6 +695,9 @@ document.addEventListener('DOMContentLoaded', function () {
                         imageSelectorHtml += '    <input type="file" accept="image/*" class="form-control form-control-sm edit-urlanh-file" style="max-width:260px; padding:.28rem .5rem;" />';
                         imageSelectorHtml += '    <small class="text-muted ms-2" style="font-size:.85rem">Kích thước tối ưu: 800x800</small>';
                         imageSelectorHtml += '  </div>';
+                        imageSelectorHtml += '</div>';
+                        imageSelectorHtml += '<div class="image-url-area mb-1" style="display:none">';
+                        imageSelectorHtml += '  <input type="text" class="form-control form-control-sm edit-img-url" placeholder="Nhập đường link ảnh (http://... hoặc https://...)" style="max-width:100%;" />';
                         imageSelectorHtml += '</div>';
                         imageSelectorHtml += '<input type="hidden" class="edit-urlanh" value="' + (t.urlAnh || '') + '" />';
                         setHtml('.detail-urlanh', imageSelectorHtml);
@@ -717,10 +724,26 @@ document.addEventListener('DOMContentLoaded', function () {
                             var radios = modal.querySelectorAll('.img-choice');
                             var existingArea = modal.querySelector('.image-existing-area');
                             var uploadArea = modal.querySelector('.image-upload-area');
+                            var urlArea = modal.querySelector('.image-url-area');
+                            var urlInput = modal.querySelector('.edit-img-url');
                             function updateImageAreas() {
                                 var val = modal.querySelector('.img-choice:checked')?.value || 'existing';
                                 if (existingArea) existingArea.style.display = (val === 'existing') ? '' : 'none';
                                 if (uploadArea) uploadArea.style.display = (val === 'upload') ? '' : 'none';
+                                if (urlArea) urlArea.style.display = (val === 'url') ? '' : 'none';
+                                if (val === 'existing') modal.dataset.uploadType = 'product';
+                                else if (val === 'upload') modal.dataset.uploadType = 'temp';
+                                else if (val === 'url') modal.dataset.uploadType = 'url';
+                            }
+
+                            // keep hidden input and preview in sync when user types a URL
+                            if (urlInput) {
+                                urlInput.addEventListener('input', function () {
+                                    var v = (this.value || '').trim();
+                                    if (hidden) hidden.value = v;
+                                    if (v) { img.src = v; img.style.display = 'block'; }
+                                    else { img.src = ''; img.style.display = 'none'; }
+                                });
                             }
                             
                             function parseApiResponse(res) {
@@ -821,11 +844,13 @@ document.addEventListener('DOMContentLoaded', function () {
             if (!modal) return;
             var ma = modal.querySelector('.edit-ma')?.value || modal.querySelector('.detail-ma')?.textContent;
             if (!ma) { alert('Không xác định mã thuốc'); return; }
-            // determine chosen image source: existing or uploaded
+            // determine chosen image source: existing / upload / url
             var imgChoice = modal.querySelector('.img-choice:checked')?.value || 'existing';
             var chosenUrlAnh = '';
             if (imgChoice === 'existing') {
                 chosenUrlAnh = modal.querySelector('.edit-urlanh-select')?.value || modal.querySelector('.edit-urlanh')?.value || '';
+            } else if (imgChoice === 'url') {
+                chosenUrlAnh = modal.querySelector('.edit-img-url')?.value || modal.querySelector('.edit-urlanh')?.value || '';
             } else {
                 // upload chosen: rely on hidden input set after a successful upload
                 chosenUrlAnh = modal.querySelector('.edit-urlanh')?.value || '';
@@ -840,7 +865,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 donGiaLe: parseFloat((modal.querySelector('.edit-gia-le')?.value || '0').toString().replace(/,/g, '')) || 0,
                 soLuong: parseInt(modal.querySelector('.edit-soluong')?.value || 0) || 0,
                 maNCC: modal.querySelector('.edit-ncc')?.value || '',
-                urlAnh: chosenUrlAnh || modal.querySelector('.detail-urlanh')?.textContent || '',
+                urlAnh: chosenUrlAnh || modal.querySelector('.edit-img-url')?.value || modal.querySelector('.detail-urlanh')?.textContent || '',
                 thanhPhan: modal.querySelector('.edit-thanhphan')?.value || '',
                 congDung: modal.querySelector('.edit-congdung')?.value || '',
                 cachDung: modal.querySelector('.edit-cachdung')?.value || '',
@@ -875,6 +900,9 @@ document.addEventListener('DOMContentLoaded', function () {
                         return;
                     }
                     // otherwise continue; selected file will be uploaded automatically below
+                } else if (imgChoice === 'url') {
+                    alert('Bạn đã chọn nhập URL nhưng chưa nhập đường link ảnh. Vui lòng nhập URL hợp lệ.');
+                    return;
                 } else {
                     alert('Url ảnh là bắt buộc. Vui lòng chọn một ảnh từ danh sách.');
                     return;
@@ -896,6 +924,8 @@ document.addEventListener('DOMContentLoaded', function () {
                         var currentChoice = modalEl.querySelector('.img-choice:checked')?.value || 'existing';
                         if (currentChoice === 'existing') {
                             finalUrl = modalEl.querySelector('.edit-urlanh-select')?.value || modalEl.querySelector('.edit-urlanh')?.value || '';
+                        } else if (currentChoice === 'url') {
+                            finalUrl = modalEl.querySelector('.edit-img-url')?.value || modalEl.querySelector('.edit-urlanh')?.value || '';
                         } else {
                             finalUrl = modalEl.querySelector('.edit-urlanh')?.value || '';
                         }
@@ -1375,6 +1405,10 @@ document.addEventListener('DOMContentLoaded', function () {
             imageHtml += '    <input class="form-check-input add-img-choice" type="radio" name="addImgChoice" id="addImgChoiceUpload" value="upload" checked />';
             imageHtml += '    <label class="form-check-label small" for="addImgChoiceUpload">Upload ảnh</label>';
             imageHtml += '  </div>';
+            imageHtml += '  <div class="form-check form-check-inline">';
+            imageHtml += '    <input class="form-check-input add-img-choice" type="radio" name="addImgChoice" id="addImgChoiceUrl" value="url" />';
+            imageHtml += '    <label class="form-check-label small" for="addImgChoiceUrl">Nhập URL ảnh</label>';
+            imageHtml += '  </div>';
             imageHtml += '</div>';
 
             // Existing images area
@@ -1391,6 +1425,11 @@ document.addEventListener('DOMContentLoaded', function () {
             imageHtml += '    <input type="file" accept="image/*" class="form-control form-control-sm add-img-file" style="max-width:260px;" />';
             imageHtml += '  </div>';
             imageHtml += '</div>';
+            
+            // URL input area: allow entering an external image URL (no upload / no saving)
+            imageHtml += '<div class="add-url-area mb-1" style="display:none;">';
+            imageHtml += '  <input type="text" class="form-control form-control-sm add-img-url" placeholder="Nhập đường link ảnh (http://... hoặc https://...)" style="max-width:100%;" />';
+            imageHtml += '</div>';
 
             // Hidden UrlAnh
             imageHtml += '<input type="hidden" class="add-urlanh" />';
@@ -1405,6 +1444,8 @@ document.addEventListener('DOMContentLoaded', function () {
             var urlAnhHidden = modal.querySelector('.add-urlanh');
             var existingArea = modal.querySelector('.add-existing-area');
             var uploadArea = modal.querySelector('.add-upload-area');
+            var urlArea = modal.querySelector('.add-url-area');
+            var urlInput = modal.querySelector('.add-img-url');
             var select = modal.querySelector('.add-img-select');
             var radioButtons = modal.querySelectorAll('.add-img-choice');
 
@@ -1454,20 +1495,40 @@ document.addEventListener('DOMContentLoaded', function () {
                     if (this.value === 'existing') {
                         if (existingArea) existingArea.style.display = 'block';
                         if (uploadArea) uploadArea.style.display = 'none';
+                        if (urlArea) urlArea.style.display = 'none';
 
                         if (fileInput) fileInput.value = '';
                         if (select) select.dispatchEvent(new Event('change'));
                         if (modal) modal.dataset.uploadType = 'product';
-                    } else {
+                    } else if (this.value === 'upload') {
                         if (existingArea) existingArea.style.display = 'none';
                         if (uploadArea) uploadArea.style.display = 'block';
+                        if (urlArea) urlArea.style.display = 'none';
                         if (urlAnhHidden) urlAnhHidden.value = '';
                         if (previewImg) previewImg.src = '';
                         if (previewContainer) previewContainer.classList.remove('show');
                         if (modal) modal.dataset.uploadType = 'temp';
+                    } else if (this.value === 'url') {
+                        if (existingArea) existingArea.style.display = 'none';
+                        if (uploadArea) uploadArea.style.display = 'none';
+                        if (urlArea) urlArea.style.display = 'block';
+                        // keep hidden in sync
+                        if (urlInput) urlAnhHidden.value = (urlInput.value || '').trim();
+                        if (urlInput && urlInput.value) { if (previewImg) previewImg.src = urlInput.value; if (previewContainer) previewContainer.classList.add('show'); }
+                        if (modal) modal.dataset.uploadType = 'url';
                     }
                 });
             });
+
+            // Keep hidden UrlAnh and preview in sync when user types URL
+            if (urlInput) {
+                urlInput.addEventListener('input', function () {
+                    var v = (this.value || '').trim();
+                    if (urlAnhHidden) urlAnhHidden.value = v;
+                    if (v) { if (previewImg) previewImg.src = v; if (previewContainer) previewContainer.classList.add('show'); }
+                    else { if (previewImg) previewImg.src = ''; if (previewContainer) previewContainer.classList.remove('show'); }
+                });
+            }
 
             // Load existing images list from backend
             fetch('https://localhost:7283/api/Images/List')
@@ -1523,13 +1584,21 @@ document.addEventListener('DOMContentLoaded', function () {
                     var urlAnhHidden = modal.querySelector('.add-urlanh');
 
                     var imgChoice = modal.querySelector('.add-img-choice:checked')?.value || 'upload';
-                    // Re-read select/hidden right now to avoid stale value
+                    // Re-read select/hidden/right-now url input to avoid stale value
                     var selectEl = modal.querySelector('.add-img-select');
                     var selectedVal = '';
                     if (selectEl) {
                         selectedVal = selectEl.value || (selectEl.options && selectEl.selectedIndex >= 0 ? (selectEl.options[selectEl.selectedIndex].value || '') : '');
                     }
-                    var urlAnh = (imgChoice === 'existing') ? (urlAnhHidden.value || selectedVal || '') : '';
+                    var urlInputEl = modal.querySelector('.add-img-url');
+                    var urlAnh = '';
+                    if (imgChoice === 'existing') {
+                        urlAnh = (urlAnhHidden && urlAnhHidden.value) ? urlAnhHidden.value : (selectedVal || '');
+                    } else if (imgChoice === 'url') {
+                        urlAnh = (urlInputEl && (urlInputEl.value || '').trim()) ? urlInputEl.value.trim() : '';
+                    } else {
+                        urlAnh = '';
+                    }
 
                     // 2. Validation cơ bản (client-side) — ensure required fields exist before sending
                     if (!tenThuoc || tenThuoc.trim() === '') {
@@ -1624,7 +1693,15 @@ document.addEventListener('DOMContentLoaded', function () {
                             var selVal2 = '';
                             if (sel2) selVal2 = sel2.value || (sel2.options && sel2.selectedIndex >= 0 ? (sel2.options[sel2.selectedIndex].value || '') : '');
                             var hidVal2 = hid2 ? (hid2.value || '') : '';
-                            var finalUrl2 = (currentChoice2 === 'existing') ? (hidVal2 || selVal2 || '') : (hidVal2 || '');
+                            var urlInput2 = modalEl2 ? modalEl2.querySelector('.add-img-url') : null;
+                            var finalUrl2 = '';
+                            if (currentChoice2 === 'existing') {
+                                finalUrl2 = hidVal2 || selVal2 || '';
+                            } else if (currentChoice2 === 'url') {
+                                finalUrl2 = (urlInput2 && (urlInput2.value || '').trim()) ? urlInput2.value.trim() : (hidVal2 || '');
+                            } else {
+                                finalUrl2 = (hidVal2 || '');
+                            }
                             // set UrlAnh on formData
                             formData.set('UrlAnh', finalUrl2);
 

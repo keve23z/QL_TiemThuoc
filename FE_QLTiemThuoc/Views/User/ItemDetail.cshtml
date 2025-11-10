@@ -31,9 +31,18 @@
                         {
                             url = p.GetString() ?? url;
                         }
+                        string imgSrc;
+                        if (!string.IsNullOrWhiteSpace(url) && (url.StartsWith("http://", System.StringComparison.OrdinalIgnoreCase) || url.StartsWith("https://", System.StringComparison.OrdinalIgnoreCase) || url.StartsWith("/")))
+                        {
+                            imgSrc = url;
+                        }
+                        else
+                        {
+                            imgSrc = Url.Content("~/assets_user/img/product/" + url);
+                        }
                     }
                     <div class="image-container" style="position: relative; border-radius: 15px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
-                        <img src="~/assets_user/img/product/@url" alt="Hình ảnh thuốc" style="width: 100%; height: auto; object-fit: contain; transition: transform 0.3s ease;" />
+                        <img src="@imgSrc" alt="Hình ảnh thuốc" style="width: 100%; height: auto; object-fit: contain; transition: transform 0.3s ease;" />
                         <div class="image-overlay" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.05); opacity: 0; transition: opacity 0.3s ease;"></div>
                     </div>
                 </div>
@@ -121,17 +130,48 @@
                         <div class="col-md-6">
                             <div class="detail-card" style="background: #f8f9fa; padding: 20px; border-radius: 10px; height: 100%;">
                                 <h5 style="color: #3498db; margin-bottom: 15px;"><i class="fas fa-pills"></i> Cách dùng</h5>
-                                <p style="color: #666; line-height: 1.6;">
-                                    @((model.HasValue && model.Value.TryGetProperty("cachDung", out var cg) && cg.ValueKind == System.Text.Json.JsonValueKind.String) ? cg.GetString() : "Không có thông tin.")
-                                </p>
+                                @{ 
+                                    var cg = new System.Text.Json.JsonElement();
+                                    var hasCachDung = false;
+                                    if (model.HasValue)
+                                    {
+                                        hasCachDung = model.Value.TryGetProperty("cachDung", out cg) && cg.ValueKind == System.Text.Json.JsonValueKind.String;
+                                    }
+                                    var cachDungText = hasCachDung ? (cg.GetString() ?? string.Empty) : string.Empty;
+                                    if (string.IsNullOrWhiteSpace(cachDungText)) {
+                                        <p style="color: #666; line-height: 1.6;">Không có thông tin.</p>
+                                    } else {
+                                        // Split into sentences (keep punctuation) and render each sentence on its own line
+                                        var parts = System.Text.RegularExpressions.Regex.Split(cachDungText.Trim(), @"(?<=[\.\!\?])\s+");
+                                        foreach (var s in parts) {
+                                            if (string.IsNullOrWhiteSpace(s)) continue;
+                                            <p style="color: #666; line-height: 1.6; margin-bottom: .6rem">@s</p>
+                                        }
+                                    }
+                                }
                             </div>
                         </div>
                         <div class="col-12">
                             <div class="detail-card" style="background: #fff3cd; padding: 20px; border-radius: 10px; border-left: 5px solid #ffc107;">
                                 <h5 style="color: #856404; margin-bottom: 15px;"><i class="fas fa-exclamation-triangle"></i> Lưu ý</h5>
-                                <p style="color: #856404; line-height: 1.6;">
-                                    @((model.HasValue && model.Value.TryGetProperty("luuY", out var ly) && ly.ValueKind == System.Text.Json.JsonValueKind.String) ? ly.GetString() : "Không có lưu ý.")
-                                </p>
+                                @{ 
+                                    var ly = new System.Text.Json.JsonElement();
+                                    var hasLuuY = false;
+                                    if (model.HasValue)
+                                    {
+                                        hasLuuY = model.Value.TryGetProperty("luuY", out ly) && ly.ValueKind == System.Text.Json.JsonValueKind.String;
+                                    }
+                                    var luuYText = hasLuuY ? (ly.GetString() ?? string.Empty) : string.Empty;
+                                    if (string.IsNullOrWhiteSpace(luuYText)) {
+                                        <p style="color: #856404; line-height: 1.6;">Không có lưu ý.</p>
+                                    } else {
+                                        var parts2 = System.Text.RegularExpressions.Regex.Split(luuYText.Trim(), @"(?<=[\.\!\?])\s+");
+                                        foreach (var s2 in parts2) {
+                                            if (string.IsNullOrWhiteSpace(s2)) continue;
+                                            <p style="color: #856404; line-height: 1.6; margin-bottom: .6rem">@s2</p>
+                                        }
+                                    }
+                                }
                             </div>
                         </div>
                     </div>

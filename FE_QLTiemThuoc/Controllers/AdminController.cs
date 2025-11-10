@@ -103,7 +103,15 @@ namespace FE_QLTiemThuoc.Controllers
                     int nextNumber = maxNumber + 1;
                     model.MaThuoc = $"T{nextNumber.ToString("D3")}";
                 }
-                model.UrlAnh = $"assets_user/img/produc/{model.UrlAnh}";
+                // If UrlAnh is an absolute URL (starts with http/https or is already a path), don't prefix it.
+                if (!string.IsNullOrEmpty(model.UrlAnh) &&
+                    !(model.UrlAnh.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                      model.UrlAnh.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
+                      model.UrlAnh.StartsWith("/") ||
+                      model.UrlAnh.Contains("assets_user")))
+                {
+                    model.UrlAnh = $"assets_user/img/produc/{model.UrlAnh}";
+                }
                 var addResponse = await client.PostAsJsonAsync("Thuoc", model);
                 if (!addResponse.IsSuccessStatusCode)
                     ModelState.AddModelError("", "Thêm thuốc thất bại!");
@@ -112,7 +120,14 @@ namespace FE_QLTiemThuoc.Controllers
             // Xử lý chỉnh sửa
             if (actionType == "edit" && model != null && ModelState.IsValid)
             {
-                model.UrlAnh = $"assets_user/img/produc/{model.UrlAnh}";
+                if (!string.IsNullOrEmpty(model.UrlAnh) &&
+                    !(model.UrlAnh.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+                      model.UrlAnh.StartsWith("https://", StringComparison.OrdinalIgnoreCase) ||
+                      model.UrlAnh.StartsWith("/") ||
+                      model.UrlAnh.Contains("assets_user")))
+                {
+                    model.UrlAnh = $"assets_user/img/produc/{model.UrlAnh}";
+                }
                 var editResponse = await client.PutAsJsonAsync($"Thuoc/{model.MaThuoc}", model); // Renamed variable
                 if (!editResponse.IsSuccessStatusCode)
                     ModelState.AddModelError("", "Cập nhật thuốc thất bại!");
@@ -263,7 +278,7 @@ namespace FE_QLTiemThuoc.Controllers
         
         // Danh sách hoá đơn (Admin) - gọi BE api/HoaDon/Search
         [HttpGet]
-        public async Task<IActionResult> HoaDonList(string? from = null, string? to = null, int? status = null, string? q = null)
+        public async Task<IActionResult> HoaDonList(string? from = null, string? to = null, int? status = null, string? q = null, string? loai = null)
         {
             var client = _http.CreateClient("MyApi");
 
@@ -275,7 +290,7 @@ namespace FE_QLTiemThuoc.Controllers
 
             try
             {
-                var url = $"HoaDon/Search?from={Uri.EscapeDataString(fromStr)}&to={Uri.EscapeDataString(toStr)}" + (status != null ? $"&status={status.Value}" : string.Empty) + (!string.IsNullOrEmpty(q) ? $"&q={Uri.EscapeDataString(q)}" : string.Empty);
+                var url = $"HoaDon/Search?from={Uri.EscapeDataString(fromStr)}&to={Uri.EscapeDataString(toStr)}" + (status != null ? $"&status={status.Value}" : string.Empty) + (!string.IsNullOrEmpty(q) ? $"&q={Uri.EscapeDataString(q)}" : string.Empty) + (!string.IsNullOrEmpty(loai) ? $"&loai={Uri.EscapeDataString(loai)}" : string.Empty);
                 var res = await client.GetAsync(url);
                 var list = new List<System.Collections.Generic.Dictionary<string, object>>();
                 if (res.IsSuccessStatusCode)
@@ -307,6 +322,17 @@ namespace FE_QLTiemThuoc.Controllers
             ViewBag.DefaultTo = toStr;
             ViewBag.Status = status?.ToString() ?? string.Empty;
             ViewBag.Query = q ?? string.Empty;
+            ViewBag.Loai = loai ?? string.Empty;
+
+            // API base (so client-side can call backend directly when FE and BE run on different ports)
+            try
+            {
+                ViewBag.ApiBase = client.BaseAddress?.ToString()?.TrimEnd('/') ?? "/api";
+            }
+            catch
+            {
+                ViewBag.ApiBase = "/api";
+            }
 
             return View();
         }
@@ -400,6 +426,83 @@ namespace FE_QLTiemThuoc.Controllers
             catch { ViewBag.MaNV = string.Empty; ViewBag.TenNV = string.Empty; }
 
             ViewBag.DefaultNgayNhap = DateTime.Now.ToString("yyyy-MM-ddTHH:mm");
+            return View();
+        }
+        
+        // GET: Admin/ThemHoaDon - show form to create a new invoice
+        [HttpGet]
+        public async Task<IActionResult> ThemHoaDon()
+        {
+            var client = _http.CreateClient("MyApi");
+
+            // API base for client-side fetch
+            try { ViewBag.ApiBase = client.BaseAddress?.ToString().TrimEnd('/') ?? "/api"; } catch { ViewBag.ApiBase = "/api"; }
+
+            // Preload available lots from ThuocView/ChuaTachLe and ThuocView/DaTachLe
+            try
+            {
+                var r2 = await client.GetAsync("ThuocView/ChuaTachLe");
+                var lotListChua = new List<object>();
+                if (r2.IsSuccessStatusCode)
+                {
+                    var json = await r2.Content.ReadAsStringAsync();
+                    var opt = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                    using var doc = System.Text.Json.JsonDocument.Parse(json);
+                    if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        lotListChua = System.Text.Json.JsonSerializer.Deserialize<List<object>>(json, opt) ?? new();
+                    else if (doc.RootElement.TryGetProperty("data", out var dataEl) && dataEl.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        lotListChua = System.Text.Json.JsonSerializer.Deserialize<List<object>>(dataEl.GetRawText(), opt) ?? new();
+                }
+                ViewBag.LotListChua = lotListChua;
+            }
+            catch { ViewBag.LotListChua = new List<object>(); }
+
+            try
+            {
+                var r3 = await client.GetAsync("ThuocView/DaTachLe");
+                var lotListDa = new List<object>();
+                if (r3.IsSuccessStatusCode)
+                {
+                    var json = await r3.Content.ReadAsStringAsync();
+                    var opt = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                    using var doc = System.Text.Json.JsonDocument.Parse(json);
+                    if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        lotListDa = System.Text.Json.JsonSerializer.Deserialize<List<object>>(json, opt) ?? new();
+                    else if (doc.RootElement.TryGetProperty("data", out var dataEl) && dataEl.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        lotListDa = System.Text.Json.JsonSerializer.Deserialize<List<object>>(dataEl.GetRawText(), opt) ?? new();
+                }
+                ViewBag.LotListDa = lotListDa;
+            }
+            catch { ViewBag.LotListDa = new List<object>(); }
+
+            // Preload KhachHang list
+            try
+            {
+                var r = await client.GetAsync("KhachHang");
+                var khList = new List<Models.KhachHangViewModel>();
+                if (r.IsSuccessStatusCode)
+                {
+                    var json = await r.Content.ReadAsStringAsync();
+                    var opt = new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true };
+                    using var doc = System.Text.Json.JsonDocument.Parse(json);
+                    if (doc.RootElement.TryGetProperty("data", out var dataEl))
+                        khList = System.Text.Json.JsonSerializer.Deserialize<List<Models.KhachHangViewModel>>(dataEl.GetRawText(), opt) ?? new();
+                    else if (doc.RootElement.ValueKind == System.Text.Json.JsonValueKind.Array)
+                        khList = System.Text.Json.JsonSerializer.Deserialize<List<Models.KhachHangViewModel>>(json, opt) ?? new();
+                }
+                ViewBag.KhachHangList = khList;
+            }
+            catch { ViewBag.KhachHangList = new List<Models.KhachHangViewModel>(); }
+
+            // Employee info
+            try
+            {
+                ViewBag.MaNV = HttpContext.Session.GetString("MaNhanVien") ?? string.Empty;
+                ViewBag.TenNV = HttpContext.Session.GetString("TenNhanVien") ?? string.Empty;
+            }
+            catch { ViewBag.MaNV = string.Empty; ViewBag.TenNV = string.Empty; }
+
+            ViewBag.DefaultNgayLap = DateTime.Now.ToString("yyyy-MM-ddTHH:mm");
             return View();
         }
         
