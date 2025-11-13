@@ -15,11 +15,31 @@ namespace BE_QLTiemThuoc.Controllers
             _service = service;
         }
 
-        // GET: api/PhieuNhap/GetByDateRange?startDate=2025-01-01&endDate=2025-12-31
+        // GET: api/PhieuNhap/GetByDateRange?startDate=2025-01-01&endDate=2025-12-31&maNV=NV001&maNCC=NCC001
         [HttpGet("GetByDateRange")]
-        public async Task<IActionResult> GetByDateRange(DateTime startDate, DateTime endDate)
+        public async Task<IActionResult> GetByDateRange([FromQuery] string startDate, [FromQuery] string endDate, [FromQuery] string? maNV = null, [FromQuery] string? maNCC = null)
         {
-            if (startDate > endDate)
+            DateTime sDate, eDate;
+            if (!TryParseDate(startDate, out sDate))
+            {
+                return BadRequest(new ApiResponse<string>
+                {
+                    Status = -1,
+                    Message = "startDate must be a valid date. Accepted formats: yyyy-MM-dd, yyyy-MM-ddTHH:mm:ss, dd/MM/yyyy",
+                    Data = null
+                });
+            }
+            if (!TryParseDate(endDate, out eDate))
+            {
+                return BadRequest(new ApiResponse<string>
+                {
+                    Status = -1,
+                    Message = "endDate must be a valid date. Accepted formats: yyyy-MM-dd, yyyy-MM-ddTHH:mm:ss, dd/MM/yyyy",
+                    Data = null
+                });
+            }
+
+            if (sDate > eDate)
             {
                 return BadRequest(new ApiResponse<string>
                 {
@@ -31,11 +51,21 @@ namespace BE_QLTiemThuoc.Controllers
 
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
-                var data = await _service.GetByDateRangeAsync(startDate, endDate);
+                var data = await _service.GetByDateRangeAsync(sDate, eDate, maNV, maNCC);
                 return data;
             });
 
             return Ok(response);
+        }
+
+        private static bool TryParseDate(string? input, out DateTime result)
+        {
+            result = default;
+            if (string.IsNullOrWhiteSpace(input)) return false;
+            // Try ISO and yyyy-MM-dd
+            if (DateTime.TryParse(input, null, System.Globalization.DateTimeStyles.AssumeLocal, out result)) return true;
+            var formats = new[] { "yyyy-MM-dd", "yyyy-MM-ddTHH:mm:ss", "dd/MM/yyyy" };
+            return DateTime.TryParseExact(input, formats, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out result);
         }
 
         
@@ -55,8 +85,8 @@ namespace BE_QLTiemThuoc.Controllers
 
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
-                var maPN = await _service.AddPhieuNhapAsync(phieuNhapDto);
-                return maPN;
+                var result = await _service.AddPhieuNhapAsync(phieuNhapDto);
+                return result;
             });
 
             return Ok(response);

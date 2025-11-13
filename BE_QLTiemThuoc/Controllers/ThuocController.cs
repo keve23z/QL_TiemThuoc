@@ -132,6 +132,14 @@ namespace BE_QLTiemThuoc.Controllers
             return Ok(response);
         }
 
+        // GET: api/Thuoc/{maThuoc}/GiaThuocs
+        [HttpGet("{maThuoc}/GiaThuocs")]
+        public async Task<IActionResult> GetGiaThuocs(string maThuoc)
+        {
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () => await _service.GetGiaThuocsByMaThuocAsync(maThuoc));
+            return Ok(response);
+        }
+
         // POST: api/Thuoc
         [HttpPost]
         public async Task<IActionResult> PostThuoc([FromForm] ThuocDto thuocDto)
@@ -146,6 +154,14 @@ namespace BE_QLTiemThuoc.Controllers
         {
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () => await _service.UpdateThuocAsync(id, thuocDto, Request));
 
+            return Ok(response);
+        }
+
+        // DELETE: api/Thuoc/{id}
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteThuoc(string id)
+        {
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () => await _service.DeleteThuocAsync(id));
             return Ok(response);
         }
 

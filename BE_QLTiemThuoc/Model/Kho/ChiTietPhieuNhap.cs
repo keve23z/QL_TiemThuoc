@@ -16,6 +16,12 @@ namespace BE_QLTiemThuoc.Model.Kho
         [StringLength(10)]
         public string MaThuoc { get; set; } = null!;
 
+        [StringLength(20)]
+        public string? MaLo { get; set; }
+
+        [StringLength(10)]
+        public string? MaLoaiDonVi { get; set; }
+
         public int SoLuong { get; set; }
 
         [Column(TypeName = "decimal(18,2)")]

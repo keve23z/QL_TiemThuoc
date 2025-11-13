@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel.DataAnnotations;
 
 namespace BE_QLTiemThuoc.Model
 {
@@ -12,5 +13,9 @@ namespace BE_QLTiemThuoc.Model
         public decimal DonGia { get; set; }
         public decimal ThanhTien { get; set; }
         public string? MaLD { get; set; }
+    [StringLength(10)]
+    public string? MaLoaiDonVi { get; set; }
+    [StringLength(10)]
+    public string? MaThuoc { get; set; }
     }
 }

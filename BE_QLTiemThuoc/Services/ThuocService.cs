@@ -247,6 +247,26 @@ namespace BE_QLTiemThuoc.Services
                 .ContinueWith(t => (object?)t.Result);
         }
 
+        // GET: all GiaThuoc rows for a given MaThuoc with computed SoLuongCon and TenLoaiDonVi
+        public Task<object> GetGiaThuocsByMaThuocAsync(string maThuoc)
+        {
+            var ctx = _repo.Context;
+            return ctx.GiaThuocs
+                .Where(g => g.MaThuoc == maThuoc)
+                .Select(x => new
+                {
+                    x.MaGiaThuoc,
+                    x.MaLoaiDonVi,
+                    TenLoaiDonVi = ctx.Set<Model.Thuoc.LoaiDonVi>().Where(d => d.MaLoaiDonVi == x.MaLoaiDonVi).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
+                    x.SoLuong,
+                    x.DonGia,
+                    x.TrangThai,
+                    SoLuongCon = ctx.TonKhos.Where(tk => tk.MaThuoc == x.MaThuoc && tk.MaLoaiDonViTinh == x.MaLoaiDonVi && tk.SoLuongCon > 0 && !tk.TrangThaiSeal).Sum(tk => (int?)tk.SoLuongCon) ?? 0
+                })
+                .ToListAsync()
+                .ContinueWith(t => (object)t.Result!);
+        }
+
         public Task<List<LoaiDonVi>> GetLoaiDonViAsync()
         {
             return _repo.Context.LoaiDonVi.ToListAsync();
@@ -261,12 +281,11 @@ namespace BE_QLTiemThuoc.Services
             if (string.IsNullOrWhiteSpace(thuocDto.MaThuoc))
             {
                 string generated;
-                var rnd = new Random();
                 do
                 {
-                    generated = "T" + DateTime.UtcNow.ToString("yyMMddHHmmss") + rnd.Next(10, 99).ToString();
-                }
-                while (await _repo.AnyByMaThuocAsync(generated));
+                    // T + 9 hex chars from GUID => total length = 10
+                    generated = "T" + Guid.NewGuid().ToString("N").Substring(0, 9).ToUpper();
+                } while (await _repo.AnyByMaThuocAsync(generated));
 
                 thuocDto.MaThuoc = generated;
             }
@@ -389,6 +408,29 @@ namespace BE_QLTiemThuoc.Services
             var ctx = _repo.Context;
             if (thuocDto.GiaThuocs?.Count > 0)
             {
+                // compute the current count once and increment in-memory to avoid generating duplicate MaGiaThuoc
+                var existingCount = await ctx.GiaThuocs.CountAsync(x => x.MaThuoc == thuoc.MaThuoc);
+                var nextIndex = existingCount + 1;
+
+                // helper to build MaGiaThuoc in the format GT{NNN}/{index}
+                string BuildMaGiaThuoc(string baseMaThuoc, int idx)
+                {
+                    if (string.IsNullOrWhiteSpace(baseMaThuoc)) baseMaThuoc = "000";
+                    var digitMatch = Regex.Match(baseMaThuoc, "\\d+");
+                    string numPart;
+                    if (digitMatch.Success)
+                    {
+                        numPart = digitMatch.Value.PadLeft(3, '0');
+                    }
+                    else
+                    {
+                        var raw = baseMaThuoc.Length >= 3 ? baseMaThuoc.Substring(baseMaThuoc.Length - 3) : baseMaThuoc;
+                        raw = Regex.Replace(raw, "\\D", "0");
+                        numPart = raw.PadLeft(3, '0');
+                    }
+                    return $"GT{numPart}/{idx}";
+                }
+
                 foreach (var g in thuocDto.GiaThuocs)
                 {
                     // if MaGiaThuoc provided try update, otherwise create new
@@ -405,8 +447,7 @@ namespace BE_QLTiemThuoc.Services
                         }
                     }
 
-                    var count = await ctx.GiaThuocs.CountAsync(x => x.MaThuoc == thuoc.MaThuoc);
-                    var newMa = string.IsNullOrWhiteSpace(g.MaGiaThuoc) ? $"{thuoc.MaThuoc}/{count + 1}" : g.MaGiaThuoc;
+                    var newMa = string.IsNullOrWhiteSpace(g.MaGiaThuoc) ? BuildMaGiaThuoc(thuoc.MaThuoc, nextIndex++) : g.MaGiaThuoc;
                     var newRow = new GiaThuoc
                     {
                         MaGiaThuoc = newMa,
@@ -570,6 +611,29 @@ namespace BE_QLTiemThuoc.Services
                     await existingActive.ForEachAsync(x => x.TrangThai = false);
                 }
 
+                // compute existing count once to avoid duplicate MaGiaThuoc when adding multiple new rows
+                var existingCount2 = await ctx.GiaThuocs.CountAsync(x => x.MaThuoc == entity.MaThuoc);
+                var nextIndex2 = existingCount2 + 1;
+
+                // helper to build MaGiaThuoc in the format GT{NNN}/{index}
+                string BuildMaGiaThuoc2(string baseMaThuoc, int idx)
+                {
+                    if (string.IsNullOrWhiteSpace(baseMaThuoc)) baseMaThuoc = "000";
+                    var digitMatch = Regex.Match(baseMaThuoc, "\\d+");
+                    string numPart;
+                    if (digitMatch.Success)
+                    {
+                        numPart = digitMatch.Value.PadLeft(3, '0');
+                    }
+                    else
+                    {
+                        var raw = baseMaThuoc.Length >= 3 ? baseMaThuoc.Substring(baseMaThuoc.Length - 3) : baseMaThuoc;
+                        raw = Regex.Replace(raw, "\\D", "0");
+                        numPart = raw.PadLeft(3, '0');
+                    }
+                    return $"GT{numPart}/{idx}";
+                }
+
                 foreach (var g in thuocDto.GiaThuocs)
                 {
                     if (!string.IsNullOrWhiteSpace(g.MaGiaThuoc))
@@ -585,8 +649,7 @@ namespace BE_QLTiemThuoc.Services
                         }
                     }
 
-                    var count = await ctx.GiaThuocs.CountAsync(x => x.MaThuoc == entity.MaThuoc);
-                    var newMa = string.IsNullOrWhiteSpace(g.MaGiaThuoc) ? $"{entity.MaThuoc}/{count + 1}" : g.MaGiaThuoc;
+                    var newMa = string.IsNullOrWhiteSpace(g.MaGiaThuoc) ? BuildMaGiaThuoc2(entity.MaThuoc, nextIndex2++) : g.MaGiaThuoc;
                     var newRow = new GiaThuoc
                     {
                         MaGiaThuoc = newMa,

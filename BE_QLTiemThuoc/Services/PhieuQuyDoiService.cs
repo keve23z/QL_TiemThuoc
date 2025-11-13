@@ -37,8 +37,31 @@ namespace BE_QLTiemThuoc.Services
             var thuoc = await ctx.Set<Model.Thuoc.Thuoc>().AsNoTracking().FirstOrDefaultAsync(t => t.MaThuoc == maThuoc);
             if (thuoc == null) throw new KeyNotFoundException("Thuoc not found by code");
 
-            int unitsPerPackage = unitsPerPackageOverride ?? throw new InvalidOperationException("Units per package must be provided or present in Thuoc.SoLuong");
-            if (unitsPerPackage <= 0) throw new InvalidOperationException("Units per package must be provided or present in Thuoc.SoLuong");
+            int unitsPerPackage;
+            if (unitsPerPackageOverride.HasValue && unitsPerPackageOverride.Value > 0)
+            {
+                unitsPerPackage = unitsPerPackageOverride.Value;
+            }
+            else
+            {
+                // Try to resolve units per package from GIATHUOC based on requested target unit
+                if (!string.IsNullOrEmpty(maLoaiDonViMoi))
+                {
+                    var gia = await ctx.GiaThuocs.AsNoTracking().FirstOrDefaultAsync(g => g.MaThuoc == maThuoc && g.MaLoaiDonVi == maLoaiDonViMoi);
+                    if (gia != null && gia.SoLuong > 0)
+                    {
+                        unitsPerPackage = gia.SoLuong;
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("Units per package must be provided or present in GiaThuoc for the given MaLoaiDonVi.");
+                    }
+                }
+                else
+                {
+                    throw new InvalidOperationException("Units per package must be provided or present in GiaThuoc for the given MaLoaiDonVi.");
+                }
+            }
 
             // find nearest expiry sealed lot (TrangThaiSeal = 0 -> false)
             var candidateLot = await ctx.TonKhos.Where(t => t.MaThuoc == maThuoc && !t.TrangThaiSeal && t.SoLuongCon >= 1)

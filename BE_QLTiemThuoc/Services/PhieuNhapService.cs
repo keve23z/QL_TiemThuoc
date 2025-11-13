@@ -1,6 +1,7 @@
 using BE_QLTiemThuoc.Dto;
 using BE_QLTiemThuoc.Model;
 using BE_QLTiemThuoc.Model.Kho;
+using BE_QLTiemThuoc.Model.Thuoc;
 using BE_QLTiemThuoc.Repositories;
 using Microsoft.EntityFrameworkCore;
 
@@ -15,17 +16,30 @@ namespace BE_QLTiemThuoc.Services
             _repo = repo;
         }
 
-        public async Task<List<object>> GetByDateRangeAsync(DateTime startDate, DateTime endDate)
+        public async Task<List<object>> GetByDateRangeAsync(DateTime startDate, DateTime endDate, string? maNV = null, string? maNCC = null)
         {
             var ctx = _repo.Context;
-            var phieuNhaps = await ctx.PhieuNhaps
-                .Where(pn => pn.NgayNhap >= startDate && pn.NgayNhap <= endDate)
+            var query = ctx.PhieuNhaps.AsQueryable()
+                .Where(pn => pn.NgayNhap >= startDate && pn.NgayNhap <= endDate);
+
+            if (!string.IsNullOrWhiteSpace(maNV))
+            {
+                query = query.Where(pn => pn.MaNV == maNV);
+            }
+            if (!string.IsNullOrWhiteSpace(maNCC))
+            {
+                query = query.Where(pn => pn.MaNCC == maNCC);
+            }
+
+            var phieuNhaps = await query
                 .Select(pn => new
                 {
                     pn.MaPN,
                     pn.NgayNhap,
                     pn.TongTien,
                     pn.GhiChu,
+                    pn.MaNCC,
+                    pn.MaNV,
                     TenNCC = ctx.NhaCungCaps.Where(ncc => ncc.MaNCC == pn.MaNCC).Select(ncc => ncc.TenNCC).FirstOrDefault(),
                     TenNV = ctx.Set<NhanVien>().Where(nv => nv.MANV == pn.MaNV).Select(nv => nv.HoTen).FirstOrDefault()
                 })
@@ -34,7 +48,7 @@ namespace BE_QLTiemThuoc.Services
             return phieuNhaps.Cast<object>().ToList();
         }
 
-        public async Task<string> AddPhieuNhapAsync(PhieuNhapDto phieuNhapDto)
+        public async Task<object> AddPhieuNhapAsync(PhieuNhapDto phieuNhapDto)
         {
             if (phieuNhapDto == null || phieuNhapDto.ChiTietPhieuNhaps == null) throw new ArgumentException("Invalid input data");
 
@@ -69,6 +83,9 @@ namespace BE_QLTiemThuoc.Services
                 var existingCount = await _repo.CountChiTietByMaPNAsync(phieuNhap.MaPN!);
                 int idx = 0;
                 string maPNSuffix = "000";
+                var chiTietEntities = new List<ChiTietPhieuNhap>();
+                // Assign MaCTPN for each incoming DTO (we will create entities after lot assignments)
+                
                 try
                 {
                     var pn = phieuNhap.MaPN ?? string.Empty;
@@ -86,7 +103,6 @@ namespace BE_QLTiemThuoc.Services
                 }
                 catch { maPNSuffix = "000"; }
 
-                var chiTietEntities = new List<ChiTietPhieuNhap>();
                 foreach (var dto in phieuNhapDto.ChiTietPhieuNhaps)
                 {
                     idx++;
@@ -99,24 +115,6 @@ namespace BE_QLTiemThuoc.Services
                         maCTPN = $"CTPN{seq.ToString("D3")}/{maPNSuffix}/{yy:D2}-{mm:D2}";
                     }
                     dto.MaCTPN = maCTPN;
-
-                    var ent = new ChiTietPhieuNhap
-                    {
-                        MaCTPN = maCTPN ?? string.Empty,
-                        MaPN = phieuNhap.MaPN!,
-                        MaThuoc = dto.MaThuoc ?? string.Empty,
-                        SoLuong = dto.SoLuong,
-                        DonGia = dto.DonGia,
-                        ThanhTien = dto.ThanhTien,
-                        HanSuDung = dto.HanSuDung ?? phieuNhap.NgayNhap,
-                        GhiChu = null
-                    };
-                    chiTietEntities.Add(ent);
-                }
-
-                if (chiTietEntities.Any())
-                {
-                    await _repo.AddChiTietRangeAsync(chiTietEntities);
                 }
 
                 // Units mapping
@@ -128,13 +126,49 @@ namespace BE_QLTiemThuoc.Services
                     .ToList();
 
                 var unitNameByCode = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                var unitRows = new List<PhieuNhapRepository.UnitRow>();
                 if (unitCodes.Any())
                 {
-                    var unitRows = await _repo.GetLoaiDonViByCodesAsync(unitCodes);
+                    unitRows = (await _repo.GetLoaiDonViByCodesAsync(unitCodes)).ToList();
                     foreach (var u in unitRows)
                     {
                         if (!string.IsNullOrEmpty(u.MaLoaiDonVi))
                             unitNameByCode[u.MaLoaiDonVi] = u.TenLoaiDonVi ?? u.MaLoaiDonVi;
+                    }
+
+                    // Validate that provided unit codes actually exist in LoaiDonVi table
+                    var foundCodes = new HashSet<string>(unitRows.Where(x => !string.IsNullOrEmpty(x.MaLoaiDonVi)).Select(x => x.MaLoaiDonVi!), StringComparer.OrdinalIgnoreCase);
+                    var missingUnitCodes = unitCodes.Where(c => !foundCodes.Contains(c)).ToList();
+                    if (missingUnitCodes.Any())
+                    {
+                        throw new InvalidOperationException("Missing LoaiDonVi codes: " + string.Join(",", missingUnitCodes));
+                    }
+                }
+
+                // Validate that each MaLoaiDonViNhap exists in GIATHUOC for the corresponding MaThuoc
+                var requiredPairs = phieuNhapDto.ChiTietPhieuNhaps
+                    .Where(d => !string.IsNullOrWhiteSpace(d.MaLoaiDonViNhap) && !string.IsNullOrWhiteSpace(d.MaThuoc))
+                    .Select(d => new { MaThuoc = d.MaThuoc!.Trim(), MaLoai = d.MaLoaiDonViNhap!.Trim() })
+                    .Distinct()
+                    .ToList();
+
+                if (requiredPairs.Any())
+                {
+                    var maThuocList = requiredPairs.Select(r => r.MaThuoc).Distinct().ToList();
+                    var maLoaiList = requiredPairs.Select(r => r.MaLoai).Distinct().ToList();
+
+                    var existingPairs = await _repo.Context.Set<GiaThuoc>()
+                        .Where(gt => maThuocList.Contains(gt.MaThuoc) && maLoaiList.Contains(gt.MaLoaiDonVi))
+                        .Select(gt => new { gt.MaThuoc, gt.MaLoaiDonVi })
+                        .ToListAsync();
+
+                    var existingSet = new HashSet<(string, string)>(existingPairs.Select(x => (x.MaThuoc ?? string.Empty, x.MaLoaiDonVi ?? string.Empty)));
+
+                    var missing = requiredPairs.Where(r => !existingSet.Contains((r.MaThuoc, r.MaLoai))).ToList();
+                    if (missing.Any())
+                    {
+                        var messages = missing.Select(m => $"MaLoaiDonVi '{m.MaLoai}' không tồn tại cho MaThuoc '{m.MaThuoc}'");
+                        throw new InvalidOperationException("Validation failed: " + string.Join("; ", messages));
                     }
                 }
 
@@ -170,9 +204,10 @@ namespace BE_QLTiemThuoc.Services
                         lotIndex++;
                         var maLo = GenMaLo(lotIndex);
                         var code = (dto.MaLoaiDonViNhap ?? string.Empty).Trim();
-                        var rawDonViTinh = unitNameByCode.ContainsKey(code) ? unitNameByCode[code] : (string.IsNullOrEmpty(code) ? "" : code);
-                        var donViTinh = (rawDonViTinh ?? string.Empty);
-                        if (donViTinh.Length > 20) donViTinh = donViTinh.Substring(0, 20);
+                        if (string.IsNullOrEmpty(code)) throw new InvalidOperationException($"MaLoaiDonViNhap is required for MaThuoc '{maThuoc}'");
+                        // Use the unit code for the FK column (TonKho.MaLoaiDonViTinh) and ensure length fits
+                        var donViTinhCode = code;
+                        if (donViTinhCode.Length > 10) donViTinhCode = donViTinhCode.Substring(0, 10);
                         var ghi = phieuNhapDto.GhiChu ?? string.Empty;
                         if (ghi.Length > 255) ghi = ghi.Substring(0, 255);
 
@@ -182,7 +217,7 @@ namespace BE_QLTiemThuoc.Services
                             MaThuoc = maThuoc,
                             HanSuDung = hsd,
                             TrangThaiSeal = false,
-                            MaLoaiDonViTinh = donViTinh,
+                            MaLoaiDonViTinh = donViTinhCode,
                             SoLuongNhap = dto.SoLuong,
                             SoLuongCon = dto.SoLuong,
                             GhiChu = ghi
@@ -194,8 +229,41 @@ namespace BE_QLTiemThuoc.Services
 
                 await _repo.SaveChangesAsync();
 
+                // Now create ChiTietPhieuNhap entities, setting MaLo and MaLoaiDonVi per new schema
+                foreach (var dto in phieuNhapDto.ChiTietPhieuNhaps)
+                {
+                    var maThuoc = dto.MaThuoc ?? string.Empty;
+                    var hsd = (dto.HanSuDung ?? phieuNhap.NgayNhap).Date;
+                    var key = (maThuoc, hsd);
+                    string? maLo = null;
+                    if (lotLookup.TryGetValue(key, out var lot)) maLo = lot.MaLo;
+
+                    var ent = new ChiTietPhieuNhap
+                    {
+                        MaCTPN = dto.MaCTPN ?? string.Empty,
+                        MaPN = phieuNhap.MaPN!,
+                        MaThuoc = maThuoc,
+                        MaLo = maLo,
+                        MaLoaiDonVi = dto.MaLoaiDonViNhap,
+                        SoLuong = dto.SoLuong,
+                        DonGia = dto.DonGia,
+                        ThanhTien = dto.ThanhTien,
+                        HanSuDung = dto.HanSuDung ?? phieuNhap.NgayNhap,
+                        GhiChu = dto.GhiChu
+                    };
+                    chiTietEntities.Add(ent);
+                }
+
+                if (chiTietEntities.Any()) await _repo.AddChiTietRangeAsync(chiTietEntities);
+
+                await _repo.SaveChangesAsync();
+
                 await tx.CommitAsync();
-                return phieuNhap.MaPN ?? string.Empty;
+
+                // collect MaLo values used/created for this PhieuNhap
+                var maLos = lotLookup.Values.Select(l => l.MaLo).Where(m => !string.IsNullOrEmpty(m)).Distinct().ToList();
+
+                return new { MaPN = phieuNhap.MaPN ?? string.Empty, MaLos = maLos };
             }
             catch
             {
@@ -224,6 +292,7 @@ namespace BE_QLTiemThuoc.Services
                     pn.NgayNhap,
                     pn.TongTien,
                     pn.GhiChu,
+                    pn.MaNCC,
                     TenNCC = ctx.NhaCungCaps.Where(ncc => ncc.MaNCC == pn.MaNCC).Select(ncc => ncc.TenNCC).FirstOrDefault(),
                     TenNV = ctx.Set<NhanVien>().Where(nv => nv.MANV == pn.MaNV).Select(nv => nv.HoTen).FirstOrDefault()
                 })
@@ -241,7 +310,10 @@ namespace BE_QLTiemThuoc.Services
                     ctpn.DonGia,
                     ctpn.ThanhTien,
                     HanSuDung = ctpn.HanSuDung,
-                    ctpn.GhiChu
+                    ctpn.GhiChu,
+                    MaLo = ctpn.MaLo,
+                    MaLoaiDonVi = ctpn.MaLoaiDonVi,
+                    TenLoaiDonVi = ctx.Set<Model.Thuoc.LoaiDonVi>().Where(ld => ld.MaLoaiDonVi == ctpn.MaLoaiDonVi).Select(ld => ld.TenLoaiDonVi).FirstOrDefault()
                 })
                 .ToListAsync();
 
