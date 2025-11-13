@@ -19,6 +19,7 @@ namespace BE_QLTiemThuoc.Data
         public DbSet<LoaiThuoc> LoaiThuoc { get; set; }
         public DbSet<LoaiDonVi> LoaiDonVi { get; set; }
         public DbSet<NhomLoai> NhomLoai { get; set; }
+    public DbSet<GiaThuoc> GiaThuocs { get; set; }
     public DbSet<PhieuNhap> PhieuNhaps { get; set; } // Add this property
     public DbSet<ChiTietPhieuNhap> ChiTietPhieuNhaps { get; set; }
     public DbSet<TonKho> TonKhos { get; set; }
@@ -38,6 +39,7 @@ namespace BE_QLTiemThuoc.Data
             modelBuilder.Entity<LoaiThuoc>().ToTable("LoaiThuoc");
             modelBuilder.Entity<LoaiDonVi>().ToTable("LoaiDonVi");
             modelBuilder.Entity<NhomLoai>().ToTable("NhomLoai");
+            modelBuilder.Entity<GiaThuoc>().ToTable("GIATHUOC");
             modelBuilder.Entity<PhieuNhap>().ToTable("PhieuNhap");
             modelBuilder.Entity<ChiTietPhieuNhap>().ToTable("ChiTietPhieuNhap");
             // TON_KHO replaces LoThuocHSD

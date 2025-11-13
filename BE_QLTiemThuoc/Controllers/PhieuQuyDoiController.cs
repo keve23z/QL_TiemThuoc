@@ -52,7 +52,7 @@ namespace BE_QLTiemThuoc.Controllers
 
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
-                var result = await _service.QuickConvertByMaAsync(dto.MaThuoc!, null, dto.DonViMoi);
+                var result = await _service.QuickConvertByMaAsync(dto.MaThuoc!, null, dto.MaLoaiDonViMoi, dto.HanSuDungMoi);
                 var maPhieu = result.Item1;
                 var maLoMoi = result.Item2;
                 return new { MaPhieuQD = maPhieu, MaLoMoi = maLoMoi };

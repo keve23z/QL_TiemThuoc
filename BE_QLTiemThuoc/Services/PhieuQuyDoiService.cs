@@ -29,7 +29,7 @@ namespace BE_QLTiemThuoc.Services
         /// Quick convert by MaThuoc (single package). unitsPerPackageOverride can be null to use THUOC.SoLuong.
         /// Returns MaPhieuQD and MaLoMoi.
         /// </summary>
-        public async Task<(string MaPhieuQD, string MaLoMoi)> QuickConvertByMaAsync(string maThuoc, int? unitsPerPackageOverride = null, string? donViMoi = null)
+        public async Task<(string MaPhieuQD, string MaLoMoi)> QuickConvertByMaAsync(string maThuoc, int? unitsPerPackageOverride = null, string? maLoaiDonViMoi = null, DateTime? hanSuDungMoi = null)
         {
             if (string.IsNullOrWhiteSpace(maThuoc)) throw new ArgumentException("maThuoc is required");
 
@@ -37,7 +37,7 @@ namespace BE_QLTiemThuoc.Services
             var thuoc = await ctx.Set<Model.Thuoc.Thuoc>().AsNoTracking().FirstOrDefaultAsync(t => t.MaThuoc == maThuoc);
             if (thuoc == null) throw new KeyNotFoundException("Thuoc not found by code");
 
-            int unitsPerPackage = unitsPerPackageOverride ?? thuoc.SoLuong;
+            int unitsPerPackage = unitsPerPackageOverride ?? throw new InvalidOperationException("Units per package must be provided or present in Thuoc.SoLuong");
             if (unitsPerPackage <= 0) throw new InvalidOperationException("Units per package must be provided or present in Thuoc.SoLuong");
 
             // find nearest expiry sealed lot (TrangThaiSeal = 0 -> false)
@@ -73,11 +73,14 @@ namespace BE_QLTiemThuoc.Services
                 var maNVToRecord = anyNv?.MANV;
                 if (string.IsNullOrEmpty(maNVToRecord)) throw new InvalidOperationException("No NhanVien found to attribute quick convert phieu.");
 
-                var targetDonVi = string.IsNullOrEmpty(donViMoi) ? "Viên" : donViMoi;
+                var targetDonVi = string.IsNullOrEmpty(maLoaiDonViMoi) ? "Viên" : maLoaiDonViMoi;
 
-                // check for existing aggregated lot (same MaThuoc, HanSuDung, DonViTinh)
+                // determine which expiry date the new lot should have (explicit override or source lot's HSD)
+                var targetHanSuDung = hanSuDungMoi ?? tk.HanSuDung;
+
+                // check for existing aggregated lot (same MaThuoc, HanSuDung, MaLoaiDonViTinh)
                 var existing = await ctx2.TonKhos
-                    .Where(t => t.MaThuoc == tk.MaThuoc && t.HanSuDung == tk.HanSuDung && t.DonViTinh == targetDonVi)
+                    .Where(t => t.MaThuoc == tk.MaThuoc && t.HanSuDung == targetHanSuDung && t.MaLoaiDonViTinh == targetDonVi)
                     .FirstOrDefaultAsync();
 
                 if (existing != null)
@@ -92,9 +95,9 @@ namespace BE_QLTiemThuoc.Services
                     {
                         MaLo = maLoMoi,
                         MaThuoc = tk.MaThuoc,
-                        HanSuDung = tk.HanSuDung,
+                        HanSuDung = targetHanSuDung,
                         TrangThaiSeal = true,
-                        DonViTinh = targetDonVi,
+                        MaLoaiDonViTinh = targetDonVi,
                         SoLuongNhap = unitsPerPackage,
                         SoLuongCon = unitsPerPackage,
                         GhiChu = $"Tách từ {tk.MaLo} (Phiếu {maPhieu})"
@@ -112,8 +115,8 @@ namespace BE_QLTiemThuoc.Services
 
                 // insert CT_PHIEU_QUY_DOI
                 await ctx2.Database.ExecuteSqlRawAsync(
-                    "INSERT INTO CT_PHIEU_QUY_DOI (MaPhieuQD, MaLoGoc, MaLoMoi, MaThuoc, SoLuongQuyDoi, TyLeQuyDoi, SoLuongGoc, DonViGoc, DonViMoi) VALUES ({0},{1},{2},{3},{4},{5},{6},{7},{8})",
-                    maPhieu, tk.MaLo, maLoMoi, tk.MaThuoc, unitsPerPackage, unitsPerPackage, 1, tk.DonViTinh, targetDonVi);
+                    "INSERT INTO CT_PHIEU_QUY_DOI (MaPhieuQD, MaLoGoc, MaLoMoi, MaThuoc, SoLuongQuyDoi, TyLeQuyDoi, SoLuongGoc, MaLoaiDonViGoc, MaLoaiDonViMoi) VALUES ({0},{1},{2},{3},{4},{5},{6},{7},{8})",
+                    maPhieu, tk.MaLo, maLoMoi, tk.MaThuoc, unitsPerPackage, unitsPerPackage, 1, tk.MaLoaiDonViTinh, targetDonVi);
 
                 await tx.CommitAsync();
                 return (maPhieu, maLoMoi);
@@ -138,7 +141,7 @@ namespace BE_QLTiemThuoc.Services
             {
                 var ctx = _repo.Context;
 
-                var ctRows = new List<(string MaLoGoc, string MaLoMoi, string MaThuoc, int SoLuongQuyDoi, int TyLeQuyDoi, int SoLuongGoc, string DonViGoc, string DonViMoi)>();
+                var ctRows = new List<(string MaLoGoc, string MaLoMoi, string MaThuoc, int SoLuongQuyDoi, int TyLeQuyDoi, int SoLuongGoc, string MaLoaiDonViGoc, string MaLoaiDonViMoi)>();
                 var createdMaLo = new List<string>();
 
                 foreach (var item in dto.Items)
@@ -150,8 +153,7 @@ namespace BE_QLTiemThuoc.Services
                     // resolve units per package from THUOC when not provided
                     var thuoc = await ctx.Set<Model.Thuoc.Thuoc>().AsNoTracking().FirstOrDefaultAsync(t => t.MaThuoc == item.MaThuoc);
                     if (thuoc == null) throw new KeyNotFoundException($"Thuoc not found for MaThuoc {item.MaThuoc}");
-                    int unitsPerPackage = item.UnitsPerPackage.HasValue && item.UnitsPerPackage.Value > 0 ? item.UnitsPerPackage.Value : thuoc.SoLuong;
-                    if (unitsPerPackage <= 0) throw new InvalidOperationException("Units per package must be provided or present in Thuoc.SoLuong");
+                    int unitsPerPackage = item.TyLeQuyDoi.HasValue && item.TyLeQuyDoi.Value > 0 ? item.TyLeQuyDoi.Value : throw new InvalidOperationException("TyLeQuyDoi (units per package) is required when Thuoc.SoLuong is not available.");
 
                     // collect candidate lots for this MaThuoc (sealed packages still in sealed state i.e., TrangThaiSeal == false)
                     var candidateLots = await ctx.TonKhos
@@ -183,11 +185,14 @@ namespace BE_QLTiemThuoc.Services
                         try { checked { soLuongQuyDoi = take * unitsPerPackage; } }
                         catch (OverflowException ex) { throw new InvalidOperationException("Quantity overflow during conversion", ex); }
 
-                        var targetDonVi = string.IsNullOrEmpty(item.DonViMoi) ? "Viên" : item.DonViMoi;
+                        var targetDonVi = string.IsNullOrEmpty(item.MaLoaiDonViMoi) ? "Viên" : item.MaLoaiDonViMoi;
 
-                        // check for existing aggregated lot with same MaThuoc, HanSuDung, DonViTinh
+                        // decide expiry for the new lot (explicit override per item, otherwise use source lot HSD)
+                        var targetHanSuDung = item.HanSuDungMoi ?? tk.HanSuDung;
+
+                        // check for existing aggregated lot with same MaThuoc, HanSuDung, MaLoaiDonViTinh
                         var existing = await ctx.TonKhos
-                            .Where(t => t.MaThuoc == tk.MaThuoc && t.HanSuDung == tk.HanSuDung && t.DonViTinh == targetDonVi)
+                            .Where(t => t.MaThuoc == tk.MaThuoc && t.HanSuDung == targetHanSuDung && t.MaLoaiDonViTinh == targetDonVi)
                             .FirstOrDefaultAsync();
 
                         string maLoMoi;
@@ -204,9 +209,9 @@ namespace BE_QLTiemThuoc.Services
                             {
                                 MaLo = maLoMoi,
                                 MaThuoc = tk.MaThuoc,
-                                HanSuDung = tk.HanSuDung,
+                                HanSuDung = targetHanSuDung,
                                 TrangThaiSeal = true,
-                                DonViTinh = targetDonVi,
+                                MaLoaiDonViTinh = targetDonVi,
                                 SoLuongNhap = soLuongQuyDoi,
                                 SoLuongCon = soLuongQuyDoi,
                                 GhiChu = $"Tách từ {tk.MaLo} (Phiếu ... pending)"
@@ -214,8 +219,8 @@ namespace BE_QLTiemThuoc.Services
                             await ctx.TonKhos.AddAsync(newLot);
                         }
 
-                        // record CT row for this consumed piece
-                        ctRows.Add((tk.MaLo, maLoMoi, tk.MaThuoc, soLuongQuyDoi, unitsPerPackage, take, tk.DonViTinh, targetDonVi));
+                        // record CT row for this consumed piece (use MaLoaiDonViGoc/MaLoaiDonViMoi column semantics)
+                        ctRows.Add((tk.MaLo, maLoMoi, tk.MaThuoc, soLuongQuyDoi, unitsPerPackage, take, tk.MaLoaiDonViTinh, targetDonVi));
                         if (!createdMaLo.Contains(maLoMoi)) createdMaLo.Add(maLoMoi);
 
                         remaining -= take;
@@ -243,8 +248,8 @@ namespace BE_QLTiemThuoc.Services
                 foreach (var r in ctRows)
                 {
                     await ctx.Database.ExecuteSqlRawAsync(
-                        "INSERT INTO CT_PHIEU_QUY_DOI (MaPhieuQD, MaLoGoc, MaLoMoi, MaThuoc, SoLuongQuyDoi, TyLeQuyDoi, SoLuongGoc, DonViGoc, DonViMoi) VALUES ({0},{1},{2},{3},{4},{5},{6},{7},{8})",
-                        maPhieu, r.MaLoGoc, r.MaLoMoi, r.MaThuoc, r.SoLuongQuyDoi, r.TyLeQuyDoi, r.SoLuongGoc, r.DonViGoc, r.DonViMoi);
+                        "INSERT INTO CT_PHIEU_QUY_DOI (MaPhieuQD, MaLoGoc, MaLoMoi, MaThuoc, SoLuongQuyDoi, TyLeQuyDoi, SoLuongGoc, MaLoaiDonViGoc, MaLoaiDonViMoi) VALUES ({0},{1},{2},{3},{4},{5},{6},{7},{8})",
+                        maPhieu, r.MaLoGoc, r.MaLoMoi, r.MaThuoc, r.SoLuongQuyDoi, r.TyLeQuyDoi, r.SoLuongGoc, r.MaLoaiDonViGoc, r.MaLoaiDonViMoi);
                 }
 
                 await tx.CommitAsync();

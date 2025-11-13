@@ -70,7 +70,7 @@ namespace BE_QLTiemThuoc.Services
                 .Select(loai =>
                 {
                     var thuocInfo = thuocGroup.FirstOrDefault(x => x.MaLoaiThuoc == loai.MaLoaiThuoc);
-                    return (object)new Model.Thuoc.LoaiThuocThongKe
+                    return (object)new LoaiThuocThongKe
                     {
                         MaLoaiThuoc = loai.MaLoaiThuoc,
                         TenLoaiThuoc = loai.TenLoaiThuoc,
@@ -78,15 +78,11 @@ namespace BE_QLTiemThuoc.Services
                         SoLuongThuoc = thuocInfo?.SoLuongThuoc ?? 0
                     };
                 })
-                .OrderByDescending(x => ((Model.Thuoc.LoaiThuocThongKe)x).SoLuongThuoc)
+                .OrderByDescending(x => ((LoaiThuocThongKe)x).SoLuongThuoc)
                 .ToList();
 
             return (object)thongKeList;
         }
-
-        public Task<List<Model.Thuoc.LoaiThuoc>> GetLoaiThuocAsync()
-            => _repo.Context.LoaiThuoc.ToListAsync();
-
         public Task<object> GetThuocAsync()
         {
             return _repo.Context.Thuoc
@@ -97,45 +93,14 @@ namespace BE_QLTiemThuoc.Services
                     t.TenThuoc,
                     t.MoTa,
                     t.UrlAnh,
-                    t.DonGiaSi
                 })
                 .ToListAsync()
                 .ContinueWith(t => (object)t.Result);
         }
-
-        public Task<object> GetListThuocDetailAsync()
-        {
-            var ctx = _repo.Context;
-            return ctx.Thuoc
-                .Select(t => new
-                {
-                    t.MaThuoc,
-                    t.MaLoaiThuoc,
-                    t.TenThuoc,
-                    t.ThanhPhan,
-                    t.MoTa,
-                    t.MaLoaiDonVi,
-                    t.SoLuong,
-                    t.CongDung,
-                    t.CachDung,
-                    t.LuuY,
-                    t.UrlAnh,
-                    t.MaNCC,
-                    t.DonGiaSi,
-                    t.DonGiaLe,
-                    TenNCC = ctx.NhaCungCaps.Where(n => n.MaNCC == t.MaNCC).Select(n => n.TenNCC).FirstOrDefault(),
-                    TenLoaiDonVi = ctx.Set<Model.Thuoc.LoaiDonVi>().Where(d => d.MaLoaiDonVi == t.MaLoaiDonVi).Select(d => d.TenLoaiDonVi).FirstOrDefault()
-                })
-                .ToListAsync()
-                .ContinueWith(t => (object)t.Result);
-        }
-
         // GET: list of Thuoc aggregated by available lots in TonKho (only lots with SoLuongCon>0 and TrangThaiSeal==0)
         public async Task<object> GetListThuocTonKhoAsync()
         {
             var ctx = _repo.Context;
-
-            // Group TonKhos by MaThuoc to compute remaining quantities, then join to Thuoc to get details
             var grouped = ctx.TonKhos
                 .Where(tk => tk.SoLuongCon > 0 && !tk.TrangThaiSeal)
                 .GroupBy(tk => tk.MaThuoc)
@@ -145,23 +110,36 @@ namespace BE_QLTiemThuoc.Services
                     TongSoLuongCon = g.Sum(tk => tk.SoLuongCon)
                 });
 
-            var result = await grouped
-                .Join(ctx.Thuoc,
-                      g => g.MaThuoc,
-                      t => t.MaThuoc,
-                      (g, t) => new
-                      {
-                          maThuoc = t.MaThuoc,
-                          maLoaiThuoc = t.MaLoaiThuoc,
-                          tenThuoc = t.TenThuoc,
-                          thanhPhan = t.ThanhPhan,
-                          moTa = t.MoTa,
-                          urlAnh = t.UrlAnh,
-                          donGiaSi = t.DonGiaSi,
-                          tongSoLuongCon = g.TongSoLuongCon
-                      })
-                .OrderBy(x => x.tenThuoc)
-                .ToListAsync();
+                var result = await grouped
+                    .Join(ctx.Thuoc,
+                          g => g.MaThuoc,
+                          t => t.MaThuoc,
+                          (g, t) => new
+                          {
+                              maThuoc = t.MaThuoc,
+                              maLoaiThuoc = t.MaLoaiThuoc,
+                              tenThuoc = t.TenThuoc,
+                              thanhPhan = t.ThanhPhan,
+                              moTa = t.MoTa,
+                              urlAnh = t.UrlAnh,
+                              tongSoLuongCon = g.TongSoLuongCon,
+                              // include all GiaThuoc rows for this Thuoc and compute available quantity per MaLoaiDonVi
+                              GiaThuocs = ctx.GiaThuocs
+                                            .Where(x => x.MaThuoc == t.MaThuoc)
+                                            .Select(x => new
+                                            {
+                                                x.MaGiaThuoc,
+                                                x.MaLoaiDonVi,
+                                                TenLoaiDonVi = ctx.Set<LoaiDonVi>().Where(d => d.MaLoaiDonVi == x.MaLoaiDonVi).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
+                                                x.SoLuong,
+                                                x.DonGia,
+                                                x.TrangThai,
+                                                SoLuongCon = ctx.TonKhos.Where(tk => tk.MaThuoc == t.MaThuoc && tk.MaLoaiDonViTinh == x.MaLoaiDonVi && tk.SoLuongCon > 0 && !tk.TrangThaiSeal).Sum(tk => (int?)tk.SoLuongCon) ?? 0
+                                            })
+                                            .ToList()
+                          })
+                    .OrderBy(x => x.tenThuoc)
+                    .ToListAsync();
 
             return (object)result;
         }
@@ -178,9 +156,20 @@ namespace BE_QLTiemThuoc.Services
                     t.TenThuoc,
                     t.MoTa,
                     t.UrlAnh,
-                    t.DonGiaSi,
                     TenNCC = ctx.NhaCungCaps.Where(n => n.MaNCC == t.MaNCC).Select(n => n.TenNCC).FirstOrDefault(),
-                    TenLoaiDonVi = ctx.Set<Model.Thuoc.LoaiDonVi>().Where(d => d.MaLoaiDonVi == t.MaLoaiDonVi).Select(d => d.TenLoaiDonVi).FirstOrDefault()
+                    GiaThuocs = ctx.GiaThuocs
+                                .Where(x => x.MaThuoc == t.MaThuoc)
+                                .Select(x => new
+                                {
+                                    x.MaGiaThuoc,
+                                    x.MaLoaiDonVi,
+                                    TenLoaiDonVi = ctx.Set<LoaiDonVi>().Where(d => d.MaLoaiDonVi == x.MaLoaiDonVi).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
+                                    x.SoLuong,
+                                    x.DonGia,
+                                    x.TrangThai,
+                                    SoLuongCon = ctx.TonKhos.Where(tk => tk.MaThuoc == t.MaThuoc && tk.MaLoaiDonViTinh == x.MaLoaiDonVi && tk.SoLuongCon > 0 && !tk.TrangThaiSeal).Sum(tk => (int?)tk.SoLuongCon) ?? 0
+                                })
+                                .ToList()
                 })
                 .ToListAsync()
                 .ContinueWith(t => (object)t.Result);
@@ -202,9 +191,21 @@ namespace BE_QLTiemThuoc.Services
                     t.TenThuoc,
                     t.MoTa,
                     t.UrlAnh,
-                    t.DonGiaSi,
+                    // price from GIATHUOC
                     TenNCC = ctx.NhaCungCaps.Where(n => n.MaNCC == t.MaNCC).Select(n => n.TenNCC).FirstOrDefault(),
-                    TenLoaiDonVi = ctx.Set<Model.Thuoc.LoaiDonVi>().Where(d => d.MaLoaiDonVi == t.MaLoaiDonVi).Select(d => d.TenLoaiDonVi).FirstOrDefault()
+                    GiaThuocs = ctx.GiaThuocs
+                                .Where(x => x.MaThuoc == t.MaThuoc)
+                                .Select(x => new
+                                {
+                                    x.MaGiaThuoc,
+                                    x.MaLoaiDonVi,
+                                    TenLoaiDonVi = ctx.Set<Model.Thuoc.LoaiDonVi>().Where(d => d.MaLoaiDonVi == x.MaLoaiDonVi).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
+                                    x.SoLuong,
+                                    x.DonGia,
+                                    x.TrangThai,
+                                    SoLuongCon = ctx.TonKhos.Where(tk => tk.MaThuoc == t.MaThuoc && tk.MaLoaiDonViTinh == x.MaLoaiDonVi && tk.SoLuongCon > 0 && !tk.TrangThaiSeal).Sum(tk => (int?)tk.SoLuongCon) ?? 0
+                                })
+                                .ToList()
                 })
                 .ToListAsync()
                 .ContinueWith(t => (object)t.Result);
@@ -222,23 +223,31 @@ namespace BE_QLTiemThuoc.Services
                     t.TenThuoc,
                     t.ThanhPhan,
                     t.MoTa,
-                    t.MaLoaiDonVi,
-                    t.SoLuong,
                     t.CongDung,
                     t.CachDung,
                     t.LuuY,
                     t.UrlAnh,
                     t.MaNCC,
-                    t.DonGiaSi,
-                    t.DonGiaLe,
                     TenNCC = ctx.NhaCungCaps.Where(n => n.MaNCC == t.MaNCC).Select(n => n.TenNCC).FirstOrDefault(),
-                    TenLoaiDonVi = ctx.Set<Model.Thuoc.LoaiDonVi>().Where(d => d.MaLoaiDonVi == t.MaLoaiDonVi).Select(d => d.TenLoaiDonVi).FirstOrDefault()
+                        GiaThuocs = ctx.GiaThuocs
+                                    .Where(x => x.MaThuoc == t.MaThuoc)
+                                    .Select(x => new
+                                    {
+                                        x.MaGiaThuoc,
+                                        x.MaLoaiDonVi,
+                                        TenLoaiDonVi = ctx.Set<Model.Thuoc.LoaiDonVi>().Where(d => d.MaLoaiDonVi == x.MaLoaiDonVi).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
+                                        x.SoLuong,
+                                        x.DonGia,
+                                        x.TrangThai,
+                                        SoLuongCon = ctx.TonKhos.Where(tk => tk.MaThuoc == t.MaThuoc && tk.MaLoaiDonViTinh == x.MaLoaiDonVi && tk.SoLuongCon > 0 && !tk.TrangThaiSeal).Sum(tk => (int?)tk.SoLuongCon) ?? 0
+                                    })
+                                    .ToList()
                 })
                 .FirstOrDefaultAsync()
                 .ContinueWith(t => (object?)t.Result);
         }
 
-        public Task<List<Model.Thuoc.LoaiDonVi>> GetLoaiDonViAsync()
+        public Task<List<LoaiDonVi>> GetLoaiDonViAsync()
         {
             return _repo.Context.LoaiDonVi.ToListAsync();
         }
@@ -247,6 +256,20 @@ namespace BE_QLTiemThuoc.Services
         public async Task<Thuoc> CreateThuocAsync(ThuocDto thuocDto, HttpRequest? request = null)
         {
             if (thuocDto == null) throw new ArgumentNullException(nameof(thuocDto));
+
+            // If client didn't provide MaThuoc, generate a unique one that starts with 'T'
+            if (string.IsNullOrWhiteSpace(thuocDto.MaThuoc))
+            {
+                string generated;
+                var rnd = new Random();
+                do
+                {
+                    generated = "T" + DateTime.UtcNow.ToString("yyMMddHHmmss") + rnd.Next(10, 99).ToString();
+                }
+                while (await _repo.AnyByMaThuocAsync(generated));
+
+                thuocDto.MaThuoc = generated;
+            }
 
             if (await _repo.AnyByMaThuocAsync(thuocDto.MaThuoc))
                 throw new Exception("Mã thuốc đã tồn tại.");
@@ -269,7 +292,7 @@ namespace BE_QLTiemThuoc.Services
             }
             catch { }
 
-            if (thuocDto.FileAnh != null && thuocDto.FileAnh.Length > 0)
+            if (thuocDto.FileAnh?.Length > 0)
             {
                 if (thuocDto.FileAnh.Length > 5242880) throw new Exception("Kích thước file ảnh không được vượt quá 5MB.");
 
@@ -351,19 +374,52 @@ namespace BE_QLTiemThuoc.Services
                 TenThuoc = thuocDto?.TenThuoc ?? string.Empty,
                 ThanhPhan = thuocDto?.ThanhPhan ?? string.Empty,
                 MoTa = thuocDto?.MoTa ?? string.Empty,
-                MaLoaiDonVi = thuocDto?.MaLoaiDonVi ?? string.Empty,
-                SoLuong = thuocDto?.SoLuong ?? 0,
+                // Note: unit/pricing moved to GIATHUOC; Thuoc table no longer stores MaLoaiDonVi/SoLuong
                 CongDung = thuocDto?.CongDung ?? string.Empty,
                 CachDung = thuocDto?.CachDung ?? string.Empty,
                 LuuY = thuocDto?.LuuY ?? string.Empty,
                 MaNCC = thuocDto?.MaNCC ?? string.Empty,
-                DonGiaSi = thuocDto?.DonGiaSi ?? 0,
-                DonGiaLe = thuocDto?.DonGiaLe ?? 0,
                 UrlAnh = imageUrl ?? string.Empty
             };
 
             await _repo.AddAsync(thuoc);
             await _repo.SaveChangesAsync();
+
+            // If DTO provided GiaThuocs, create them
+            var ctx = _repo.Context;
+            if (thuocDto.GiaThuocs?.Count > 0)
+            {
+                foreach (var g in thuocDto.GiaThuocs)
+                {
+                    // if MaGiaThuoc provided try update, otherwise create new
+                    if (!string.IsNullOrWhiteSpace(g.MaGiaThuoc))
+                    {
+                        var existing = await ctx.Set<GiaThuoc>().FindAsync(g.MaGiaThuoc);
+                        if (existing != null)
+                        {
+                            existing.MaLoaiDonVi = g.MaLoaiDonVi;
+                            existing.SoLuong = g.SoLuong;
+                            existing.DonGia = g.DonGia;
+                            existing.TrangThai = g.TrangThai;
+                            continue;
+                        }
+                    }
+
+                    var count = await ctx.GiaThuocs.CountAsync(x => x.MaThuoc == thuoc.MaThuoc);
+                    var newMa = string.IsNullOrWhiteSpace(g.MaGiaThuoc) ? $"{thuoc.MaThuoc}/{count + 1}" : g.MaGiaThuoc;
+                    var newRow = new GiaThuoc
+                    {
+                        MaGiaThuoc = newMa,
+                        MaThuoc = thuoc.MaThuoc,
+                        MaLoaiDonVi = g.MaLoaiDonVi,
+                        SoLuong = g.SoLuong,
+                        DonGia = g.DonGia,
+                        TrangThai = g.TrangThai
+                    };
+                    await ctx.GiaThuocs.AddAsync(newRow);
+                }
+                await ctx.SaveChangesAsync();
+            }
 
             return thuoc;
         }
@@ -378,7 +434,7 @@ namespace BE_QLTiemThuoc.Services
             if (entity == null) throw new Exception("Không tìm thấy thuốc.");
 
             // Handle file upload similar to Create
-            if (thuocDto.FileAnh != null && thuocDto.FileAnh.Length > 0)
+            if (thuocDto.FileAnh?.Length > 0)
             {
                 if (thuocDto.FileAnh.Length > 5242880) throw new Exception("Kích thước file ảnh không được vượt quá 5MB.");
 
@@ -433,8 +489,6 @@ namespace BE_QLTiemThuoc.Services
                     }
 
                     entity.UrlAnh = finalFileName;
-
-                    // Copy to FE wwwroot (best-effort)
                     try
                     {
                         var beContentRoot = _env?.ContentRootPath;
@@ -478,14 +532,12 @@ namespace BE_QLTiemThuoc.Services
             entity.TenThuoc = thuocDto.TenThuoc ?? entity.TenThuoc;
             entity.ThanhPhan = thuocDto.ThanhPhan ?? entity.ThanhPhan;
             entity.MoTa = thuocDto.MoTa ?? entity.MoTa;
-            entity.MaLoaiDonVi = thuocDto.MaLoaiDonVi ?? entity.MaLoaiDonVi;
-            entity.SoLuong = thuocDto.SoLuong ?? entity.SoLuong;
+            // Note: unit/pricing moved to GIATHUOC; Thuoc table does not store MaLoaiDonVi/SoLuong
             entity.CongDung = thuocDto.CongDung ?? entity.CongDung;
             entity.CachDung = thuocDto.CachDung ?? entity.CachDung;
             entity.LuuY = thuocDto.LuuY ?? entity.LuuY;
             entity.MaNCC = thuocDto.MaNCC ?? entity.MaNCC;
-            entity.DonGiaSi = thuocDto.DonGiaSi ?? entity.DonGiaSi;
-            entity.DonGiaLe = thuocDto.DonGiaLe ?? entity.DonGiaLe;
+            // Pricing lives in GIATHUOC now; update prices via separate endpoints for GIATHUOC
 
             try
             {
@@ -506,16 +558,97 @@ namespace BE_QLTiemThuoc.Services
             catch { }
 
             await _repo.SaveChangesAsync();
+
+            // Update/create GIATHUOC rows if provided
+            var ctx = _repo.Context;
+            if (thuocDto.GiaThuocs?.Any() == true)
+            {
+                // if any incoming price row is active, deactivate existing rows first
+                if (thuocDto.GiaThuocs.Any(x => x.TrangThai))
+                {
+                    var existingActive = ctx.GiaThuocs.Where(x => x.MaThuoc == entity.MaThuoc && x.TrangThai);
+                    await existingActive.ForEachAsync(x => x.TrangThai = false);
+                }
+
+                foreach (var g in thuocDto.GiaThuocs)
+                {
+                    if (!string.IsNullOrWhiteSpace(g.MaGiaThuoc))
+                    {
+                        var existing = await ctx.GiaThuocs.FindAsync(g.MaGiaThuoc);
+                        if (existing != null)
+                        {
+                            existing.MaLoaiDonVi = g.MaLoaiDonVi;
+                            existing.SoLuong = g.SoLuong;
+                            existing.DonGia = g.DonGia;
+                            existing.TrangThai = g.TrangThai;
+                            continue;
+                        }
+                    }
+
+                    var count = await ctx.GiaThuocs.CountAsync(x => x.MaThuoc == entity.MaThuoc);
+                    var newMa = string.IsNullOrWhiteSpace(g.MaGiaThuoc) ? $"{entity.MaThuoc}/{count + 1}" : g.MaGiaThuoc;
+                    var newRow = new GiaThuoc
+                    {
+                        MaGiaThuoc = newMa,
+                        MaThuoc = entity.MaThuoc,
+                        MaLoaiDonVi = g.MaLoaiDonVi,
+                        SoLuong = g.SoLuong,
+                        DonGia = g.DonGia,
+                        TrangThai = g.TrangThai
+                    };
+                    await ctx.GiaThuocs.AddAsync(newRow);
+                }
+
+                await ctx.SaveChangesAsync();
+            }
+
             return true;
         }
 
         public async Task<bool> DeleteThuocAsync(string id)
         {
+            if (string.IsNullOrWhiteSpace(id)) throw new ArgumentException("id is required");
+
+            var ctx = _repo.Context;
             var entity = await _repo.FindAsync(id);
             if (entity == null) throw new Exception("Không tìm thấy thuốc.");
-            _repo.Remove(entity);
-            await _repo.SaveChangesAsync();
-            return true;
+
+            // Use a transaction so we don't partially delete GiaThuoc when Thuoc is in use
+            await using var tx = await ctx.Database.BeginTransactionAsync();
+            try
+            {
+                // Check references that would prevent deletion
+                var usedInTonKho = await ctx.TonKhos.AnyAsync(tk => tk.MaThuoc == id);
+                var usedInChiTietPhieuNhap = await ctx.ChiTietPhieuNhaps.AnyAsync(ct => ct.MaThuoc == id);
+
+                // check ChiTietHoaDon via linking to TonKho.MaLo
+                var usedInChiTietHoaDon = await (from ct in ctx.ChiTietHoaDons
+                                                  join tk in ctx.TonKhos on ct.MaLo equals tk.MaLo
+                                                  where tk.MaThuoc == id
+                                                  select ct).AnyAsync();
+
+                if (usedInTonKho || usedInChiTietPhieuNhap || usedInChiTietHoaDon)
+                {
+                    // don't delete anything, return informative error
+                    throw new Exception("Thuốc đang được sử dụng và không thể xóa.");
+                }
+
+                // safe to delete related GiaThuoc rows first
+                var giaRows = await ctx.GiaThuocs.Where(g => g.MaThuoc == id).ToListAsync();
+                if (giaRows.Any()) ctx.GiaThuocs.RemoveRange(giaRows);
+
+                // remove Thuoc
+                _repo.Remove(entity);
+
+                await ctx.SaveChangesAsync();
+                await tx.CommitAsync();
+                return true;
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                throw;
+            }
         }
     }
 }

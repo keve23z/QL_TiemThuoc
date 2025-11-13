@@ -182,7 +182,7 @@ namespace BE_QLTiemThuoc.Services
                             MaThuoc = maThuoc,
                             HanSuDung = hsd,
                             TrangThaiSeal = false,
-                            DonViTinh = donViTinh,
+                            MaLoaiDonViTinh = donViTinh,
                             SoLuongNhap = dto.SoLuong,
                             SoLuongCon = dto.SoLuong,
                             GhiChu = ghi

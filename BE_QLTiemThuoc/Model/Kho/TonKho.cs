@@ -23,8 +23,8 @@ namespace BE_QLTiemThuoc.Model.Kho
         public bool TrangThaiSeal { get; set; } = false; // 0 = Chưa bóc seal, 1 = Đã bóc seal
 
         [Required]
-        [StringLength(20)]
-        public string DonViTinh { get; set; } = null!; // Hộp, Vỉ, Viên,...
+        [StringLength(10)]
+        public string MaLoaiDonViTinh { get; set; } = null!; // MaLoaiDonViTinh references LoaiDonVi.MaLoaiDonVi
 
         [Required]
         public int SoLuongNhap { get; set; }

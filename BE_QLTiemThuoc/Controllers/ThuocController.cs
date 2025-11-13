@@ -59,19 +59,6 @@ namespace BE_QLTiemThuoc.Controllers
             return Ok(response);
         }
 
-
-        // GET: api/Thuoc/LoaiThuoc
-        [HttpGet("LoaiThuoc")]
-        public async Task<IActionResult> GetLoaiThuoc()
-        {
-            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
-            {
-                return await _service.GetLoaiThuocAsync();
-            });
-
-            return Ok(response);
-        }
-
         // GET: api/Thuoc
         [HttpGet]
         public async Task<IActionResult> GetThuoc()
@@ -96,17 +83,6 @@ namespace BE_QLTiemThuoc.Controllers
             return Ok(response);
         }
 
-        // GET: api/ListThuocDetail
-        [HttpGet("ListThuocDetail")]
-        public async Task<IActionResult> GetListThuocDetail()
-        {
-            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
-            {
-                return await _service.GetListThuocDetailAsync();
-            });
-
-            return Ok(response);
-        }
 
         // GET: api/ListThuocTonKho
         [HttpGet("ListThuocTonKho")]

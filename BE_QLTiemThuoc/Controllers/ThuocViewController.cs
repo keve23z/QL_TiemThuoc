@@ -28,8 +28,8 @@ namespace BE_QLTiemThuoc.Controllers
                         tk.MaLo,
                         tk.MaThuoc,
                         TenThuoc = t.TenThuoc,
-                        SoLuong = t.SoLuong,
-                        DonViGoc = tk.DonViTinh,
+                        DonViGoc = tk.MaLoaiDonViTinh,
+                        TenLoaiDonViGoc = _context.Set<BE_QLTiemThuoc.Model.Thuoc.LoaiDonVi>().Where(d => d.MaLoaiDonVi == tk.MaLoaiDonViTinh).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
                         tk.SoLuongCon,
                         tk.HanSuDung,
                         tk.TrangThaiSeal,
@@ -53,9 +53,9 @@ namespace BE_QLTiemThuoc.Controllers
                         tk.MaLo,
                         tk.MaThuoc,
                         TenThuoc = t.TenThuoc,
-                        SoLuong = t.SoLuong,
                         TrangThai = "Đã tách lẻ",
-                        DonViLe = tk.DonViTinh,
+                        DonViLe = tk.MaLoaiDonViTinh,
+                        TenLoaiDonViLe = _context.Set<BE_QLTiemThuoc.Model.Thuoc.LoaiDonVi>().Where(d => d.MaLoaiDonVi == tk.MaLoaiDonViTinh).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
                         SoLuongConLe = tk.SoLuongCon,
                         tk.HanSuDung,
                         tk.TrangThaiSeal,
@@ -73,14 +73,14 @@ namespace BE_QLTiemThuoc.Controllers
             var q = from tk in _context.TonKhos
                     join t in _context.Thuoc on tk.MaThuoc equals t.MaThuoc
                     where tk.TrangThaiSeal == false && tk.SoLuongCon > 0
-                    group tk by new { tk.MaThuoc, t.TenThuoc, tk.DonViTinh, t.SoLuong } into g
+                    group tk by new { tk.MaThuoc, t.TenThuoc, tk.MaLoaiDonViTinh } into g
                     orderby g.Key.TenThuoc
                     select new
                     {
                         MaThuoc = g.Key.MaThuoc,
                         TenThuoc = g.Key.TenThuoc,
-                        DonViTinh = g.Key.DonViTinh,
-                        SoLuong = g.Key.SoLuong,
+                        DonViTinh = g.Key.MaLoaiDonViTinh,
+                        TenLoaiDonVi = _context.Set<BE_QLTiemThuoc.Model.Thuoc.LoaiDonVi>().Where(d => d.MaLoaiDonVi == g.Key.MaLoaiDonViTinh).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
                         TongSoLuongCon = g.Sum(x => x.SoLuongCon)
                     };
 
