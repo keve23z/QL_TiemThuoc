@@ -4,7 +4,6 @@ using Microsoft.EntityFrameworkCore;
 using System.Net.Mail;
 using System.Net;
 using BE_QLTiemThuoc.Model;
-using BE_QLTiemThuoc.DTOs;
 
 namespace BE_QLTiemThuoc.Controllers
 {
@@ -33,11 +32,11 @@ namespace BE_QLTiemThuoc.Controllers
 
             var exists = await _context.TaiKhoans.AnyAsync(u => u.TenDangNhap == username);
             // Trả về true nếu đã tồn tại, false nếu chưa
-            return Ok(new CheckUsernameResponse { Exists = exists });
+            return Ok(new BE_QLTiemThuoc.DTOs.CheckUsernameResponse { Exists = exists });
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateAccount([FromBody] RegisterRequest request)
+        public async Task<IActionResult> CreateAccount([FromBody] BE_QLTiemThuoc.DTOs.RegisterRequest request)
         {
             try
             {
@@ -82,7 +81,7 @@ namespace BE_QLTiemThuoc.Controllers
                 string confirmationLink = $"https://localhost:7283/api/TaiKhoan/ConfirmEmail?token={Uri.EscapeDataString(emailToken)}";
                 await SendConfirmationEmail(newAccount.EMAIL, confirmationLink);
 
-                return Ok(new RegisterResponse { Message = "Tạo tài khoản thành công. Vui lòng kiểm tra email để xác thực." });
+                return Ok(new BE_QLTiemThuoc.DTOs.RegisterResponse { Message = "Tạo tài khoản thành công. Vui lòng kiểm tra email để xác thực." });
             }
             catch (Exception ex)
             {
@@ -146,7 +145,7 @@ namespace BE_QLTiemThuoc.Controllers
             return "TK" + number.ToString("D4");
         }
         [HttpPost("Login")]
-        public async Task<IActionResult> Login([FromBody] LoginRequest request)
+        public async Task<IActionResult> Login([FromBody] BE_QLTiemThuoc.DTOs.LoginRequest request)
         {
             if (!ModelState.IsValid)
             {
@@ -162,7 +161,7 @@ namespace BE_QLTiemThuoc.Controllers
             if (user.ISEMAILCONFIRMED == 0)
                 return BadRequest("Tài khoản chưa xác thực email.");
 
-            return Ok(new LoginResponse
+            return Ok(new BE_QLTiemThuoc.DTOs.LoginResponse
             {
                 Message = "Đăng nhập thành công",
                 MaTK = user.MaTK,
@@ -173,7 +172,7 @@ namespace BE_QLTiemThuoc.Controllers
 
         // Gửi OTP về email khi quên mật khẩu
         [HttpPost("SendOtp")]
-        public async Task<IActionResult> SendOtp([FromBody] SendOtpRequest request)
+        public async Task<IActionResult> SendOtp([FromBody] BE_QLTiemThuoc.DTOs.SendOtpRequest request)
         {
             if (!ModelState.IsValid)
             {
@@ -223,11 +222,11 @@ namespace BE_QLTiemThuoc.Controllers
             
             await smtp.SendMailAsync(mail);
 
-            return Ok(new SendOtpResponse { Message = "OTP đã được gửi về email của bạn." });
+            return Ok(new BE_QLTiemThuoc.DTOs.SendOtpResponse { Message = "OTP đã được gửi về email của bạn." });
         }
 
         [HttpPost("ResetPassword")]
-        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
+        public async Task<IActionResult> ResetPassword([FromBody] BE_QLTiemThuoc.DTOs.ResetPasswordRequest request)
         {
             if (!ModelState.IsValid)
             {
@@ -247,7 +246,7 @@ namespace BE_QLTiemThuoc.Controllers
             user.OTP = null; // Xóa OTP sau khi đổi mật khẩu thành công
             await _context.SaveChangesAsync();
 
-            return Ok(new ResetPasswordResponse { Message = "Đổi mật khẩu thành công. Vui lòng đăng nhập lại." });
+            return Ok(new BE_QLTiemThuoc.DTOs.ResetPasswordResponse { Message = "Đổi mật khẩu thành công. Vui lòng đăng nhập lại." });
         }
     }
 }
