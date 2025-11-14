@@ -3,8 +3,8 @@ using BE_QLTiemThuoc.Data;
 using Microsoft.EntityFrameworkCore;
 using System.Net.Mail;
 using System.Net;
+using Microsoft.AspNetCore.Identity.Data;
 using BE_QLTiemThuoc.Model;
-using BE_QLTiemThuoc.DTOs;
 
 namespace BE_QLTiemThuoc.Controllers
 {
@@ -33,26 +33,32 @@ namespace BE_QLTiemThuoc.Controllers
 
             var exists = await _context.TaiKhoans.AnyAsync(u => u.TenDangNhap == username);
             // Trả về true nếu đã tồn tại, false nếu chưa
-            return Ok(new CheckUsernameResponse { Exists = exists });
+            return Ok(exists);
         }
 
         [HttpPost]
-        public async Task<IActionResult> CreateAccount([FromBody] RegisterRequest request)
+        public async Task<IActionResult> CreateAccount([FromBody] TaiKhoan model)
         {
             try
             {
-                if (!ModelState.IsValid)
+                if (model == null ||
+                    string.IsNullOrWhiteSpace(model.TenDangNhap) ||
+                    string.IsNullOrWhiteSpace(model.MatKhau) ||
+                    string.IsNullOrWhiteSpace(model.EMAIL))
                 {
-                    return BadRequest(ModelState);
+                    return BadRequest("Thông tin tài khoản không hợp lệ.");
                 }
 
                 // Kiểm tra tên đăng nhập đã tồn tại
                 var existingUser = await _context.TaiKhoans
-                    .FirstOrDefaultAsync(u => u.TenDangNhap == request.TenDangNhap);
+                    .FirstOrDefaultAsync(u => u.TenDangNhap == model.TenDangNhap);
                 if (existingUser != null)
                 {
                     return BadRequest("Tên đăng nhập đã tồn tại.");
                 }
+
+                // Tạo mã tài khoản tự động
+                model.MaTK = GenerateAccountCode();
 
                 // Sinh token xác thực email
                 var tokenBytes = new byte[32];
@@ -62,27 +68,20 @@ namespace BE_QLTiemThuoc.Controllers
                 }
                 string emailToken = Convert.ToBase64String(tokenBytes);
 
-                // Tạo đối tượng TaiKhoan từ DTO
-                var newAccount = new TaiKhoan
-                {
-                    MaTK = GenerateAccountCode(),
-                    TenDangNhap = request.TenDangNhap,
-                    MatKhau = request.MatKhau,
-                    EMAIL = request.Email,
-                    ISEMAILCONFIRMED = 0,
-                    EMAILCONFIRMATIONTOKEN = emailToken,
-                    OTP = null,
-                    KhachHang = null
-                };
+                // Thiết lập mặc định
+                model.ISEMAILCONFIRMED = 0;
+                model.EMAILCONFIRMATIONTOKEN = emailToken;
+                model.OTP = null;
+                model.KhachHang = null;
 
-                _context.TaiKhoans.Add(newAccount);
+                _context.TaiKhoans.Add(model);
                 await _context.SaveChangesAsync();
 
                 // Gửi email xác thực
                 string confirmationLink = $"https://localhost:7283/api/TaiKhoan/ConfirmEmail?token={Uri.EscapeDataString(emailToken)}";
-                await SendConfirmationEmail(newAccount.EMAIL, confirmationLink);
+                await SendConfirmationEmail(model.EMAIL, confirmationLink);
 
-                return Ok(new RegisterResponse { Message = "Tạo tài khoản thành công. Vui lòng kiểm tra email để xác thực." });
+                return Ok(new { message = "Tạo tài khoản thành công. Vui lòng kiểm tra email để xác thực." });
             }
             catch (Exception ex)
             {
@@ -146,14 +145,13 @@ namespace BE_QLTiemThuoc.Controllers
             return "TK" + number.ToString("D4");
         }
         [HttpPost("Login")]
-        public async Task<IActionResult> Login([FromBody] LoginRequest request)
+        public async Task<IActionResult> Login([FromBody] TaiKhoan request)
         {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
+            if (string.IsNullOrWhiteSpace(request.MatKhau) || string.IsNullOrWhiteSpace(request.MatKhau))
+                return BadRequest("Thiếu thông tin đăng nhập.");
 
             var user = await _context.TaiKhoans
+                .Include(u => u.NhanVien)
                 .FirstOrDefaultAsync(u => u.TenDangNhap == request.TenDangNhap && u.MatKhau == request.MatKhau);
 
             if (user == null)
@@ -162,92 +160,83 @@ namespace BE_QLTiemThuoc.Controllers
             if (user.ISEMAILCONFIRMED == 0)
                 return BadRequest("Tài khoản chưa xác thực email.");
 
-            return Ok(new LoginResponse
+            return Ok(new
             {
-                Message = "Đăng nhập thành công",
-                MaTK = user.MaTK,
-                TenDangNhap = user.TenDangNhap,
-                Email = user.EMAIL
+                message = "Đăng nhập thành công",
+                user.MaTK,
+                user.TenDangNhap,
+                user.EMAIL,
+                MaNV = user.MaNV,
+                MaNhanVien = user.MaNV,
+                TenNhanVien = user.NhanVien != null ? user.NhanVien.HoTen : null,
+                NhanVien = user.NhanVien
             });
         }
 
         // Gửi OTP về email khi quên mật khẩu
-        [HttpPost("SendOtp")]
-        public async Task<IActionResult> SendOtp([FromBody] SendOtpRequest request)
-        {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
+        //[HttpPost("SendOtp")]
+        //public async Task<IActionResult> SendOtp([FromBody] SendOtpRequest data)
+        //{
+        //    string username = data?.Username;
+        //    if (string.IsNullOrWhiteSpace(username))
+        //        return BadRequest("Thiếu tên đăng nhập.");
 
-            var user = await _context.TaiKhoans
-                .FirstOrDefaultAsync(u => u.TenDangNhap == request.TenDangNhap && u.EMAIL == request.Email);
+        //    var user = await _context.TaiKhoans.FirstOrDefaultAsync(u => u.TenDangNhap == username);
+        //    if (user == null)
+        //        return NotFound("Không tìm thấy tài khoản.");
 
-            if (user == null)
-                return NotFound("Không tìm thấy tài khoản với tên đăng nhập và email này.");
+        //    // Sinh OTP ngẫu nhiên 6 số
+        //    var rng = new Random();
+        //    int otp = rng.Next(100000, 999999);
 
-            // Sinh OTP ngẫu nhiên 6 số
-            var rng = new Random();
-            int otp = rng.Next(100000, 999999);
+        //    user.OTP = otp;
+        //    await _context.SaveChangesAsync();
 
-            user.OTP = otp;
-            await _context.SaveChangesAsync();
+        //    // Gửi OTP về email
+        //    var smtp = new SmtpClient("smtp.gmail.com")
+        //    {
+        //        Credentials = new NetworkCredential("chaytue0203@gmail.com", "kctw ltds teaj luvb"),
+        //        EnableSsl = true,
+        //        Port = 587
+        //    };
+        //    var mail = new MailMessage("khangtuong040@gmail.com", user.EMAIL)
+        //    {
+        //        Subject = "OTP đặt lại mật khẩu",
+        //        Body = $"Mã OTP đặt lại mật khẩu của bạn là: {otp}"
+        //    };
+        //    await smtp.SendMailAsync(mail);
 
-            // Gửi OTP về email
-            var smtp = new SmtpClient("smtp.gmail.com")
-            {
-                Credentials = new NetworkCredential("chaytue0203@gmail.com", "kctw ltds teaj luvb"),
-                EnableSsl = true,
-                Port = 587
-            };
-            
-            var mail = new MailMessage("khangtuong040@gmail.com", user.EMAIL)
-            {
-                Subject = "Mã OTP đặt lại mật khẩu - Medion",
-                Body = $@"
-                    <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;'>
-                        <h2 style='color: #17a2b8;'>Đặt lại mật khẩu</h2>
-                        <p>Xin chào <strong>{user.TenDangNhap}</strong>,</p>
-                        <p>Bạn đã yêu cầu đặt lại mật khẩu. Mã OTP của bạn là:</p>
-                        <div style='background: #f8f9fa; padding: 20px; text-align: center; margin: 20px 0;'>
-                            <h1 style='color: #17a2b8; margin: 0; font-size: 36px; letter-spacing: 5px;'>{otp}</h1>
-                        </div>
-                        <p>Mã OTP có hiệu lực trong 5 phút.</p>
-                        <p>Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.</p>
-                        <hr style='margin: 30px 0; border: none; border-top: 1px solid #ddd;'>
-                        <p style='color: #6c757d; font-size: 12px;'>Đây là email tự động, vui lòng không trả lời.</p>
-                    </div>
-                ",
-                IsBodyHtml = true
-            };
-            
-            await smtp.SendMailAsync(mail);
+        //    return Ok(new { message = "OTP đã được gửi về email." });
+        //}
 
-            return Ok(new SendOtpResponse { Message = "OTP đã được gửi về email của bạn." });
-        }
 
-        [HttpPost("ResetPassword")]
-        public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest request)
-        {
-            if (!ModelState.IsValid)
-            {
-                return BadRequest(ModelState);
-            }
 
-            var user = await _context.TaiKhoans
-                .FirstOrDefaultAsync(u => u.TenDangNhap == request.TenDangNhap && u.EMAIL == request.Email);
+        //[HttpPost("ResetPassword")]
+        //public async Task<IActionResult> ResetPassword([FromBody] ResetPasswordRequest data)
+        //{
+        //    string username = data?.Username;
+        //    string newPassword = data?.NewPassword;
+        //    int otp = data.Otp;
 
-            if (user == null)
-                return NotFound("Không tìm thấy tài khoản.");
+        //    if (string.IsNullOrWhiteSpace(username) ||
+        //        string.IsNullOrWhiteSpace(newPassword) ||
+        //        otp == 0)
+        //    {
+        //        return BadRequest("Thiếu thông tin.");
+        //    }
 
-            if (user.OTP == null || user.OTP != request.Otp)
-                return BadRequest("OTP không đúng hoặc đã hết hạn.");
+        //    var user = await _context.TaiKhoans.FirstOrDefaultAsync(u => u.TenDangNhap == username);
+        //    if (user == null)
+        //        return NotFound("Không tìm thấy tài khoản.");
 
-            user.MatKhau = request.MatKhauMoi;
-            user.OTP = null; // Xóa OTP sau khi đổi mật khẩu thành công
-            await _context.SaveChangesAsync();
+        //    if (user.OTP != otp)
+        //        return BadRequest("OTP không đúng hoặc đã hết hạn.");
 
-            return Ok(new ResetPasswordResponse { Message = "Đổi mật khẩu thành công. Vui lòng đăng nhập lại." });
-        }
+        //    user.MatKhau = newPassword;
+        //    user.OTP = null;
+        //    await _context.SaveChangesAsync();
+
+        //    return Ok(new { message = "Đổi mật khẩu thành công." });
+        //}
     }
 }
