@@ -19,14 +19,14 @@ namespace BE_QLTiemThuoc.Data
         public DbSet<LoaiThuoc> LoaiThuoc { get; set; }
         public DbSet<LoaiDonVi> LoaiDonVi { get; set; }
         public DbSet<NhomLoai> NhomLoai { get; set; }
-    public DbSet<GiaThuoc> GiaThuocs { get; set; }
-    public DbSet<PhieuNhap> PhieuNhaps { get; set; } // Add this property
-    public DbSet<ChiTietPhieuNhap> ChiTietPhieuNhaps { get; set; }
-    public DbSet<TonKho> TonKhos { get; set; }
+        public DbSet<GiaThuoc> GiaThuocs { get; set; }
+        public DbSet<PhieuNhap> PhieuNhaps { get; set; } 
+        public DbSet<ChiTietPhieuNhap> ChiTietPhieuNhaps { get; set; }
+        public DbSet<TonKho> TonKhos { get; set; }
     // Sales / Invoice
-    public DbSet<HoaDon> HoaDons { get; set; }
-    public DbSet<ChiTietHoaDon> ChiTietHoaDons { get; set; }
-    public DbSet<LieuDung> LieuDungs { get; set; }
+        public DbSet<HoaDon> HoaDons { get; set; }
+        public DbSet<ChiTietHoaDon> ChiTietHoaDons { get; set; }
+        public DbSet<LieuDung> LieuDungs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -42,30 +42,13 @@ namespace BE_QLTiemThuoc.Data
             modelBuilder.Entity<GiaThuoc>().ToTable("GIATHUOC");
             modelBuilder.Entity<PhieuNhap>().ToTable("PhieuNhap");
             modelBuilder.Entity<ChiTietPhieuNhap>().ToTable("ChiTietPhieuNhap");
-            // TON_KHO replaces LoThuocHSD
             modelBuilder.Entity<TonKho>().ToTable("TON_KHO");
-            // Sales tables
             modelBuilder.Entity<HoaDon>().ToTable("HoaDon");
-            // Primary key for HoaDon
             modelBuilder.Entity<HoaDon>().HasKey(h => h.MaHD);
             modelBuilder.Entity<ChiTietHoaDon>().ToTable("ChiTietHoaDon");
-            // Primary key changed to MaCTHD (single column PK)
             modelBuilder.Entity<ChiTietHoaDon>().HasKey(ct => ct.MaCTHD);
             modelBuilder.Entity<LieuDung>().ToTable("LieuDung");
 
-            //modelBuilder.Entity<DanhMucNguoiDung>()
-            //    .HasOne(dm => dm.KhachHang)
-            //    .WithMany()
-            //    .HasForeignKey(dm => dm.MaNguoiDung)
-            //    .OnDelete(DeleteBehavior.Restrict);
-
-            //modelBuilder.Entity<DanhMuc>()
-            //    .HasOne(dm => dm.Loai)
-            //    .WithMany()
-            //    .HasForeignKey(dm => dm.MaLoaiDanhMuc)
-            //    .OnDelete(DeleteBehavior.Restrict);
-
-            // Additional model configurations can go here
         }
     }
 
