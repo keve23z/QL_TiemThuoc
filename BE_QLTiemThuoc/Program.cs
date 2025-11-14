@@ -1,16 +1,12 @@
+﻿using Microsoft.EntityFrameworkCore;
 using BE_QLTiemThuoc.Data;
-using CloudinaryDotNet;
-using Microsoft.EntityFrameworkCore;
 using System;
-using BE_QLTiemThuoc.Repositories;
-using BE_QLTiemThuoc.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var configuration = builder.Configuration; // Biến này đã có sẵn thông qua builder
 
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Cấu hình CORS
 var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
@@ -31,37 +27,7 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
-// Register Repositories and Services (concrete types only — no interfaces)
-builder.Services.AddScoped<NhaCungCapRepository>();
-builder.Services.AddScoped<NhaCungCapService>();
-builder.Services.AddScoped<KhachHangRepository>();
-builder.Services.AddScoped<KhachHangService>();
-builder.Services.AddScoped<ImagesService>();
-builder.Services.AddScoped<NhomLoaiRepository>();
-builder.Services.AddScoped<NhomLoaiService>();
-builder.Services.AddScoped<PhieuNhapRepository>();
-builder.Services.AddScoped<PhieuNhapService>();
-builder.Services.AddScoped<ThuocRepository>();
-builder.Services.AddScoped<ThuocService>();
-builder.Services.AddScoped<PhieuQuyDoiService>();
-
-// =========================================================
-// !!! KHỐI CẤU HÌNH CLOUDINARY ĐÃ ĐƯỢC DI CHUYỂN LÊN TRƯỚC builder.Build() !!!
-// =========================================================
-
-// Khai báo Account và cấu hình Cloudinary
-var account = new Account(
-    configuration["Cloudinary:CloudName"], // Lấy giá trị của CloudName
-    configuration["Cloudinary:ApiKey"],    // Lấy giá trị của ApiKey
-    configuration["Cloudinary:ApiSecret"]  // Lấy giá trị của ApiSecret
-);
-
-// Đăng ký Cloudinary là Singleton Service (Phải nằm trong builder.Services...)
-builder.Services.AddSingleton(new Cloudinary(account));
-
-// =========================================================
-
-var app = builder.Build(); // Service collection bị khóa tại đây
+var app = builder.Build();
 
 // Swagger UI
 if (app.Environment.IsDevelopment())
@@ -71,7 +37,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseCors(MyAllowSpecificOrigins);
+app.UseCors(MyAllowSpecificOrigins); // <- CHÈN Ở ĐÂY
 app.UseAuthorization();
 
 app.MapControllers();

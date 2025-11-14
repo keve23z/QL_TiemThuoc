@@ -4,14 +4,14 @@ namespace BE_QLTiemThuoc.Model
 {
     public class NhanVien
     {
-    [Key]
-    public string MANV { get; set; } = string.Empty;
+        [Key]
+        public string MANV { get; set; }
         public string? HoTen { get; set; }
         public DateTime? NgaySinh { get; set; }  // <- Có thể null
         public string? GioiTinh { get; set; }
         public string? DiaChi { get; set; }
         public string? DienThoai { get; set; }
 
-    public int? ChucVu { get; set; }
+        public string? ChucVu { get; set; }
     }
 }
