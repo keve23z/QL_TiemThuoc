@@ -22,14 +22,10 @@
             }
             catch (Exception ex)
             {
-                // Return full exception details in Message to help debugging (consider removing in production)
-                var full = ex.Message;
-                try { if (ex.InnerException != null) full += " | Inner: " + ex.InnerException.Message; } catch { }
-                try { full += "\n" + ex.ToString(); } catch { }
                 return new ApiResponse<T>
                 {
                     Status = -1,
-                    Message = full,
+                    Message = ex.Message,
                     Data = default
                 };
             }
@@ -49,14 +45,10 @@
             }
             catch (Exception ex)
             {
-                // Return full exception details in Message to help debugging (consider removing in production)
-                var full = ex.Message;
-                try { if (ex.InnerException != null) full += " | Inner: " + ex.InnerException.Message; } catch { }
-                try { full += "\n" + ex.ToString(); } catch { }
                 return new ApiResponse<T>
                 {
                     Status = -1,
-                    Message = full,
+                    Message = ex.Message,
                     Data = default
                 };
             }

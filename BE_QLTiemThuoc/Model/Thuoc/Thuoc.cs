@@ -16,10 +16,14 @@ namespace BE_QLTiemThuoc.Model.Thuoc
 
         public string ThanhPhan { get; set; }
         public string MoTa { get; set; }
+        public string MaLoaiDonVi { get; set; }
+        public int SoLuong { get; set; }
         public string CongDung { get; set; }
         public string CachDung { get; set; }
         public string LuuY { get; set; }
         public string UrlAnh { get; set; }
         public string MaNCC { get; set; }
+        public decimal DonGiaSi { get; set; }
+        public decimal DonGiaLe { get; set; }
     }
 }
