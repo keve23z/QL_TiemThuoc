@@ -9108,3 +9108,8 @@ label {
 
 
 
+img {
+    max-width: 100%;
+    height: auto;
+    /* KHÔNG nên có: display: none; ho?c visibility: hidden; */
+}

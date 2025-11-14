@@ -151,6 +151,7 @@ namespace BE_QLTiemThuoc.Controllers
                 return BadRequest("Thiếu thông tin đăng nhập.");
 
             var user = await _context.TaiKhoans
+                .Include(u => u.NhanVien)
                 .FirstOrDefaultAsync(u => u.TenDangNhap == request.TenDangNhap && u.MatKhau == request.MatKhau);
 
             if (user == null)
@@ -164,7 +165,11 @@ namespace BE_QLTiemThuoc.Controllers
                 message = "Đăng nhập thành công",
                 user.MaTK,
                 user.TenDangNhap,
-                user.EMAIL
+                user.EMAIL,
+                MaNV = user.MaNV,
+                MaNhanVien = user.MaNV,
+                TenNhanVien = user.NhanVien != null ? user.NhanVien.HoTen : null,
+                NhanVien = user.NhanVien
             });
         }
 
