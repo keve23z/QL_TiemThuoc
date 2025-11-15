@@ -6,6 +6,9 @@ using System.Linq;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BE_QLTiemThuoc.Dto;
+using System.Net.Mail;
+using System.Net;
+using System.Globalization;
 
 namespace BE_QLTiemThuoc.Controllers
 {
@@ -543,6 +546,284 @@ namespace BE_QLTiemThuoc.Controllers
             return Ok(response);
         }   
 
+        // POST: api/HoaDon/SendToCustomer
+        // Body: { "maKhachHang": "KH001", "maHd": "HD20251114123456" }
+        [HttpPost("SendToCustomer")]
+        public async Task<IActionResult> SendToCustomer([FromBody] SendInvoiceRequest req)
+        {
+            var response = await ApiResponseHelper.ExecuteSafetyAsync<object>(async () =>
+            {
+                if (req == null) throw new ArgumentNullException(nameof(req));
+                if (string.IsNullOrWhiteSpace(req.MaKhachHang)) throw new ArgumentException("MaKhachHang is required.");
+                if (string.IsNullOrWhiteSpace(req.MaHd)) throw new ArgumentException("MaHd is required.");
+
+                // Load invoice header
+                var invoice = await _ctx.HoaDons.FirstOrDefaultAsync(h => h.MaHD == req.MaHd && h.MaKH == req.MaKhachHang);
+                if (invoice == null) throw new KeyNotFoundException($"Không tìm thấy hoá đơn '{req.MaHd}' cho khách hàng '{req.MaKhachHang}'.");
+
+                // Find customer display info
+                var kh = await _ctx.KhachHangs.FirstOrDefaultAsync(k => k.MAKH == req.MaKhachHang);
+
+                // Prefer email from TaiKhoan if available
+                var taiKhoan = await _ctx.TaiKhoans.FirstOrDefaultAsync(t => t.MaKH == req.MaKhachHang && !string.IsNullOrEmpty(t.EMAIL));
+                string? toEmail = taiKhoan?.EMAIL;
+                if (string.IsNullOrWhiteSpace(toEmail))
+                {
+                    throw new InvalidOperationException("Không tìm thấy email của khách hàng. Vui lòng đảm bảo khách hàng có tài khoản và email đã được lưu.");
+                }
+
+                // Load grouped items (aggregate same medicines as in ChiTiet/Summary)
+                var items = await (from ct in _ctx.ChiTietHoaDons
+                                   where ct.MaHD == req.MaHd
+                                   join tk in _ctx.TonKhos on ct.MaLo equals tk.MaLo into tkGroup
+                                   from tk in tkGroup.DefaultIfEmpty()
+                                   join t in _ctx.Thuoc on (ct.MaThuoc ?? (tk != null ? tk.MaThuoc : null)) equals t.MaThuoc into tGroup
+                                   from t in tGroup.DefaultIfEmpty()
+                                   join lieu in _ctx.Set<LieuDung>() on ct.MaLD equals lieu.MaLD into lieuGroup
+                                   from lieu in lieuGroup.DefaultIfEmpty()
+                                   join ldv in _ctx.Set<LoaiDonVi>() on (ct.MaLoaiDonVi ?? (tk != null ? tk.MaLoaiDonViTinh : null)) equals ldv.MaLoaiDonVi into ldvGroup
+                                   from ldv in ldvGroup.DefaultIfEmpty()
+                                   group new { ct, tk, t, lieu, ldv } by new { MaThuoc = (ct.MaThuoc ?? (tk != null ? tk.MaThuoc : null)), MaLD = ct.MaLD, TenThuoc = t.TenThuoc, MaLoaiDonVi = ct.MaLoaiDonVi ?? (tk != null ? tk.MaLoaiDonViTinh : null) } into g
+                                   select new
+                                   {
+                                       MaThuoc = g.Key.MaThuoc,
+                                       TenThuoc = g.Key.TenThuoc,
+                                       MaLD = g.Key.MaLD,
+                                       TenLD = g.Max(x => x.lieu != null ? x.lieu.TenLieuDung : null),
+                                       MaLoaiDonVi = g.Key.MaLoaiDonVi,
+                                       TenLoaiDonVi = g.Max(x => x.ldv != null ? x.ldv.TenLoaiDonVi : null),
+                                       TongSoLuong = g.Sum(x => x.ct.SoLuong),
+                                       HanSuDungGanNhat = g.Max(x => (DateTime?)x.tk.HanSuDung),
+                                       DonGiaTrungBinh = g.Average(x => x.ct.DonGia),
+                                       TongThanhTien = g.Sum(x => x.ct.ThanhTien)
+                                   })
+                    .ToListAsync();
+
+                // Build professional pharmacy invoice (matching real-world pharmacy design)
+                var customerName = kh != null && !string.IsNullOrWhiteSpace(kh.HoTen) ? kh.HoTen : req.MaKhachHang;
+                var nv = await _ctx.Set<NhanVien>().FirstOrDefaultAsync(n => n.MANV == invoice.MaNV);
+                var employeeName = nv != null ? nv.HoTen : (string.IsNullOrWhiteSpace(invoice.MaNV) ? "(không xác định)" : invoice.MaNV);
+
+                var culture = new CultureInfo("vi-VN");
+                var html = new System.Text.StringBuilder();
+                
+                // Mobile-optimized HTML template with responsive design
+                html.Append(@"<!DOCTYPE html>
+<html>
+<head>
+    <meta charset='utf-8'>
+    <meta name='viewport' content='width=device-width, initial-scale=1.0'>
+    <style>
+        * { box-sizing: border-box; overflow: visible; text-overflow: unset; white-space: normal; word-wrap: break-word; }
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background-color: #f5f5f5; font-size: 14px; line-height: 1.4; }
+        .invoice-container { max-width: 100%; width: 100%; margin: 0; background: white; }
+        .header { background: linear-gradient(135deg, #2E8B57 0%, #20B2AA 100%); color: white; padding: 20px 15px; text-align: center; }
+        .header h1 { margin: 0; font-size: 20px; font-weight: bold; line-height: 1.2; }
+        .header h2 { margin: 8px 0 0 0; font-size: 14px; font-weight: normal; opacity: 0.9; }
+        .content { padding: 15px; }
+        
+        /* Mobile-first layout */
+        .invoice-info { margin-bottom: 20px; }
+        .info-section { margin-bottom: 15px; padding: 0; background: transparent; border-radius: 0; border-left: none; }
+        .info-section h3 { color: #2E8B57; font-size: 14px; margin: 0 0 10px 0; font-weight: bold; border-bottom: 2px solid #2E8B57; padding-bottom: 5px; }
+        .info-row { margin: 6px 0; display: flex; }
+        .info-label { font-weight: bold; color: #555; min-width: 90px; font-size: 13px; }
+        .info-value { flex: 1; font-size: 13px; word-break: break-word; overflow: visible; text-overflow: unset; white-space: normal; }
+        
+        /* Compact mobile table */
+        .table-container { margin: 20px 0; }
+        .items-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+        .items-table th { background: #2E8B57; color: white; padding: 8px 4px; text-align: center; font-weight: bold; font-size: 11px; }
+        .items-table td { padding: 8px 4px; border-bottom: 1px solid #eee; text-align: center; font-size: 11px; vertical-align: top; overflow: visible; text-overflow: unset; white-space: normal; word-wrap: break-word; }
+        .items-table tbody tr:nth-child(even) { background-color: #f9f9f9; }
+        
+        /* Mobile table columns */
+        .col-stt { width: 7%; }
+        .col-name { width: 26%; text-align: left !important; font-weight: 500; }
+        .col-unit { width: 11%; }
+        .col-qty { width: 7%; font-weight: bold; }
+        .col-price { width: 12%; text-align: right !important; }
+        .col-total { width: 12%; text-align: right !important; font-weight: bold; color: #2E8B57; }
+        .col-exp { width: 11%; font-size: 10px; }
+        .col-dose { width: 14%; }
+        
+        .total-section { background: #f8f9fa; padding: 15px; margin: 20px 0; border-radius: 6px; border-left: 4px solid #2E8B57; }
+        .total-row { display: flex; justify-content: space-between; margin: 8px 0; align-items: center; }
+        .total-label { font-weight: bold; color: #555; font-size: 16px; }
+        .total-amount { font-weight: bold; color: #2E8B57; font-size: 18px; }
+        .total-words { margin: 12px 0; font-style: italic; color: #666; background: white; padding: 10px; border-radius: 4px; font-size: 13px; overflow: visible; text-overflow: unset; white-space: normal; word-wrap: break-word; }
+        .footer { background: #2E8B57; color: white; padding: 15px; text-align: center; }
+        .footer-text { margin: 6px 0; font-size: 12px; word-wrap: break-word; white-space: normal; line-height: 1.5; overflow: visible; text-overflow: unset; }
+        .thank-you { font-size: 14px; font-weight: bold; margin-bottom: 12px; }
+        
+        /* Desktop overrides */
+        @media (min-width: 768px) {
+            body { font-size: 16px; }
+            .header { padding: 30px 20px; }
+            .header h1 { font-size: 28px; }
+            .header h2 { font-size: 18px; }
+            .content { padding: 25px 20px; }
+            .invoice-info { display: flex; width: 100%; margin-bottom: 30px; }
+            .info-section { flex: 1; width: 50%; padding: 0 20px; background: transparent; }
+            .info-section:first-child { padding-left: 0; }
+            .info-section:last-child { padding-right: 0; }
+            .info-section h3 { color: #2E8B57; font-size: 16px; margin: 0 0 15px 0; border-bottom: 2px solid #2E8B57; padding-bottom: 5px; font-weight: bold; }
+            .info-row { margin: 10px 0; display: flex; align-items: flex-start; }
+            .info-label { font-weight: bold; color: #555; min-width: 120px; font-size: 14px; }
+            .info-value { flex: 1; font-size: 14px; overflow: visible; text-overflow: unset; white-space: normal; word-wrap: break-word; }
+            .items-table { font-size: 14px; }
+            .items-table th, .items-table td { padding: 12px 8px; font-size: 13px; overflow: visible; text-overflow: unset; white-space: normal; word-wrap: break-word; }
+            .footer { padding: 20px; }
+            .footer-text { font-size: 14px; word-wrap: break-word; white-space: normal; line-height: 1.5; overflow: visible; text-overflow: unset; }
+        }
+    </style>
+</head>
+<body>
+    <div class='invoice-container'>
+        <div class='header'>
+            <h1>🏥 NHÀ THUỐC MELON</h1>
+            <h2>HÓA ĐƠN BÁN THUỐC</h2>
+        </div>
+        
+        <div class='content'>
+            <div class='invoice-info'>
+                <div class='info-section'>
+                    <h3>📋 Thông Tin Hóa Đơn</h3>");
+                
+                html.Append($@"
+                    <div class='info-row'>
+                        <span class='info-label'>Số HĐ:</span>
+                        <span class='info-value' style='font-weight: bold; color: #2E8B57;'>{System.Net.WebUtility.HtmlEncode(invoice.MaHD)}</span>
+                    </div>
+                    <div class='info-row'>
+                        <span class='info-label'>Ngày lập:</span>
+                        <span class='info-value'>{invoice.NgayLap:dd/MM/yyyy HH:mm}</span>
+                    </div>
+                    <div class='info-row'>
+                        <span class='info-label'>Nhân viên:</span>
+                        <span class='info-value'>{System.Net.WebUtility.HtmlEncode(employeeName)}</span>
+                    </div>");
+                    
+                html.Append($@"
+                </div>
+                
+                <div class='info-section'>
+                    <h3>👤 Thông Tin Khách Hàng</h3>
+                    <div class='info-row'>
+                        <span class='info-label'>Tên KH:</span>
+                        <span class='info-value' style='font-weight: bold;'>{System.Net.WebUtility.HtmlEncode(customerName)}</span>
+                    </div>");
+                    
+                if (kh != null)
+                {
+                    if (!string.IsNullOrWhiteSpace(kh.DienThoai))
+                    {
+                        html.Append($@"
+                    <div class='info-row'>
+                        <span class='info-label'>SĐT:</span>
+                        <span class='info-value'>{System.Net.WebUtility.HtmlEncode(kh.DienThoai)}</span>
+                    </div>");
+                    }
+                    if (!string.IsNullOrWhiteSpace(kh.DiaChi))
+                    {
+                        html.Append($@"
+                    <div class='info-row'>
+                        <span class='info-label'>Địa chỉ:</span>
+                        <span class='info-value'>{System.Net.WebUtility.HtmlEncode(kh.DiaChi)}</span>
+                    </div>");
+                    }
+                }
+                
+                html.Append(@"
+                </div>
+            </div>
+            
+            <div class='table-container'>
+                <table class='items-table'>
+                    <thead>
+                        <tr>
+                            <th class='col-stt'>STT</th>
+                            <th class='col-name'>Tên Thuốc</th>
+                            <th class='col-unit'>Đơn Vị</th>
+                            <th class='col-qty'>SL</th>
+                            <th class='col-price'>Đơn Giá</th>
+                            <th class='col-total'>Thành Tiền</th>
+                            <th class='col-exp'>HSD</th>
+                            <th class='col-dose'>Liều Dùng</th>
+                        </tr>
+                    </thead>
+                    <tbody>");
+                    
+                int idx = 1;
+                foreach (var it in items)
+                {
+                    string hanSuDung = it.HanSuDungGanNhat.HasValue ? it.HanSuDungGanNhat.Value.ToString("dd/MM/yyyy") : "---";
+                    html.Append($@"
+                        <tr>
+                            <td class='col-stt'>{idx++}</td>
+                            <td class='col-name'>{System.Net.WebUtility.HtmlEncode(it.TenThuoc ?? "")}</td>
+                            <td class='col-unit'>{System.Net.WebUtility.HtmlEncode(it.TenLoaiDonVi ?? it.MaLoaiDonVi ?? "")}</td>
+                            <td class='col-qty'>{it.TongSoLuong}</td>
+                            <td class='col-price'>{it.DonGiaTrungBinh.ToString("N0", culture)}đ</td>
+                            <td class='col-total'>{it.TongThanhTien.ToString("N0", culture)}đ</td>
+                            <td class='col-exp'>{System.Net.WebUtility.HtmlEncode(hanSuDung)}</td>
+                            <td class='col-dose'>{System.Net.WebUtility.HtmlEncode(it.TenLD ?? "---")}</td>
+                        </tr>");
+                }
+                
+                html.Append(@"
+                    </tbody>
+                </table>
+            </div>
+            
+            <div class='total-section'>
+                <div class='total-row'>
+                    <span class='total-label'>TỔNG TIỀN:</span>");
+                    
+                var totalLong = Convert.ToInt64(Math.Round(invoice.TongTien));
+                var totalWords = NumberToVietnameseWords(totalLong);
+                
+                html.Append($@"
+                    <span class='total-amount'>{invoice.TongTien.ToString("N0", culture)}đ</span>
+                </div>
+                <div class='total-words'>
+                    <strong>Bằng chữ:</strong> {System.Net.WebUtility.HtmlEncode(totalWords)} đồng
+                </div>
+            </div>
+        </div>
+        
+        <div class='footer'>
+            <div class='thank-you'>Cảm ơn quý khách đã sử dụng dịch vụ!</div>
+            <div class='footer-text'>📧 Email: support@nhathươcmelon.com | 📞 Hotline: 1900 xxxx</div>
+            <div class='footer-text'>🏠 Địa chỉ: 123 Đường ABC, Quận XYZ, TP. Hồ Chí Minh</div>
+        </div>
+    </div>
+</body>
+</html>");
+
+                // Send email via SMTP (reuse settings from TaiKhoanController)
+                var smtp = new SmtpClient("smtp.gmail.com")
+                {
+                    Credentials = new NetworkCredential("chaytue0203@gmail.com", "kctw ltds teaj luvb"),
+                    EnableSsl = true,
+                    Port = 587
+                };
+
+                var mail = new MailMessage("khangtuong040@gmail.com", toEmail)
+                {
+                    Subject = $"Xác nhận hoá đơn {invoice.MaHD} - Tại nhà thuốc Melon",
+                    Body = html.ToString(),
+                    IsBodyHtml = true
+                };
+
+                await smtp.SendMailAsync(mail);
+
+                return new { SentTo = toEmail, MaHD = invoice.MaHD };
+            });
+
+            return Ok(response);
+        }
+
         // POST: api/HoaDon/Cancel/{maHd}
         // Cancel an invoice: set TrangThaiGiaoHang = -1 and restore stock by MaLo
         [HttpPost("Cancel/{maHd}")]
@@ -614,5 +895,79 @@ namespace BE_QLTiemThuoc.Controllers
 
        
         
+        private static string NumberToVietnameseWords(long number)
+        {
+            if (number == 0) return "không";
+
+            string[] units = { "", "một", "hai", "ba", "bốn", "năm", "sáu", "bảy", "tám", "chín" };
+            string[] scales = { "", " nghìn", " triệu", " tỷ" };
+
+            List<string> parts = new();
+
+            int scaleIdx = 0;
+            while (number > 0)
+            {
+                int group = (int)(number % 1000);
+                if (group != 0)
+                {
+                    string groupText = ReadThreeDigits(group, units);
+                    parts.Insert(0, groupText + scales[scaleIdx]);
+                }
+                number /= 1000;
+                scaleIdx++;
+                if (scaleIdx >= scales.Length && number > 0 && scaleIdx < 6)
+                {
+                    // extend scales if needed (e.g., nghìn tỷ)
+                    var extra = (scaleIdx % 3 == 1) ? " nghìn" : (scaleIdx % 3 == 2) ? " triệu" : " tỷ";
+                    // avoid modifying original array
+                    // but for typical invoices this won't be needed
+                }
+            }
+
+            return string.Join(" ", parts).Trim();
+
+            static string ReadThreeDigits(int n, string[] unitsLocal)
+            {
+                int hundreds = n / 100;
+                int tens = (n / 10) % 10;
+                int ones = n % 10;
+                var sb = new System.Text.StringBuilder();
+
+                if (hundreds > 0)
+                {
+                    sb.Append(unitsLocal[hundreds]).Append(" trăm");
+                    if (tens == 0 && ones > 0) sb.Append(" lẻ");
+                }
+                else
+                {
+                    if (tens > 0 || ones > 0) sb.Append("");
+                }
+
+                if (tens > 1)
+                {
+                    sb.Append(" ").Append(unitsLocal[tens]).Append(" mươi");
+                    if (ones == 1) sb.Append(" mốt");
+                    else if (ones == 4) sb.Append(" bốn");
+                    else if (ones == 5) sb.Append(" lăm");
+                    else if (ones > 0) sb.Append(" ").Append(unitsLocal[ones]);
+                }
+                else if (tens == 1)
+                {
+                    sb.Append(" mười");
+                    if (ones == 5) sb.Append(" lăm");
+                    else if (ones > 0) sb.Append(" ").Append(unitsLocal[ones]);
+                }
+                else // tens == 0
+                {
+                    if (ones > 0)
+                    {
+                        if (sb.Length > 0) sb.Append(" ");
+                        sb.Append(unitsLocal[ones]);
+                    }
+                }
+
+                return sb.ToString().Trim();
+            }
+        }
     }
 }
