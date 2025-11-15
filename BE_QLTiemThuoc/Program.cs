@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using System;
 using BE_QLTiemThuoc.Repositories;
 using BE_QLTiemThuoc.Services;
+using DotNetEnv;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,9 +12,19 @@ var configuration = builder.Configuration; // Biến này đã có sẵn thông 
 
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
-
+Env.Load();
 // Cấu hình CORS
 var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
+
+// Read Cloudinary settings directly from environment variables or fallback to IConfiguration
+var cloudinaryCloudName = Environment.GetEnvironmentVariable("Cloudinary__CloudName") ?? configuration["Cloudinary:CloudName"];
+var cloudinaryApiKey = Environment.GetEnvironmentVariable("Cloudinary__ApiKey") ?? configuration["Cloudinary:ApiKey"];
+var cloudinaryApiSecret = Environment.GetEnvironmentVariable("Cloudinary__ApiSecret") ?? configuration["Cloudinary:ApiSecret"];
+
+// Read PayOS settings directly from environment variables or fallback to IConfiguration
+var payosClientId = Environment.GetEnvironmentVariable("PayOS__ClientId") ?? configuration["PayOS:ClientId"];
+var payosApiKey = Environment.GetEnvironmentVariable("PayOS__ApiKey") ?? configuration["PayOS:ApiKey"];
+var payosChecksumKey = Environment.GetEnvironmentVariable("PayOS__ChecksumKey") ?? configuration["PayOS:ChecksumKey"];
 
 builder.Services.AddCors(options =>
 {
@@ -30,6 +41,9 @@ builder.Services.AddCors(options =>
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
+
+// Add HttpClientFactory
+builder.Services.AddHttpClient();
 
 // Register Repositories and Services (concrete types only — no interfaces)
 builder.Services.AddScoped<NhaCungCapRepository>();
@@ -51,13 +65,16 @@ builder.Services.AddScoped<PhieuQuyDoiService>();
 
 // Khai báo Account và cấu hình Cloudinary
 var account = new Account(
-    configuration["Cloudinary:CloudName"], // Lấy giá trị của CloudName
-    configuration["Cloudinary:ApiKey"],    // Lấy giá trị của ApiKey
-    configuration["Cloudinary:ApiSecret"]  // Lấy giá trị của ApiSecret
+    // Prefer environment-loaded values (via Env.Load()) with fallback to appsettings
+    cloudinaryCloudName,
+    cloudinaryApiKey,
+    cloudinaryApiSecret
 );
 
 // Đăng ký Cloudinary là Singleton Service (Phải nằm trong builder.Services...)
 builder.Services.AddSingleton(new Cloudinary(account));
+
+// PayOS configuration will be handled via IConfiguration in PaymentController
 
 // =========================================================
 
