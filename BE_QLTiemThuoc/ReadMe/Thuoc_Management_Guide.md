@@ -217,8 +217,8 @@ const addResponse = await fetch('/api/Thuoc', {
 flowchart TD
     A[👨‍💼 Quản lý thuốc] --> B{💡 Muốn làm gì?}
     B -->|👀 Xem danh sách| C[📋 GET /api/Thuoc]
-    B -->|🔍 Xem chi tiết| D[💊 GET /api/Thuoc/{id}]
-    B -->|💰 Xem giá| E[💵 GET /api/Thuoc/{id}/GiaThuocs]
+    B -->|🔍 Xem chi tiết| D["💊 GET /api/Thuoc/{id}"]
+    B -->|💰 Xem giá| E["💵 GET /api/Thuoc/{id}/GiaThuocs"]
     B -->|➕ Thêm mới| F[📝 Nhập thông tin thuốc]
     B -->|✏️ Cập nhật| G[💊 Chọn thuốc cần sửa]
     B -->|🗑️ Xóa| H[💊 Chọn thuốc cần xóa]
@@ -226,8 +226,8 @@ flowchart TD
     D --> I
     E --> I
     F --> J[📤 POST /api/Thuoc]
-    G --> K[📤 PUT /api/Thuoc/{id}]
-    H --> L[📤 DELETE /api/Thuoc/{id}]
+    G --> K["📤 PUT /api/Thuoc/{id}"]
+    H --> L["📤 DELETE /api/Thuoc/{id}"]
     J --> M[🔍 Validate dữ liệu]
     K --> M
     L --> N[🔍 Kiểm tra tồn kho]
@@ -257,7 +257,7 @@ flowchart TD
     B -->|📋 Chưa tách lẻ| E[📦 GET /api/ThuocView/ChuaTachLe]
     B -->|🔢 Đã tách lẻ| F[📦 GET /api/ThuocView/DaTachLe]
     B -->|📊 Tổng hợp| G[📊 GET /api/ThuocView/TongSoLuongCon]
-    D --> H[📤 GET /api/Thuoc/ByLoaiTonKho/{maLoai}]
+    D --> H["📤 GET /api/Thuoc/ByLoaiTonKho/{maLoai}"]
     C --> I[🗄️ Query tồn kho]
     H --> I
     E --> I
@@ -284,7 +284,7 @@ flowchart TD
 flowchart TD
     A[👨‍💼 Quản lý danh mục] --> B{💡 Quản lý gì?}
     B -->|📁 Nhóm thuốc| C[📂 GET /api/NhomLoai]
-    B -->|🏷️ Loại thuốc| D[🏷️ GET /api/NhomLoai/Loai/{maNhom}]
+    B -->|🏷️ Loại thuốc| D["🏷️ GET /api/NhomLoai/Loai/{maNhom}"]
     B -->|📊 Nhóm + Loại| E[📊 GET /api/NhomLoai/WithLoai]
     C --> F[🗄️ Database]
     D --> F

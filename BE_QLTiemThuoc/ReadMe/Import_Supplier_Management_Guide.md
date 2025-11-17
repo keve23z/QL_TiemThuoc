@@ -132,13 +132,13 @@ flowchart TD
 flowchart TD
     A[👨‍💼 Quản lý] --> B{💡 Muốn làm gì?}
     B -->|👀 Xem danh sách| C[📋 GET /api/NhaCungCap]
-    B -->|🔍 Xem chi tiết| D[🏢 GET /api/NhaCungCap/{id}]
+    B -->|🔍 Xem chi tiết| D["🏢 GET /api/NhaCungCap/{id}"]
     B -->|➕ Thêm mới| E[📝 Nhập thông tin NCC]
     B -->|✏️ Cập nhật| F[🏢 Chọn NCC cần sửa]
     C --> G[🗄️ Database]
     D --> G
     E --> H[📤 POST /api/NhaCungCap]
-    F --> I[📤 PUT /api/NhaCungCap/{id}]
+    F --> I["📤 PUT /api/NhaCungCap/{id}"]
     H --> J[🔍 Validate dữ liệu]
     I --> J
     J --> K{✅ Hợp lệ?}
