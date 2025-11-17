@@ -7,11 +7,11 @@ namespace BE_QLTiemThuoc.Model.Thuoc
     public class GiaThuoc
     {
         [Key]
-        public string MaGiaThuoc { get; set; }
+        public string MaGiaThuoc { get; set; } = null!;
 
-        public string MaThuoc { get; set; }
+        public string MaThuoc { get; set; } = null!;
 
-        public string MaLoaiDonVi { get; set; }
+        public string MaLoaiDonVi { get; set; } = null!;
 
         public int SoLuong { get; set; }
 

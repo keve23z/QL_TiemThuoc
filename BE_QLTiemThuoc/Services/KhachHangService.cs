@@ -46,5 +46,21 @@ namespace BE_QLTiemThuoc.Services
         {
             return await _repo.GetByIdAsync(maKhachHang);
         }
+
+        public async Task<KhachHang?> UpdateAsync(string maKhachHang, KhachHang dto)
+        {
+            var existing = await _repo.GetByIdAsync(maKhachHang);
+            if (existing == null) return null;
+
+            // Update fields
+            existing.HoTen = dto.HoTen;
+            existing.NgaySinh = dto.NgaySinh;
+            existing.DienThoai = dto.DienThoai;
+            existing.GioiTinh = dto.GioiTinh;
+            existing.DiaChi = dto.DiaChi;
+
+            await _repo.UpdateAsync(existing);
+            return existing;
+        }
     }
 }

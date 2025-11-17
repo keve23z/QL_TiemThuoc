@@ -35,5 +35,11 @@ namespace BE_QLTiemThuoc.Repositories
         {
             return await _context.KhachHangs.FirstOrDefaultAsync(k => k.MAKH == maKhachHang);
         }
+
+        public async Task UpdateAsync(KhachHang kh)
+        {
+            _context.KhachHangs.Update(kh);
+            await _context.SaveChangesAsync();
+        }
     }
 }

@@ -6,18 +6,18 @@ namespace BE_QLTiemThuoc.Controllers
 {
     [Route("api/[controller]")]
     [ApiController]
-    public class PhieuNhapController : ControllerBase
+    public class PhieuHuyController : ControllerBase
     {
-        private readonly PhieuNhapService _service;
+        private readonly PhieuHuyService _service;
 
-        public PhieuNhapController(PhieuNhapService service)
+        public PhieuHuyController(PhieuHuyService service)
         {
             _service = service;
         }
 
-        // GET: api/PhieuNhap/GetByDateRange?startDate=2025-01-01&endDate=2025-12-31&maNV=NV001&maNCC=NCC001
+        // GET: api/PhieuHuy/GetByDateRange?startDate=2025-01-01&endDate=2025-12-31
         [HttpGet("GetByDateRange")]
-        public async Task<IActionResult> GetByDateRange([FromQuery] string startDate, [FromQuery] string endDate, [FromQuery] string? maNV = null, [FromQuery] string? maNCC = null)
+        public async Task<IActionResult> GetByDateRange([FromQuery] string startDate, [FromQuery] string endDate)
         {
             DateTime sDate, eDate;
             if (!TryParseDate(startDate, out sDate))
@@ -51,7 +51,7 @@ namespace BE_QLTiemThuoc.Controllers
 
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
-                var data = await _service.GetByDateRangeAsync(sDate, eDate, maNV, maNCC);
+                var data = await _service.GetByDateRangeAsync(sDate, eDate);
                 return data;
             });
 
@@ -68,80 +68,70 @@ namespace BE_QLTiemThuoc.Controllers
             return DateTime.TryParseExact(input, formats, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out result);
         }
 
-        
-        [HttpPost("AddPhieuNhap")]
-        public async Task<IActionResult> AddPhieuNhap([FromBody] PhieuNhapDto phieuNhapDto)
+        // POST: api/PhieuHuy/CreatePhieuHuy
+        [HttpPost("CreatePhieuHuy")]
+        public async Task<IActionResult> CreatePhieuHuy([FromBody] PhieuHuyDto phieuHuyDto)
         {
-            // LoThuocHSDs is optional: if missing, server will generate lots from ChiTietPhieuNhaps
-            if (phieuNhapDto == null || phieuNhapDto.ChiTietPhieuNhaps == null)
+            if (phieuHuyDto == null || phieuHuyDto.ChiTietPhieuHuys == null || !phieuHuyDto.ChiTietPhieuHuys.Any())
             {
                 return BadRequest(new ApiResponse<string>
                 {
                     Status = -1,
-                    Message = "Invalid input data.",
+                    Message = "Invalid input data or empty ChiTietPhieuHuys.",
                     Data = null
                 });
             }
 
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
-                var result = await _service.AddPhieuNhapAsync(phieuNhapDto);
+                var result = await _service.CreatePhieuHuyAsync(phieuHuyDto);
                 return result;
             });
 
             return Ok(response);
         }
 
-    [HttpGet("GetChiTietPhieuNhapByMaPN")]
-        public async Task<IActionResult> GetChiTietPhieuNhapByMaPN(string maPN)
+        // POST: api/PhieuHuy/HuyHoaDon
+        [HttpPost("HuyHoaDon")]
+        public async Task<IActionResult> HuyHoaDon([FromBody] HuyHoaDonDto huyHoaDonDto)
         {
-            if (string.IsNullOrEmpty(maPN))
+            if (huyHoaDonDto == null || huyHoaDonDto.XuLyThuocs == null || !huyHoaDonDto.XuLyThuocs.Any())
             {
                 return BadRequest(new ApiResponse<string>
                 {
                     Status = -1,
-                    Message = "MaPN cannot be null or empty.",
+                    Message = "Invalid input data or empty XuLyThuocs.",
                     Data = null
                 });
             }
 
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
-                var data = await _service.GetChiTietPhieuNhapByMaPNAsync(maPN);
+                var result = await _service.HuyHoaDonAsync(huyHoaDonDto);
+                return result;
+            });
+
+            return Ok(response);
+        }
+
+        // GET: api/PhieuHuy/GetChiTietPhieuHuy/{maPH}
+        [HttpGet("GetChiTietPhieuHuy/{maPH}")]
+        public async Task<IActionResult> GetChiTietPhieuHuy(string maPH)
+        {
+            if (string.IsNullOrEmpty(maPH))
+            {
+                return BadRequest(new ApiResponse<string>
+                {
+                    Status = -1,
+                    Message = "MaPH cannot be null or empty.",
+                    Data = null
+                });
+            }
+
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                var data = await _service.GetChiTietPhieuHuyAsync(maPH);
                 return data;
-            });
-
-            return Ok(response);
-        }
-
-        // PUT: api/PhieuNhap/UpdatePhieuNhap/{maPN}
-        [HttpPut("UpdatePhieuNhap/{maPN}")]
-        public async Task<IActionResult> UpdatePhieuNhap(string maPN, [FromBody] PhieuNhapDto phieuNhapDto)
-        {
-            if (string.IsNullOrEmpty(maPN))
-            {
-                return BadRequest(new ApiResponse<string>
-                {
-                    Status = -1,
-                    Message = "MaPN cannot be null or empty.",
-                    Data = null
-                });
-            }
-
-            if (phieuNhapDto == null)
-            {
-                return BadRequest(new ApiResponse<string>
-                {
-                    Status = -1,
-                    Message = "Invalid input data.",
-                    Data = null
-                });
-            }
-
-            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
-            {
-                var result = await _service.UpdatePhieuNhapAsync(maPN, phieuNhapDto);
-                return result;
             });
 
             if (response.Data == null)
@@ -149,51 +139,12 @@ namespace BE_QLTiemThuoc.Controllers
                 return NotFound(new ApiResponse<string>
                 {
                     Status = -1,
-                    Message = "PhieuNhap not found.",
+                    Message = "PhieuHuy not found.",
                     Data = null
                 });
             }
 
             return Ok(response);
         }
-
-        // DELETE: api/PhieuNhap/DeletePhieuNhap/{maPN}
-        [HttpDelete("DeletePhieuNhap/{maPN}")]
-        public async Task<IActionResult> DeletePhieuNhap(string maPN)
-        {
-            if (string.IsNullOrEmpty(maPN))
-            {
-                return BadRequest(new ApiResponse<string>
-                {
-                    Status = -1,
-                    Message = "MaPN cannot be null or empty.",
-                    Data = null
-                });
-            }
-
-            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
-            {
-                var result = await _service.DeletePhieuNhapAsync(maPN);
-                return result;
-            });
-
-            if (!(bool)response.Data!)
-            {
-                return NotFound(new ApiResponse<string>
-                {
-                    Status = -1,
-                    Message = "PhieuNhap not found.",
-                    Data = null
-                });
-            }
-
-            return Ok(new ApiResponse<string>
-            {
-                Status = 0,
-                Message = "PhieuNhap deleted successfully.",
-                Data = null
-            });
-        }
-
     }
 }

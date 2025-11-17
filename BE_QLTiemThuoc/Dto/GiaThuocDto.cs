@@ -9,7 +9,7 @@ namespace BE_QLTiemThuoc.Dto
         public string? MaThuoc { get; set; }
 
         [Required]
-        public string MaLoaiDonVi { get; set; }
+        public string MaLoaiDonVi { get; set; } = null!;
 
         // number of base units (e.g. 1)
         public int SoLuong { get; set; } = 1;

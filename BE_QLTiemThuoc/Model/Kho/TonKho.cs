@@ -15,6 +15,10 @@ namespace BE_QLTiemThuoc.Model.Kho
         [StringLength(10)]
         public string MaThuoc { get; set; } = null!;
 
+        // Navigation property
+        [ForeignKey("MaThuoc")]
+        public virtual Thuoc.Thuoc? Thuoc { get; set; }
+
     [Required]
     [Column(TypeName = "date")] // match SQL: TON_KHO.HanSuDung DATE NOT NULL
     public DateTime HanSuDung { get; set; }
