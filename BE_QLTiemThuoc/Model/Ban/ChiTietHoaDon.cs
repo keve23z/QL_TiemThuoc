@@ -17,5 +17,6 @@ namespace BE_QLTiemThuoc.Model
     public string? MaLoaiDonVi { get; set; }
     [StringLength(10)]
     public string? MaThuoc { get; set; }
+    public DateTime? HanSuDung { get; set; }
     }
 }

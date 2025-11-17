@@ -32,6 +32,12 @@ namespace BE_QLTiemThuoc.Controllers
                 if (request.Amount < 2000 || request.Amount > 50000000)
                     throw new ArgumentException("Số tiền phải từ 2,000 đến 50,000,000 VND");
 
+                if (string.IsNullOrWhiteSpace(request.ReturnUrl))
+                    throw new ArgumentException("returnUrl is required in the request body.");
+
+                if (string.IsNullOrWhiteSpace(request.CancelUrl))
+                    throw new ArgumentException("cancelUrl is required in the request body.");
+
                 string clientId = Environment.GetEnvironmentVariable("PayOS__ClientId") ?? _configuration["PayOS:ClientId"] ?? "";
                 string apiKey = Environment.GetEnvironmentVariable("PayOS__ApiKey") ?? _configuration["PayOS:ApiKey"] ?? "";
                 string checksumKey = Environment.GetEnvironmentVariable("PayOS__ChecksumKey") ?? _configuration["PayOS:ChecksumKey"] ?? "";
@@ -47,8 +53,8 @@ namespace BE_QLTiemThuoc.Controllers
                     orderCode = orderCode,
                     amount = (int)request.Amount,
                     description = request.Description ?? "Thanh toan don hang",
-                    returnUrl = "https://google.com/success",
-                    cancelUrl = "https://google.com/cancel"
+                    returnUrl = request.ReturnUrl,
+                    cancelUrl = request.CancelUrl
                 };
 
                 // Tạo signature theo PayOS v2 docs

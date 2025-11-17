@@ -1,3 +1,5 @@
+using System;
+
 namespace BE_QLTiemThuoc.Dto
 {
     public class ChiTietHoaDonCreateDto
@@ -9,5 +11,13 @@ namespace BE_QLTiemThuoc.Dto
         public int SoLuong { get; set; }
         public decimal DonGia { get; set; }
         public string? MaLD { get; set; }
+        public DateTime? HanSuDung { get; set; }
+    }
+    public class ChiTietHoaDonCreateOLDto
+    {
+        public string? MaThuoc { get; set; }
+        public string? DonVi { get; set; }
+        public int SoLuong { get; set; }
+        public decimal DonGia { get; set; }
     }
 }
