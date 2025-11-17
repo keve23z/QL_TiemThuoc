@@ -3,7 +3,7 @@
 ## Tổng quan
 
 Dự án này đã tích hợp PayOS để xử lý thanh toán trực tuyến. Các endpoint cho phép:
-- Tạo link thanh toán từ số tiền và mô tả
+- Tạo link thanh toán từ số tiền, mô tả, và URL trả về/cancel
 - Kiểm tra trạng thái giao dịch thanh toán
 - Verify chữ ký khi nhận webhook từ PayOS
 
@@ -51,7 +51,9 @@ string clientId = Environment.GetEnvironmentVariable("PayOS__ClientId")
 ```json
 {
   "amount": 150000,
-  "description": "Thanh toán thuốc Panadol"
+  "description": "Thanh toán thuốc Panadol",
+  "returnUrl": "https://your-domain.com/payment-success",
+  "cancelUrl": "https://your-domain.com/payment-cancel"
 }
 ```
 
@@ -70,8 +72,8 @@ string clientId = Environment.GetEnvironmentVariable("PayOS__ClientId")
 
 **Lưu ý:**
 - Số tiền phải từ 2,000 đến 50,000,000 VND
+- `returnUrl` và `cancelUrl` là bắt buộc và phải được cung cấp trong request body
 - Endpoint tự động tạo `orderCode` từ timestamp hiện tại
-- `returnUrl` và `cancelUrl` mặc định là `https://google.com/success` và `https://google.com/cancel` (có thể customize sau)
 
 ### 2. Kiểm tra trạng thái thanh toán
 
@@ -113,7 +115,9 @@ const response = await fetch('/api/SimplePayment/Create', {
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({
     amount: 150000,
-    description: "Thanh toán đơn hàng"
+    description: "Thanh toán đơn hàng",
+    returnUrl: "https://your-domain.com/payment-success",
+    cancelUrl: "https://your-domain.com/payment-cancel"
   })
 });
 
@@ -180,7 +184,9 @@ dotnet run --launch-profile "https"
    ```json
    {
      "amount": 150000,
-     "description": "Test payment"
+     "description": "Test payment",
+     "returnUrl": "https://your-domain.com/success",
+     "cancelUrl": "https://your-domain.com/cancel"
    }
    ```
 4. Bấm "Execute"
@@ -196,6 +202,8 @@ $headers = @{
 $body = @{
     amount = 150000
     description = "Test payment"
+    returnUrl = "https://your-domain.com/success"
+    cancelUrl = "https://your-domain.com/cancel"
 } | ConvertTo-Json
 
 $response = Invoke-WebRequest -Uri "https://localhost:5001/api/SimplePayment/Create" `
@@ -227,12 +235,13 @@ Kiểm tra console log (controller in ra `[PayOS] Request:` và `[PayOS] Respons
 
 ## 🔄 Workflow thanh toán
 
-1. **Khách hàng chọn thanh toán** → Gọi API tạo payment link
+1. **Khách hàng chọn thanh toán** → Gọi API tạo payment link với returnUrl và cancelUrl
 2. **Nhận CheckoutUrl** → Redirect khách hàng đến PayOS
 3. **Khách hàng thanh toán** → PayOS xử lý thanh toán
-4. **PayOS gửi webhook** → API nhận thông báo kết quả
-5. **Cập nhật trạng thái** → Cập nhật database và gửi email xác nhận
-
+4. **PayOS redirect về returnUrl** → Xử lý thành công
+5. **PayOS redirect về cancelUrl** → Xử lý hủy
+6. **PayOS gửi webhook** → API nhận thông báo kết quả
+7. **Cập nhật trạng thái** → Cập nhật database và gửi email xác nhận
 
 ## ⚠️ Lưu ý bảo mật
 - Đã sử dụng HTTP Client thay vì SDK để tránh lỗi dependency
