@@ -48,11 +48,11 @@ CREATE TABLE ChiTietPhieuHuy (
 
 ## API Endpoints
 
-### 1. Tạo phiếu hủy
-**POST** `/api/PhieuHuy/CreatePhieuHuy`
+### 1. Hủy thuốc từ kho
+**POST** `/api/PhieuHuy/huy-tu-kho`
 
-### 2. Hủy hóa đơn với xử lý linh hoạt
-**POST** `/api/PhieuHuy/HuyHoaDon`
+### 2. Hủy thuốc từ hóa đơn
+**POST** `/api/PhieuHuy/huy-tu-hoa-don`
 
 ### 3. Tra cứu phiếu hủy theo khoảng thời gian
 **GET** `/api/PhieuHuy/GetByDateRange?startDate={yyyy-MM-dd}&endDate={yyyy-MM-dd}`
@@ -60,42 +60,49 @@ CREATE TABLE ChiTietPhieuHuy (
 ### 4. Lấy chi tiết phiếu hủy
 **GET** `/api/PhieuHuy/GetChiTietPhieuHuy/{maPH}`
 
-## Chi tiết các API
+### 5. Tạo phiếu hủy (deprecated - sử dụng hủy từ kho thay thế)
+**POST** `/api/PhieuHuy/CreatePhieuHuy`
+
+### 6. Hủy hóa đơn (deprecated - sử dụng hủy từ hóa đơn thay thế)
+**POST** `/api/PhieuHuy/HuyHoaDon`
 
 ## Chi tiết các API
 
-### 1. Tạo phiếu hủy (CreatePhieuHuy)
+## Chi tiết các API
 
-**Endpoint:** `POST /api/PhieuHuy/CreatePhieuHuy`
+### 1. Hủy thuốc từ kho (huy-tu-kho)
 
-**Mô tả:** Tạo phiếu hủy thuốc với các thông tin chi tiết
+**Endpoint:** `POST /api/PhieuHuy/huy-tu-kho`
+
+**Mô tả:** Hủy thuốc trực tiếp từ kho với lý do cụ thể
 
 **Request Body:**
 ```json
 {
-  "maNV": "NV001",
-  "loaiHuy": "KHO", // "KHO" hoặc "HOADON"
-  "maHD": "HDOL20251118000001", // Bắt buộc khi loaiHuy = "HOADON"
-  "ghiChu": "Mô tả lý do hủy",
-  "chiTietPhieuHuys": [
+  "maNhanVien": "NV001",
+  "lyDoHuy": "Thuốc sắp hết hạn sử dụng",
+  "chiTietPhieuHuy": [
     {
       "maLo": "LO001",
-      "soLuongHuy": 50.0,
-      "lyDoHuy": "Thuốc hết hạn sử dụng",
-      "ghiChu": "Paracetamol 500mg - Lô sản xuất 2023"
+      "soLuongHuy": 20,
+      "lyDoChiTiet": "Hạn sử dụng còn 2 tháng"
+    },
+    {
+      "maLo": "LO002",
+      "soLuongHuy": 15,
+      "lyDoChiTiet": "Bao bì bị hỏng"
     }
   ]
 }
 ```
 
 **Validation Rules:**
-- `maNV`: Bắt buộc, phải tồn tại trong hệ thống
-- `loaiHuy`: Chỉ chấp nhận "KHO" hoặc "HOADON"
-- `maHD`: Bắt buộc khi `loaiHuy = "HOADON"`
-- `chiTietPhieuHuys`: Ít nhất 1 item
-- `maLo`: Phải tồn tại trong bảng TonKho
-- `soLuongHuy`: > 0 và <= SoLuongCon của lô đó
-- `lyDoHuy`: Bắt buộc, tối đa 500 ký tự
+- `maNhanVien`: Bắt buộc, phải tồn tại
+- `lyDoHuy`: Bắt buộc, tối đa 1000 ký tự
+- `chiTietPhieuHuy`: Ít nhất 1 item
+- `maLo`: Phải tồn tại trong TonKho
+- `soLuongHuy`: > 0 và ≤ SoLuongCon hiện tại
+- Nếu thuốc còn hạn > 12 tháng: bắt buộc có `lyDoChiTiet`
 
 **Response Success:**
 ```json
@@ -103,68 +110,88 @@ CREATE TABLE ChiTietPhieuHuy (
   "status": 0,
   "message": "Success",
   "data": {
-    "phieuHuy": {
-      "maPH": "PH0000000001",
-      "ngayHuy": "2025-11-18T14:30:00",
-      "maNV": "NV001",
-      "loaiHuy": "KHO",
-      "maHD": null,
-      "tongSoLuongHuy": 50.0,
-      "ghiChu": "Hủy thuốc hết hạn trong kho"
-    },
-    "thuocHoanLai": [],
-    "message": "Thành công"
+    "maPhieuHuy": "PH20241201001",
+    "ngayHuy": "2024-12-01T10:30:00",
+    "tongSoLuongHuy": 35,
+    "chiTietPhieuHuy": [
+      {
+        "maLo": "LO001",
+        "tenThuoc": "Paracetamol 500mg",
+        "soLuongHuy": 20,
+        "donGia": 5000
+      }
+    ],
+    "message": "Tạo phiếu hủy từ kho thành công"
   }
 }
 ```
 
-**Response Error:**
-```json
-{
-  "status": 1,
-  "message": "Lô thuốc LO001 chỉ còn 30 không đủ để hủy 50",
-  "data": null
-}
-```
+### 2. Hủy thuốc từ hóa đơn (huy-tu-hoa-don)
 
-### 2. Hủy hóa đơn với xử lý linh hoạt (HuyHoaDon)
+**Endpoint:** `POST /api/PhieuHuy/huy-tu-hoa-don`
 
-**Endpoint:** `POST /api/PhieuHuy/HuyHoaDon`
-
-**Mô tả:** Xử lý hủy hóa đơn với khả năng hoàn lại một số thuốc vào kho và hủy một số thuốc khác
+**Mô tả:** Xử lý hủy từ hóa đơn với 2 lựa chọn: hủy hoặc hoàn lại kho
 
 **Request Body:**
 ```json
 {
-  "maHD": "HDOL20251118000001",
-  "maNV": "NV001",
-  "ghiChu": "Hủy hóa đơn với xử lý linh hoạt",
-  "xuLyThuocs": [
+  "maHoaDon": "HD20241128001",
+  "maNhanVien": "NV001",
+  "lyDoHuy": "Khách hàng yêu cầu hủy đơn",
+  "chiTietXuLy": [
     {
-      "maLo": "LO001",
-      "loaiXuLy": "HOAN_LAI",  // "HOAN_LAI" hoặc "HUY"
-      "soLuongHuy": null,      // Chỉ cần khi loaiXuLy = "HUY"
-      "lyDoHuy": null,         // Chỉ cần khi loaiXuLy = "HUY"
-      "ghiChu": "Thuốc còn hạn dài, có thể bán lại"
+      "maLo": "LO003",
+      "loaiXuLy": "HUY",
+      "soLuongHuy": 5,
+      "lyDoChiTiet": "Bao bì bị rách"
     },
     {
-      "maLo": "LO002",
-      "loaiXuLy": "HUY",
-      "soLuongHuy": 25.0,
-      "lyDoHuy": "Thuốc sắp hết hạn",
-      "ghiChu": "Paracetamol 500mg - Còn 2 tháng"
+      "maLo": "LO004",
+      "loaiXuLy": "HOAN_LAI",
+      "lyDoChiTiet": "Thuốc còn tốt, hoàn lại kho"
     }
   ]
 }
 ```
 
 **Validation Rules:**
-- `maHD`: Bắt buộc, phải tồn tại
-- `maNV`: Bắt buộc, phải tồn tại
-- `xuLyThuocs`: Ít nhất 1 item
+- `maHoaDon`: Bắt buộc, phải tồn tại
+- `maNhanVien`: Bắt buộc, phải tồn tại
+- `chiTietXuLy`: Ít nhất 1 item
 - `maLo`: Phải thuộc về hóa đơn được chỉ định
-- `loaiXuLy`: Chỉ "HOAN_LAI" hoặc "HUY"
-- Khi `loaiXuLy = "HUY"`: `soLuongHuy` và `lyDoHuy` bắt buộc
+- `loaiXuLy`: Chỉ "HUY" hoặc "HOAN_LAI"
+- Khi `loaiXuLy = "HUY"`: `soLuongHuy` bắt buộc
+- Khi thuốc còn hạn > 6 tháng và `loaiXuLy = "HUY"`: bắt buộc có `lyDoChiTiet`
+
+**Response Success:**
+```json
+{
+  "status": 0,
+  "message": "Success",
+  "data": {
+    "maPhieuHuy": "PH20241201002",
+    "maHoaDon": "HD20241128001",
+    "trangThaiGiaoHang": -2,
+    "tongSoLuongHuy": 5,
+    "tongSoLuongHoanLai": 10,
+    "chiTietXuLy": [
+      {
+        "maLo": "LO003",
+        "tenThuoc": "Amoxicillin 500mg",
+        "loaiXuLy": "HUY",
+        "soLuong": 5
+      },
+      {
+        "maLo": "LO004",
+        "tenThuoc": "Vitamin C 1000mg",
+        "loaiXuLy": "HOAN_LAI",
+        "soLuong": 10
+      }
+    ],
+    "message": "Xử lý hủy hóa đơn thành công: hủy 5 sản phẩm, hoàn lại 10 sản phẩm"
+  }
+}
+```
 
 ### 3. Tra cứu phiếu hủy theo khoảng thời gian
 
@@ -235,45 +262,51 @@ CREATE TABLE ChiTietPhieuHuy (
 
 ### Quy trình hủy từ kho
 
-1. **Kiểm tra tồn kho**
-   - Xem danh sách lô thuốc sắp hết hạn
-   - Kiểm tra số lượng tồn kho thực tế
+**Luồng xử lý theo mô tả:**
+1. **Chọn lô thuốc cần hủy** từ danh sách tồn kho
+2. **Tạo phiếu hủy** với lý do cụ thể cho từng lô
 
-2. **Tạo phiếu hủy**
-   - Chọn nhân viên thực hiện
-   - Nhập lý do hủy chi tiết
-   - Xác nhận số lượng hủy
-
-3. **Cập nhật tồn kho**
-   - Giảm `SoLuongCon` trong bảng `TonKho`
-   - Đảm bảo không âm tồn kho
-
-4. **Lưu trữ phiếu hủy**
-   - Lưu thông tin phiếu hủy
-   - Lưu chi tiết từng lô thuốc
+**Chi tiết các bước:**
+1. **Kiểm tra tồn kho**: Nhân viên kho xem danh sách lô thuốc
+2. **Đánh giá điều kiện hủy**:
+   - Thuốc hết hạn (< 3 tháng)
+   - Thuốc hỏng, vỡ bao bì
+   - Thuốc tồn kho quá lâu
+   - Lý do đặc biệt khác
+3. **Chọn lô thuốc**: Chọn các lô cần hủy từ danh sách
+4. **Nhập thông tin hủy**:
+   - Mã nhân viên thực hiện
+   - Lý do hủy tổng quát
+   - Chi tiết từng lô (số lượng, lý do cụ thể)
+5. **Validation**: Kiểm tra tồn kho, hạn sử dụng
+6. **Tạo phiếu hủy**: Tạo MaPH, lưu thông tin
+7. **Cập nhật tồn kho**: Giảm SoLuongCon
+8. **Hoàn tất**: Trả về thông tin phiếu hủy
 
 ### Quy trình hủy từ hóa đơn
 
-1. **Nhận yêu cầu hủy từ khách hàng**
-   - Xác nhận thông tin hóa đơn
-   - Kiểm tra trạng thái hóa đơn
+**Luồng xử lý theo mô tả:**
+1. **Khách hủy hàng ở hóa đơn**
+2. **Kiểm tra chi tiết hóa đơn** (đặc biệt hạn sử dụng)
+3. **Chọn chi tiết cần hủy** (- các sản phẩm còn lại không chọn là chuyển vào kho)
+4. **Tạo phiếu hủy** cho phần được chọn hủy
 
-2. **Phân tích từng loại thuốc**
-   - Kiểm tra hạn sử dụng
-   - Đánh giá tình trạng bao bì
-   - Xác định có thể tái sử dụng hay không
-
-3. **Xử lý từng loại thuốc**
-   - **Thuốc còn tốt**: Hoàn lại vào kho (`SoLuongCon += SoLuongTrongHoaDon`)
-   - **Thuốc cần hủy**: Tạo phiếu hủy (`SoLuongCon -= SoLuongHuy`)
-
-4. **Cập nhật trạng thái hóa đơn**
-   - `-2`: Hoàn tất xử lý hủy (tất cả thuốc đã được xử lý)
-   - `-3`: Còn chi tiết chưa xử lý hết
-
-5. **Thông báo kết quả**
-   - Xác nhận với khách hàng
-   - Cung cấp biên lai hủy
+**Chi tiết các bước:**
+1. **Tiếp nhận yêu cầu**: Khách hàng yêu cầu hủy/trả hàng
+2. **Xác minh hóa đơn**: Kiểm tra mã HD, trạng thái
+3. **Kiểm tra chi tiết**: Xem từng lô thuốc trong hóa đơn
+4. **Đánh giá từng loại thuốc**:
+   - **Hạn sử dụng**: Còn hạn > 6 tháng → ưu tiên hoàn lại
+   - **Tình trạng bao bì**: Nguyên vẹn → hoàn lại
+   - **Nhu cầu sử dụng**: Thuốc quý hiếm → hoàn lại
+   - **Tình trạng thuốc**: Hỏng → hủy
+5. **Phân loại xử lý**:
+   - **HUY**: Thuốc cần hủy (tạo phiếu hủy, giảm tồn kho)
+   - **HOAN_LAI**: Thuốc còn tốt (tăng tồn kho, không tạo phiếu hủy)
+6. **Xử lý hoàn lại**: Tăng SoLuongCon trong TonKho
+7. **Tạo phiếu hủy**: Chỉ cho thuốc được chọn "HUY"
+8. **Cập nhật trạng thái**: Hóa đơn → -2 (hoàn tất) hoặc -3 (còn xử lý)
+9. **Thông báo kết quả**: Xác nhận với khách hàng
 
 ## Flow Diagrams
 
@@ -293,17 +326,17 @@ CREATE TABLE ChiTietPhieuHuy (
           │
           ▼
 ┌─────────────────┐
-│   Tạo phiếu hủy│
+│   Tạo phiếu hủy │
 │ - Chọn NV       │
 │ - Nhập lý do    │
 │ - Xác nhận SL   │
 └─────────────────┘
           │
           ▼
-┌─────────────────┐     ┌─────────────────┐
-│Validate dữ liệu │────▶│  Lỗi validation │
-│- MaLo tồn tại   │     │  Return error   │
-│- SL > 0 & <= SL │     └─────────────────┘
+┌─────────────────┐       ┌─────────────────┐
+│Validate dữ liệu │────▶ │  Lỗi validation │
+│- MaLo tồn tại   │       │  Return error   │
+│- SL > 0 & <= SL │       └─────────────────┘
 │  tồn kho        │
 └─────────────────┘
           │
@@ -316,7 +349,7 @@ CREATE TABLE ChiTietPhieuHuy (
           │
           ▼
 ┌─────────────────┐
-│Lưu phiếu hủy   │
+│ Lưu phiếu hủy   │
 │- Tạo MaPH       │
 │- Lưu PhieuHuy   │
 │- Lưu ChiTietPH  │
@@ -352,7 +385,7 @@ CREATE TABLE ChiTietPhieuHuy (
           │
           ▼
 ┌─────────────────┐
-│Phân tích từng  │
+│ Phân tích từng  │
 │loại thuốc       │
 │- Check HSD      │
 │- Đánh giá bao bì│
@@ -361,7 +394,7 @@ CREATE TABLE ChiTietPhieuHuy (
           │
           ▼
 ┌─────────────────┐
-│Xử lý từng loại │
+│ Xử lý từng loại │
 │thuốc            │
 │                 │
 │FOR EACH thuốc:  │
@@ -373,16 +406,16 @@ CREATE TABLE ChiTietPhieuHuy (
 │         │       │
 │  ┌─────────────┐│
 │  │Thuốc cần hủy││
-│  │→ Tạo phiếu ││
+│  │→ Tạo phiếu  ││
 │  │   hủy       ││
 │  └─────────────┘│
 └─────────────────┘
           │
           ▼
 ┌─────────────────┐
-│Cập nhật trạng  │
+│ Cập nhật trạng  │
 │thái hóa đơn     │
-│- Tất cả xử lý: │
+│-  Tất cả xử lý: │
 │  TrangThai = -2 │
 │- Còn lại: -3    │
 └─────────────────┘
@@ -392,7 +425,7 @@ CREATE TABLE ChiTietPhieuHuy (
 │Thông báo kết quả│
 │- Xác nhận KH    │
 │- Cung cấp biên  │
-│  lai hủy       │
+│   lai hủy       │
 └─────────────────┘
           │
           ▼
@@ -408,8 +441,8 @@ CREATE TABLE ChiTietPhieuHuy (
 Client (Nhân viên)          API Controller          Service Layer          Repository          Database
 
         │                        │                     │                     │                     │
-        │   POST /huy-tu-hoa-don  │                     │                     │                     │
-        ├────────────────────────▶│                     │                     │                     │
+        │   POST /huy-tu-hoa-don │                     │                     │                     │
+        ├──────────────────────▶│                     │                     │                     │
         │                        │                     │                     │                     │
         │                        │  ValidateRequest()  │                     │                     │
         │                        ├────────────────────▶│                     │                     │
@@ -434,7 +467,7 @@ Client (Nhân viên)          API Controller          Service Layer          Rep
         │                        │                     │                     ├────────────────────▶│
         │                        │                     │                     │                     │
         │                        │                     │  ProcessEachItem    │                     │
-        │                        │                     │  (Hoàn lại/Hủy)    │                     │
+        │                        │                     │  (Hoàn lại/Hủy)     │                     │
         │                        │                     ├────────────────────▶│                     │
         │                        │                     │                     │                     │
         │                        │                     │  UpdateTonKho()     │                     │
@@ -447,7 +480,7 @@ Client (Nhân viên)          API Controller          Service Layer          Rep
         │                        │                     │                     │ INSERT INTO PhieuHuy │
         │                        │                     ├────────────────────▶│                     │
         │                        │                     │                     │                     │
-        │                        │                     │  UpdateHoaDonStatus│                     │
+        │                        │                     │  UpdateHoaDonStatus │                     │
         │                        │                     ├────────────────────▶│                     │
         │                        │                     │                     │ UPDATE HoaDon SET... │
         │                        │                     ├────────────────────▶│                     │
@@ -477,7 +510,7 @@ Client (Nhân viên)          API Controller          Service Layer          Rep
         │
         ▼
 ┌─────────────┐
-│ Đang xử lý │
+│ Đang xử lý  │
 │ TrangThai = │
 │     1       │
 └─────────────┘
@@ -505,9 +538,9 @@ Client (Nhân viên)          API Controller          Service Layer          Rep
                             │
                     ┌───────┴───────┐
                     │               │
-            ┌───────▼───────┐ ┌─────▼─────┐
+            ┌───────▼───────┐ ┌─────▼──────┐
             │Tất cả đã xử lý│ │Còn chi tiết│
-            │ TrangThai = -2│ │chưa xử lý │
+            │ TrangThai = -2│ │chưa xử lý  │
             │               │ │TrangThai=-3│
             └───────────────┘ └────────────┘
 ```
@@ -520,8 +553,8 @@ Client (Nhân viên)          API Controller          Service Layer          Rep
 └─────────────────────────────────────────────────────────────────┘
 
                     ┌─────────────┐
-                    │Bắt đầu hủy │
-                    │thuốc       │
+                    │Bắt đầu hủy  │
+                    │thuốc        │
                     └─────────────┘
                             │
                             ▼
@@ -531,8 +564,8 @@ Client (Nhân viên)          API Controller          Service Layer          Rep
                     └─────────────┘
                             │
                 ┌───────────┴───────────┐
-                │                      │
-        ┌───────▼───────┐     ┌────────▼────────┐
+                │                       │
+        ┌───────▼───────┐     ┌─────────▼───────┐
         │  Hủy từ kho   │     │ Hủy từ hóa đơn  │
         │               │     │                 │
         └───────┬───────┘     └────────┬────────┘
@@ -545,33 +578,33 @@ Client (Nhân viên)          API Controller          Service Layer          Rep
                 │                      │
                 ▼                      ▼
         ┌─────────────┐        ┌─────────────┐
-        │Tạo phiếu   │        │Phân tích    │
-        │hủy         │        │thuốc        │
+        │Tạo phiếu    │        │Phân tích    │
+        │hủy          │        │thuốc        │
         └─────────────┘        └─────────────┘
                 │                      │
                 ▼                      ▼
         ┌─────────────┐        ┌─────────────┐
-        │Cập nhật    │        │Xử lý từng   │
-        │tồn kho     │        │loại thuốc   │
+        │Cập nhật     │        │Xử lý từng   │
+        │tồn kho      │        │loại thuốc   │
         └─────────────┘        └─────────────┘
                 │                      │
                 ▼                      ▼
         ┌─────────────┐        ┌─────────────┐
-        │Lưu phiếu   │        │Cập nhật     │
-        │hủy         │        │trạng thái HĐ│
+        │Lưu phiếu    │        │Cập nhật     │
+        │hủy          │        │trạng thái HĐ│
         └─────────────┘        └─────────────┘
                 │                      │
                 └──────────┬───────────┘
                            │
                            ▼
                     ┌─────────────┐
-                    │Thông báo   │
-                    │kết quả    │
+                    │Thông báo    │
+                    │kết quả      │
                     └─────────────┘
                             │
                             ▼
                     ┌─────────────┐
-                    │Kết thúc    │
+                    │Kết thúc     │
                     └─────────────┘
 ```
 
@@ -583,70 +616,70 @@ Client (Nhân viên)          API Controller          Service Layer          Rep
 └─────────────────────────────────────────────────────────────────┘
 
                               ┌─────────────┐
-                              │ Nhân viên  │
-                              │ kho        │
+                              │ Nhân viên   │
+                              │ kho         │
                               └──────┬──────┘
                                      │
                                      │
                     ┌────────────────┼────────────────┐
                     │                │                │
             ┌───────▼───────┐ ┌──────▼──────┐ ┌──────▼──────┐
-            │  Kiểm tra    │ │  Tạo phiếu  │ │  Duyệt phiếu│
-            │  tồn kho     │ │  hủy        │ │  hủy        │
+            │  Kiểm tra     │ │  Tạo phiếu  │ │  Duyệt phiếu│
+            │  tồn kho      │ │  hủy        │ │  hủy        │
             └───────────────┘ └─────────────┘ └─────────────┘
                     │                │                │
                     └────────────────┼────────────────┘
                                      │
                                      ▼
                               ┌─────────────┐
-                              │ Giám đốc   │
-                              │ nhà thuốc  │
+                              │ Giám đốc    │
+                              │ nhà thuốc   │
                               └──────┬──────┘
                                      │
                     ┌────────────────┼────────────────┐
                     │                │                │
             ┌───────▼───────┐ ┌──────▼──────┐ ┌──────▼──────┐
-            │  Duyệt phiếu │ │  Xem báo cáo│ │  Quản lý    │
-            │  hủy lớn     │ │  hủy thuốc  │ │  chính sách │
+            │  Duyệt phiếu  │ │  Xem báo cáo│ │  Quản lý    │
+            │  hủy lớn      │ │  hủy thuốc  │ │  chính sách │
             │               │ │             │ │  hủy        │
             └───────────────┘ └─────────────┘ └─────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
-│                    KHÁCH HÀNG & HỆ THỐNG                       │
+│                    KHÁCH HÀNG & HỆ THỐNG                        │
 └─────────────────────────────────────────────────────────────────┘
 
                               ┌─────────────┐
-                              │ Khách hàng │
+                              │ Khách hàng  │
                               └──────┬──────┘
                                      │
                                      ▼
                               ┌─────────────┐
-                              │ Yêu cầu    │
-                              │ hủy/trả    │
-                              │ hàng       │
+                              │ Yêu cầu     │
+                              │ hủy/trả     │
+                              │ hàng        │
                               └─────────────┘
                                      │
                                      ▼
                               ┌─────────────┐
-                              │ Hệ thống   │
-                              │ quản lý    │
-                              │ phiếu hủy  │
+                              │ Hệ thống    │
+                              │ quản lý     │
+                              │ phiếu hủy   │
                               └──────┬──────┘
                                      │
                     ┌────────────────┼────────────────┐
                     │                │                │
             ┌───────▼───────┐ ┌──────▼──────┐ ┌──────▼──────┐
-            │  Validate    │ │  Xử lý hủy  │ │  Cập nhật   │
-            │  yêu cầu     │ │  hóa đơn    │ │  tồn kho    │
+            │  Validate     │ │  Xử lý hủy  │ │  Cập nhật   │
+            │  yêu cầu      │ │  hóa đơn    │ │  tồn kho    │
             └───────────────┘ └─────────────┘ └─────────────┘
                     │                │                │
                     └────────────────┼────────────────┘
                                      │
                                      ▼
                               ┌─────────────┐
-                              │ Thông báo  │
-                              │ kết quả    │
-                              │ cho KH     │
+                              │ Thông báo   │
+                              │ kết quả     │
+                              │ cho KH      │
                               └─────────────┘
 ```
 
@@ -654,49 +687,49 @@ Client (Nhân viên)          API Controller          Service Layer          Rep
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    COMPONENT DIAGRAM                             │
+│                    COMPONENT DIAGRAM                            │
 └─────────────────────────────────────────────────────────────────┘
 
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Presentation Layer                       │
-│                                                                │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐ │
-│  │   Web API       │  │   MVC Views     │  │   Mobile App    │ │
-│  │  Controllers    │  │                 │  │   Interface     │ │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘ │
+│                                                                 │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
+│  │   Web API       │  │   MVC Views     │  │   Mobile App    │  │
+│  │  Controllers    │  │                 │  │   Interface     │  │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
                                    │
                                    │ HTTP/JSON
                                    ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                       Business Logic Layer                      │
-│                                                                │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐ │
-│  │ PhieuHuyService │  │ Validation      │  │ Business Rules  │ │
-│  │                 │  │ Engine          │  │ Engine          │ │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘ │
+│                                                                 │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
+│  │ PhieuHuyService │  │ Validation      │  │ Business Rules  │  │
+│  │                 │  │ Engine          │  │ Engine          │  │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
                                    │
                                    │ .NET Objects
                                    ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Data Access Layer                        │
-│                                                                │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐ │
-│  │ PhieuHuyRepo    │  │ TonKhoRepo      │  │ HoaDonRepo      │ │
-│  │                 │  │                 │  │                 │ │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘ │
+│                                                                 │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
+│  │ PhieuHuyRepo    │  │ TonKhoRepo      │  │ HoaDonRepo      │  │
+│  │                 │  │                 │  │                 │  │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
                                    │
                                    │ Entity Framework
                                    ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                        Database Layer                           │
-│                                                                │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐ │
-│  │   PhieuHuy      │  │ ChiTietPhieuHuy │  │    TonKho       │ │
-│  │   Table         │  │   Table         │  │    Table        │ │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘ │
+│                                                                 │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
+│  │   PhieuHuy      │  │ ChiTietPhieuHuy │  │    TonKho       │  │
+│  │   Table         │  │   Table         │  │    Table        │  │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -709,31 +742,31 @@ Client (Nhân viên)          API Controller          Service Layer          Rep
 
 ┌─────────────────────────────────────────────────────────────────┐
 │                          Client Side                            │
-│                                                                │
-│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐ │
-│  │   Web Browser   │  │   Mobile App    │  │   Desktop App   │ │
-│  │  (Chrome/Firefox│  │  (iOS/Android)  │  │  (Windows)      │ │
-│  │      )          │  │                 │  │                 │ │
-│  └─────────────────┘  └─────────────────┘  └─────────────────┘ │
+│                                                                 │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  │
+│  │   Web Browser   │  │   Mobile App    │  │   Desktop App   │  │
+│  │  (Chrome/Firefox│  │  (iOS/Android)  │  │  (Windows)      │  │
+│  │      )          │  │                 │  │                 │  │
+│  └─────────────────┘  └─────────────────┘  └─────────────────┘  │
 └─────────────────────────────────────────────────────────────────┘
                                    │
                                    │ HTTPS/REST API
                                    ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                        Application Server                       │
-│                                                                │
-│  ┌─────────────────────────────────────────────────────────────┐ │
-│  │                    ASP.NET Core Web API                     │ │
-│  │                                                             │ │
+┌────────────────────────────────────────────────────────────────────┐
+│                        Application Server                          │
+│                                                                    │
+│  ┌───────────────────────────────────────────────────────────────┐ │
+│  │                    ASP.NET Core Web API                       │ │
+│  │                                                               │ │
 │  │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐│ │
-│  │  │   Controllers   │  │   Services      │  │   Repositories │ │
+│  │  │   Controllers   │  │   Services      │  │   Repositories  ││ │ 
 │  │  └─────────────────┘  └─────────────────┘  └─────────────────┘│ │
-│  └─────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────┘
+│  └───────────────────────────────────────────────────────────────┘ │
+└────────────────────────────────────────────────────────────────────┘
                                    │
                                    │ Database Connection
                                    ▼
-┌─────────────────────────────────────────────────────────────────┐
+┌────────────────────────────────────────────────────────────────────┐
 │                        Database Server                          │
 │                                                                │
 │  ┌─────────────────────────────────────────────────────────────┐ │

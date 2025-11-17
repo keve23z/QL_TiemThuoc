@@ -68,52 +68,7 @@ namespace BE_QLTiemThuoc.Controllers
             return DateTime.TryParseExact(input, formats, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out result);
         }
 
-        // POST: api/PhieuHuy/CreatePhieuHuy
-        [HttpPost("CreatePhieuHuy")]
-        public async Task<IActionResult> CreatePhieuHuy([FromBody] PhieuHuyDto phieuHuyDto)
-        {
-            if (phieuHuyDto == null || phieuHuyDto.ChiTietPhieuHuys == null || !phieuHuyDto.ChiTietPhieuHuys.Any())
-            {
-                return BadRequest(new ApiResponse<string>
-                {
-                    Status = -1,
-                    Message = "Invalid input data or empty ChiTietPhieuHuys.",
-                    Data = null
-                });
-            }
-
-            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
-            {
-                var result = await _service.CreatePhieuHuyAsync(phieuHuyDto);
-                return result;
-            });
-
-            return Ok(response);
-        }
-
-        // POST: api/PhieuHuy/HuyHoaDon
-        [HttpPost("HuyHoaDon")]
-        public async Task<IActionResult> HuyHoaDon([FromBody] HuyHoaDonDto huyHoaDonDto)
-        {
-            if (huyHoaDonDto == null || huyHoaDonDto.XuLyThuocs == null || !huyHoaDonDto.XuLyThuocs.Any())
-            {
-                return BadRequest(new ApiResponse<string>
-                {
-                    Status = -1,
-                    Message = "Invalid input data or empty XuLyThuocs.",
-                    Data = null
-                });
-            }
-
-            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
-            {
-                var result = await _service.HuyHoaDonAsync(huyHoaDonDto);
-                return result;
-            });
-
-            return Ok(response);
-        }
-
+        
         // GET: api/PhieuHuy/GetChiTietPhieuHuy/{maPH}
         [HttpGet("GetChiTietPhieuHuy/{maPH}")]
         public async Task<IActionResult> GetChiTietPhieuHuy(string maPH)
@@ -145,6 +100,72 @@ namespace BE_QLTiemThuoc.Controllers
             }
 
             return Ok(response);
+        }
+
+        // POST: api/PhieuHuy/huy-thuoc - API thống nhất cho tất cả loại hủy
+        [HttpPost("huy-thuoc")]
+        public async Task<IActionResult> HuyThuoc([FromBody] HuyThuocRequestDto dto)
+        {
+            if (dto == null)
+            {
+                return BadRequest(new ApiResponse<string>
+                {
+                    Status = -1,
+                    Message = "Invalid input data.",
+                    Data = null
+                });
+            }
+
+            // Validate dựa trên loại hủy
+            if (dto.LoaiHuy == "TU_KHO")
+            {
+                if (dto.HuyTuKho == null || dto.HuyTuKho.ChiTietPhieuHuy == null || !dto.HuyTuKho.ChiTietPhieuHuy.Any())
+                {
+                    return BadRequest(new ApiResponse<string>
+                    {
+                        Status = -1,
+                        Message = "ChiTietPhieuHuy cannot be empty for TU_KHO.",
+                        Data = null
+                    });
+                }
+
+                var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+                {
+                    var result = await _service.HuyTuKhoAsync(dto.HuyTuKho);
+                    return result;
+                });
+
+                return Ok(response);
+            }
+            else if (dto.LoaiHuy == "TU_HOA_DON")
+            {
+                if (dto.HuyTuHoaDon == null || dto.HuyTuHoaDon.ChiTietXuLy == null || !dto.HuyTuHoaDon.ChiTietXuLy.Any())
+                {
+                    return BadRequest(new ApiResponse<string>
+                    {
+                        Status = -1,
+                        Message = "ChiTietXuLy cannot be empty for TU_HOA_DON.",
+                        Data = null
+                    });
+                }
+
+                var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+                {
+                    var result = await _service.HuyTuHoaDonAsync(dto.HuyTuHoaDon);
+                    return result;
+                });
+
+                return Ok(response);
+            }
+            else
+            {
+                return BadRequest(new ApiResponse<string>
+                {
+                    Status = -1,
+                    Message = "LoaiHuy must be 'TU_KHO' or 'TU_HOA_DON'.",
+                    Data = null
+                });
+            }
         }
     }
 }

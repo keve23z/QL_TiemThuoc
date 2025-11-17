@@ -74,5 +74,20 @@ namespace BE_QLTiemThuoc.Repositories
                 .Where(ct => ct.MaHD == maHD)
                 .SumAsync(ct => ct.SoLuong);
         }
+
+        public async Task<List<Model.Kho.TonKho>> GetTonKhoByMaLoListAsync(List<string> maLoList)
+        {
+            return await _context.Set<Model.Kho.TonKho>()
+                .Where(tk => maLoList.Contains(tk.MaLo))
+                .Include(tk => tk.Thuoc)
+                .ToListAsync();
+        }
+
+        public async Task<List<ChiTietHoaDon>> GetChiTietHoaDonByMaHDAsync(string maHD)
+        {
+            return await _context.Set<ChiTietHoaDon>()
+                .Where(ct => ct.MaHD == maHD)
+                .ToListAsync();
+        }
     }
 }

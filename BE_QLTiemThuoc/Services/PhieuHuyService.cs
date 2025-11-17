@@ -19,92 +19,6 @@ namespace BE_QLTiemThuoc.Services
             return await _repo.GetByDateRangeAsync(startDate, endDate);
         }
 
-        public async Task<object> CreatePhieuHuyAsync(PhieuHuyDto dto)
-        {
-            // Validation
-            if (dto.LoaiHuy == "HOADON" && string.IsNullOrEmpty(dto.MaHD))
-            {
-                throw new ArgumentException("MaHD is required when LoaiHuy is HOADON");
-            }
-
-            if (dto.ChiTietPhieuHuys == null || !dto.ChiTietPhieuHuys.Any())
-            {
-                throw new ArgumentException("ChiTietPhieuHuys cannot be empty");
-            }
-
-            // Generate MaPH
-            var lastPhieuHuy = await _repo.GetByDateRangeAsync(DateTime.MinValue, DateTime.MaxValue);
-            string lastCode = lastPhieuHuy.OrderByDescending(p => p.MaPH).FirstOrDefault()?.MaPH ?? "PH0000000000";
-            int number = 1;
-            try { number = int.Parse(lastCode.Substring(2)) + 1; } catch { number = 1; }
-            var newMaPH = "PH" + number.ToString("D10");
-
-            // Validate tồn kho và tính tổng số lượng
-            decimal tongSoLuongHuy = 0;
-            foreach (var chiTiet in dto.ChiTietPhieuHuys)
-            {
-                var tonKho = await _repo.GetTonKhoByMaLoAsync(chiTiet.MaLo);
-                if (tonKho == null)
-                {
-                    throw new ArgumentException($"Lô thuốc {chiTiet.MaLo} không tồn tại");
-                }
-
-                if (tonKho.SoLuongCon < chiTiet.SoLuongHuy)
-                {
-                    throw new ArgumentException($"Lô thuốc {chiTiet.MaLo} chỉ còn {tonKho.SoLuongCon} không đủ để hủy {chiTiet.SoLuongHuy}");
-                }
-
-                tongSoLuongHuy += chiTiet.SoLuongHuy;
-            }
-
-            // Tạo phiếu hủy
-            var phieuHuy = new PhieuHuy
-            {
-                MaPH = newMaPH,
-                NgayHuy = DateTime.Now,
-                MaNV = dto.MaNV,
-                LoaiHuy = dto.LoaiHuy,
-                MaHD = dto.MaHD,
-                TongSoLuongHuy = tongSoLuongHuy,
-                GhiChu = dto.GhiChu
-            };
-
-            await _repo.AddAsync(phieuHuy);
-
-            // Tạo chi tiết phiếu hủy và cập nhật tồn kho
-            var chiTietItems = new List<ChiTietPhieuHuy>();
-            foreach (var chiTiet in dto.ChiTietPhieuHuys)
-            {
-                var chiTietPhieuHuy = new ChiTietPhieuHuy
-                {
-                    MaPH = newMaPH,
-                    MaLo = chiTiet.MaLo,
-                    SoLuongHuy = chiTiet.SoLuongHuy,
-                    LyDoHuy = chiTiet.LyDoHuy,
-                    GhiChu = chiTiet.GhiChu
-                };
-                chiTietItems.Add(chiTietPhieuHuy);
-
-                // Cập nhật tồn kho
-                var tonKho = await _repo.GetTonKhoByMaLoAsync(chiTiet.MaLo);
-                if (tonKho != null)
-                {
-                    tonKho.SoLuongCon -= (int)chiTiet.SoLuongHuy;
-                    await _repo.UpdateTonKhoAsync(tonKho);
-                }
-            }
-
-            await _repo.AddChiTietRangeAsync(chiTietItems);
-
-            // Nếu hủy từ hóa đơn, cập nhật trạng thái hóa đơn
-            if (dto.LoaiHuy == "HOADON" && !string.IsNullOrEmpty(dto.MaHD))
-            {
-                await UpdateHoaDonStatusAfterHuyAsync(dto.MaHD);
-            }
-
-            return new { PhieuHuy = phieuHuy, ThuocHoanLai = new List<object>(), Message = "Thành công" };
-        }
-
         private async Task UpdateHoaDonStatusAfterHuyAsync(string maHD)
         {
             var hoaDon = await _repo.GetHoaDonByIdAsync(maHD);
@@ -180,10 +94,54 @@ namespace BE_QLTiemThuoc.Services
                 throw new ArgumentException($"Hóa đơn {dto.MaHD} không tồn tại");
             }
 
+            // Kiểm tra chi tiết hóa đơn và hạn sử dụng
+            var chiTietHoaDon = await _repo.GetChiTietHoaDonByMaHDAsync(dto.MaHD);
+            if (chiTietHoaDon == null || !chiTietHoaDon.Any())
+            {
+                throw new ArgumentException($"Hóa đơn {dto.MaHD} không có chi tiết");
+            }
+
+            // Lấy thông tin tồn kho cho các lô thuốc trong hóa đơn
+            var maLoList = chiTietHoaDon.Where(ct => !string.IsNullOrEmpty(ct.MaLo)).Select(ct => ct.MaLo!).Distinct().ToList();
+            var tonKhoDict = new Dictionary<string, Model.Kho.TonKho>();
+            if (maLoList.Any())
+            {
+                var tonKhos = await _repo.GetTonKhoByMaLoListAsync(maLoList);
+                foreach (var tk in tonKhos)
+                {
+                    tonKhoDict[tk.MaLo] = tk;
+                }
+            }
+
+            // Validate các lô thuốc trong request có thuộc về hóa đơn này không
+            foreach (var xuLy in dto.XuLyThuocs)
+            {
+                var chiTiet = chiTietHoaDon.FirstOrDefault(ct => ct.MaLo == xuLy.MaLo);
+                if (chiTiet == null)
+                {
+                    throw new ArgumentException($"Lô thuốc {xuLy.MaLo} không thuộc về hóa đơn {dto.MaHD}");
+                }
+
+                // Kiểm tra hạn sử dụng nếu cần hủy
+                if (xuLy.LoaiXuLy == "HUY" && tonKhoDict.TryGetValue(xuLy.MaLo, out var tonKho) && tonKho.HanSuDung != null)
+                {
+                                        var ngayHetHan = tonKho.HanSuDung;
+                                        var thangConLai = (tonKho.HanSuDung - DateTime.Now).TotalDays / 30;
+
+                    // Nếu thuốc còn hạn > 6 tháng, cảnh báo nhưng vẫn cho phép hủy nếu có lý do đặc biệt
+                    if (thangConLai > 6 && string.IsNullOrEmpty(xuLy.LyDoHuy))
+                    {
+                        throw new ArgumentException($"Thuốc {xuLy.MaLo} còn hạn {thangConLai:F1} tháng. Cần có lý do hủy cụ thể.");
+                    }
+                }
+            }
+
             var result = new
             {
                 PhieuHuy = (object?)null,
                 ThuocHoanLai = new List<object>(),
+                TongSoLuongHuy = 0,
+                TongSoLuongHoanLai = 0,
                 Message = ""
             };
 
@@ -192,30 +150,29 @@ namespace BE_QLTiemThuoc.Services
             var thuocHoanLai = dto.XuLyThuocs.Where(t => t.LoaiXuLy == "HOAN_LAI").ToList();
 
             // Xử lý thuốc hoàn lại vào kho
-            if (thuocHoanLai.Any())
+            var thuocHoanLaiDetails = new List<object>();
+            foreach (var thuoc in thuocHoanLai)
             {
-                foreach (var thuoc in thuocHoanLai)
+                var chiTietHD = chiTietHoaDon.FirstOrDefault(ct => ct.MaLo == thuoc.MaLo);
+                if (chiTietHD != null && tonKhoDict.TryGetValue(thuoc.MaLo, out var tonKho))
                 {
-                    var tonKho = await _repo.GetTonKhoByMaLoAsync(thuoc.MaLo);
-                    if (tonKho != null)
-                    {
-                        // Tăng số lượng tồn kho (giả sử số lượng hoàn lại = số lượng trong chi tiết hóa đơn)
-                        // Trong thực tế, cần lấy số lượng từ chi tiết hóa đơn
-                        // Ở đây tạm thời giả sử hoàn lại toàn bộ
-                        tonKho.SoLuongCon += 1; // Cần logic thực tế để lấy số lượng từ hóa đơn
-                        await _repo.UpdateTonKhoAsync(tonKho);
-                    }
-                }
+                    // Hoàn lại số lượng từ chi tiết hóa đơn vào kho
+                    tonKho.SoLuongCon += chiTietHD.SoLuong;
 
-                result = new
-                {
-                    PhieuHuy = (object?)null,
-                    ThuocHoanLai = thuocHoanLai.Select(t => new { t.MaLo, t.LoaiXuLy, t.GhiChu }).Cast<object>().ToList(),
-                    Message = $"Đã hoàn lại {thuocHoanLai.Count} loại thuốc vào kho"
-                };
+                    await _repo.UpdateTonKhoAsync(tonKho);
+
+                    thuocHoanLaiDetails.Add(new
+                    {
+                        thuoc.MaLo,
+                        TenThuoc = tonKho?.Thuoc?.TenThuoc,
+                        SoLuongHoanLai = chiTietHD.SoLuong,
+                        thuoc.GhiChu
+                    });
+                }
             }
 
             // Xử lý thuốc cần hủy
+            object? phieuHuyResult = null;
             if (thuocCanHuy.Any())
             {
                 var phieuHuyDto = new PhieuHuyDto
@@ -224,34 +181,40 @@ namespace BE_QLTiemThuoc.Services
                     LoaiHuy = "HOADON",
                     MaHD = dto.MaHD,
                     GhiChu = dto.GhiChu,
-                    ChiTietPhieuHuys = thuocCanHuy.Select(t => new ChiTietPhieuHuyDto
+                    ChiTietPhieuHuys = thuocCanHuy.Select(t =>
                     {
-                        MaLo = t.MaLo,
-                        SoLuongHuy = t.SoLuongHuy ?? 0,
-                        LyDoHuy = t.LyDoHuy ?? "Hủy từ hóa đơn",
-                        GhiChu = t.GhiChu
+                        var chiTietHD = chiTietHoaDon.FirstOrDefault(ct => ct.MaLo == t.MaLo);
+                        return new ChiTietPhieuHuyDto
+                        {
+                            MaLo = t.MaLo,
+                            SoLuongHuy = t.SoLuongHuy ?? (chiTietHD?.SoLuong ?? 0),
+                            LyDoHuy = t.LyDoHuy ?? "Hủy từ hóa đơn khách hàng",
+                            GhiChu = t.GhiChu
+                        };
                     }).ToList()
                 };
 
-                var phieuHuyResult = await CreatePhieuHuyAsync(phieuHuyDto);
-
-                result = new
-                {
-                    PhieuHuy = phieuHuyResult,
-                    ThuocHoanLai = thuocHoanLai.Select(t => new { t.MaLo, t.LoaiXuLy, t.GhiChu }).Cast<object>().ToList(),
-                    Message = $"Đã tạo phiếu hủy cho {thuocCanHuy.Count} loại thuốc và hoàn lại {thuocHoanLai.Count} loại thuốc vào kho"
-                };
+                phieuHuyResult = await CreatePhieuHuyAsync(phieuHuyDto);
             }
 
-            // Cập nhật trạng thái hóa đơn
-            if (hoaDon != null)
+            // Cập nhật trạng thái hóa đơn sau khi xử lý
+            await UpdateHoaDonStatusAfterHuyAsync(dto.MaHD);
+
+            var tongSoLuongHuy = thuocCanHuy.Sum(t => t.SoLuongHuy ?? 0);
+            var tongSoLuongHoanLai = thuocHoanLai.Sum(t =>
             {
-                // Có thể thêm trạng thái mới như "DA_HUY_XU_LY"
-                // hoaDon.TrangThai = "DA_HUY_XU_LY";
-                // await _repo.UpdateHoaDonAsync(hoaDon);
-            }
+                var chiTietHD = chiTietHoaDon.FirstOrDefault(ct => ct.MaLo == t.MaLo);
+                return chiTietHD?.SoLuong ?? 0;
+            });
 
-            return result;
+            return new
+            {
+                PhieuHuy = phieuHuyResult,
+                ThuocHoanLai = thuocHoanLaiDetails,
+                TongSoLuongHuy = tongSoLuongHuy,
+                TongSoLuongHoanLai = tongSoLuongHoanLai,
+                Message = $"Đã xử lý hủy hóa đơn: hủy {tongSoLuongHuy} sản phẩm, hoàn lại {tongSoLuongHoanLai} sản phẩm vào kho"
+            };
         }
 
         public async Task<object?> GetChiTietPhieuHuyAsync(string maPH)
@@ -273,6 +236,296 @@ namespace BE_QLTiemThuoc.Services
             }).ToList();
 
             return new { PhieuHuy = phieuHuy, ChiTiet = chiTiet };
+        }
+
+        public async Task<object> HuyTuKhoAsync(HuyTuKhoDto dto)
+        {
+            // Validation
+            if (string.IsNullOrEmpty(dto.MaNhanVien))
+            {
+                throw new ArgumentException("MaNhanVien is required");
+            }
+
+            if (dto.ChiTietPhieuHuy == null || !dto.ChiTietPhieuHuy.Any())
+            {
+                throw new ArgumentException("ChiTietPhieuHuy cannot be empty");
+            }
+
+            // Validate tồn kho cho từng lô
+            foreach (var chiTiet in dto.ChiTietPhieuHuy)
+            {
+                var tonKho = await _repo.GetTonKhoByMaLoAsync(chiTiet.MaLo);
+                if (tonKho == null)
+                {
+                    throw new ArgumentException($"Lô thuốc {chiTiet.MaLo} không tồn tại trong kho");
+                }
+
+                if (tonKho.SoLuongCon < chiTiet.SoLuongHuy)
+                {
+                    throw new ArgumentException($"Lô thuốc {chiTiet.MaLo} chỉ còn {tonKho.SoLuongCon} không đủ để hủy {chiTiet.SoLuongHuy}");
+                }
+
+                // Kiểm tra hạn sử dụng - ưu tiên hủy thuốc sắp hết hạn
+                var thangConLai = (tonKho.HanSuDung - DateTime.Now).TotalDays / 30;
+                if (thangConLai > 12 && string.IsNullOrEmpty(chiTiet.LyDoChiTiet))
+                {
+                    throw new ArgumentException($"Thuốc {chiTiet.MaLo} còn hạn {thangConLai:F1} tháng. Cần có lý do hủy cụ thể.");
+                }
+            }
+
+            // Tạo phiếu hủy từ kho
+            var phieuHuyDto = new PhieuHuyDto
+            {
+                MaNV = dto.MaNhanVien,
+                LoaiHuy = "KHO",
+                MaHD = null,
+                GhiChu = dto.LyDoHuy,
+                ChiTietPhieuHuys = dto.ChiTietPhieuHuy.Select(c => new ChiTietPhieuHuyDto
+                {
+                    MaLo = c.MaLo,
+                    SoLuongHuy = c.SoLuongHuy,
+                    LyDoHuy = c.LyDoChiTiet,
+                    GhiChu = c.LyDoChiTiet
+                }).ToList()
+            };
+
+            var result = await CreatePhieuHuyAsync(phieuHuyDto);
+
+            return new
+            {
+                MaPhieuHuy = ((dynamic)result).PhieuHuy?.MaPH,
+                NgayHuy = ((dynamic)result).PhieuHuy?.NgayHuy,
+                TongSoLuongHuy = dto.ChiTietPhieuHuy.Sum(c => c.SoLuongHuy),
+                ChiTietPhieuHuy = dto.ChiTietPhieuHuy.Select(c =>
+                {
+                    var tonKho = _repo.GetTonKhoByMaLoAsync(c.MaLo).Result;
+                    return new
+                    {
+                        c.MaLo,
+                        TenThuoc = tonKho?.Thuoc?.TenThuoc,
+                        c.SoLuongHuy,
+                        DonGia = 0 // TonKho không có DonGia, có thể lấy từ ChiTietPhieuNhap sau
+                    };
+                }).ToList(),
+                Message = "Tạo phiếu hủy từ kho thành công"
+            };
+        }
+
+        public async Task<object> HuyTuHoaDonAsync(HuyTuHoaDonDto dto)
+        {
+            // Validation
+            if (string.IsNullOrEmpty(dto.MaHoaDon))
+            {
+                throw new ArgumentException("MaHoaDon is required");
+            }
+
+            if (string.IsNullOrEmpty(dto.MaNhanVien))
+            {
+                throw new ArgumentException("MaNhanVien is required");
+            }
+
+            if (dto.ChiTietXuLy == null || !dto.ChiTietXuLy.Any())
+            {
+                throw new ArgumentException("ChiTietXuLy cannot be empty");
+            }
+
+            // Kiểm tra hóa đơn tồn tại
+            var hoaDon = await _repo.GetHoaDonByIdAsync(dto.MaHoaDon);
+            if (hoaDon == null)
+            {
+                throw new ArgumentException($"Hóa đơn {dto.MaHoaDon} không tồn tại");
+            }
+
+            // Kiểm tra chi tiết hóa đơn
+            var chiTietHoaDon = await _repo.GetChiTietHoaDonByMaHDAsync(dto.MaHoaDon);
+            if (chiTietHoaDon == null || !chiTietHoaDon.Any())
+            {
+                throw new ArgumentException($"Hóa đơn {dto.MaHoaDon} không có chi tiết");
+            }
+
+            // Lấy thông tin tồn kho cho các lô thuốc trong hóa đơn
+            var maLoList = chiTietHoaDon.Where(ct => !string.IsNullOrEmpty(ct.MaLo)).Select(ct => ct.MaLo!).Distinct().ToList();
+            var tonKhoDict = new Dictionary<string, Model.Kho.TonKho>();
+            if (maLoList.Any())
+            {
+                var tonKhos = await _repo.GetTonKhoByMaLoListAsync(maLoList);
+                foreach (var tk in tonKhos)
+                {
+                    tonKhoDict[tk.MaLo] = tk;
+                }
+            }
+
+            // Validate các lô thuốc trong request
+            foreach (var xuLy in dto.ChiTietXuLy)
+            {
+                var chiTiet = chiTietHoaDon.FirstOrDefault(ct => ct.MaLo == xuLy.MaLo);
+                if (chiTiet == null)
+                {
+                    throw new ArgumentException($"Lô thuốc {xuLy.MaLo} không thuộc về hóa đơn {dto.MaHoaDon}");
+                }
+
+                // Kiểm tra hạn sử dụng
+                if (xuLy.LoaiXuLy == "HUY" && tonKhoDict.TryGetValue(xuLy.MaLo, out var tonKho))
+                {
+                    var thangConLai = (tonKho.HanSuDung - DateTime.Now).TotalDays / 30;
+                    if (thangConLai > 6 && string.IsNullOrEmpty(xuLy.LyDoChiTiet))
+                    {
+                        throw new ArgumentException($"Thuốc {xuLy.MaLo} còn hạn {thangConLai:F1} tháng. Cần có lý do hủy cụ thể.");
+                    }
+                }
+            }
+
+            var thuocCanHuy = dto.ChiTietXuLy.Where(t => t.LoaiXuLy == "HUY").ToList();
+            var thuocHoanLai = dto.ChiTietXuLy.Where(t => t.LoaiXuLy == "HOAN_LAI").ToList();
+
+            // Xử lý hoàn lại kho
+            var thuocHoanLaiDetails = new List<object>();
+            foreach (var thuoc in thuocHoanLai)
+            {
+                var chiTietHD = chiTietHoaDon.FirstOrDefault(ct => ct.MaLo == thuoc.MaLo);
+                if (chiTietHD != null && tonKhoDict.TryGetValue(thuoc.MaLo, out var tonKho))
+                {
+                    tonKho.SoLuongCon += chiTietHD.SoLuong;
+                    await _repo.UpdateTonKhoAsync(tonKho);
+
+                    thuocHoanLaiDetails.Add(new
+                    {
+                        thuoc.MaLo,
+                        TenThuoc = tonKho?.Thuoc?.TenThuoc,
+                        SoLuongHoanLai = chiTietHD.SoLuong,
+                        thuoc.LyDoChiTiet
+                    });
+                }
+            }
+
+            // Xử lý hủy
+            object? phieuHuyResult = null;
+            if (thuocCanHuy.Any())
+            {
+                var phieuHuyDto = new PhieuHuyDto
+                {
+                    MaNV = dto.MaNhanVien,
+                    LoaiHuy = "HOADON",
+                    MaHD = dto.MaHoaDon,
+                    GhiChu = dto.LyDoHuy,
+                    ChiTietPhieuHuys = thuocCanHuy.Select(t =>
+                    {
+                        var chiTietHD = chiTietHoaDon.FirstOrDefault(ct => ct.MaLo == t.MaLo);
+                        return new ChiTietPhieuHuyDto
+                        {
+                            MaLo = t.MaLo,
+                            SoLuongHuy = t.SoLuongHuy ?? (chiTietHD?.SoLuong ?? 0),
+                            LyDoHuy = t.LyDoChiTiet ?? "Hủy từ hóa đơn khách hàng",
+                            GhiChu = t.LyDoChiTiet
+                        };
+                    }).ToList()
+                };
+
+                phieuHuyResult = await CreatePhieuHuyAsync(phieuHuyDto);
+            }
+
+            // Cập nhật trạng thái hóa đơn
+            await UpdateHoaDonStatusAfterHuyAsync(dto.MaHoaDon);
+
+            var tongSoLuongHuy = thuocCanHuy.Sum(t => t.SoLuongHuy ?? 0);
+            var tongSoLuongHoanLai = thuocHoanLai.Sum(t =>
+            {
+                var chiTietHD = chiTietHoaDon.FirstOrDefault(ct => ct.MaLo == t.MaLo);
+                return chiTietHD?.SoLuong ?? 0;
+            });
+
+            return new
+            {
+                MaPhieuHuy = ((dynamic)phieuHuyResult)?.PhieuHuy?.MaPH,
+                MaHoaDon = dto.MaHoaDon,
+                TrangThaiGiaoHang = hoaDon.TrangThaiGiaoHang,
+                TongSoLuongHuy = tongSoLuongHuy,
+                TongSoLuongHoanLai = tongSoLuongHoanLai,
+                ChiTietXuLy = dto.ChiTietXuLy.Select(t =>
+                {
+                    var chiTietHD = chiTietHoaDon.FirstOrDefault(ct => ct.MaLo == t.MaLo);
+                    tonKhoDict.TryGetValue(t.MaLo, out var tonKho);
+                    return new
+                    {
+                        t.MaLo,
+                        TenThuoc = tonKho?.Thuoc?.TenThuoc,
+                        t.LoaiXuLy,
+                        SoLuong = t.LoaiXuLy == "HUY" ? t.SoLuongHuy : chiTietHD?.SoLuong
+                    };
+                }).ToList(),
+                Message = $"Xử lý hủy hóa đơn thành công: hủy {tongSoLuongHuy} sản phẩm, hoàn lại {tongSoLuongHoanLai} sản phẩm"
+            };
+        }
+
+        public async Task<object> CreatePhieuHuyAsync(PhieuHuyDto phieuHuyDto)
+        {
+            // Validation
+            if (phieuHuyDto == null || phieuHuyDto.ChiTietPhieuHuys == null || !phieuHuyDto.ChiTietPhieuHuys.Any())
+            {
+                throw new ArgumentException("Invalid input data or empty ChiTietPhieuHuys");
+            }
+
+            // Tạo phiếu hủy
+            var phieuHuy = new PhieuHuy
+            {
+                MaPH = GenerateMaPhieuHuy(),
+                NgayHuy = DateTime.Now,
+                MaNV = phieuHuyDto.MaNV,
+                LoaiHuy = phieuHuyDto.LoaiHuy,
+                MaHD = phieuHuyDto.MaHD,
+                TongSoLuongHuy = (decimal)phieuHuyDto.ChiTietPhieuHuys.Sum(c => c.SoLuongHuy)
+            };
+
+            // Tạo chi tiết phiếu hủy
+            var chiTietPhieuHuyList = new List<ChiTietPhieuHuy>();
+            foreach (var chiTiet in phieuHuyDto.ChiTietPhieuHuys)
+            {
+                var tonKho = await _repo.GetTonKhoByMaLoAsync(chiTiet.MaLo);
+                if (tonKho == null)
+                {
+                    throw new ArgumentException($"Lô thuốc {chiTiet.MaLo} không tồn tại trong kho");
+                }
+
+                if (tonKho.SoLuongCon < chiTiet.SoLuongHuy)
+                {
+                    throw new ArgumentException($"Không đủ số lượng lô {chiTiet.MaLo} trong kho");
+                }
+
+                // Giảm số lượng trong kho
+                tonKho.SoLuongCon -= (int)chiTiet.SoLuongHuy;
+                await _repo.UpdateTonKhoAsync(tonKho);
+
+                chiTietPhieuHuyList.Add(new ChiTietPhieuHuy
+                {
+                    MaPH = phieuHuy.MaPH,
+                    MaLo = chiTiet.MaLo,
+                    SoLuongHuy = (decimal)chiTiet.SoLuongHuy,
+                    LyDoHuy = chiTiet.LyDoHuy,
+                    GhiChu = chiTiet.GhiChu
+                });
+            }
+
+            // Lưu phiếu hủy và chi tiết
+            await _repo.AddAsync(phieuHuy);
+            await _repo.AddChiTietRangeAsync(chiTietPhieuHuyList);
+
+            return new
+            {
+                MaPhieuHuy = phieuHuy.MaPH,
+                NgayHuy = phieuHuy.NgayHuy,
+                TongSoLuongHuy = phieuHuy.TongSoLuongHuy,
+                Message = "Tạo phiếu hủy thành công"
+            };
+        }
+
+        private string GenerateMaPhieuHuy()
+        {
+            return "PH" + DateTime.Now.ToString("yyyyMMddHHmmss");
+        }
+
+        private string GenerateMaChiTietPhieuHuy()
+        {
+            return "CTPH" + DateTime.Now.ToString("yyyyMMddHHmmssfff");
         }
     }
 }

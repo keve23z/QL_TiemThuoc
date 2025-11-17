@@ -68,4 +68,64 @@ namespace BE_QLTiemThuoc.Dto
 
         public string? GhiChu { get; set; }
     }
+
+    // DTO cho hủy từ kho
+    public class HuyTuKhoDto
+    {
+        [Required]
+        public string MaNhanVien { get; set; } = null!;
+
+        [Required]
+        [StringLength(1000, ErrorMessage = "Lý do hủy không được vượt quá 1000 ký tự")]
+        public string LyDoHuy { get; set; } = null!;
+
+        [Required]
+        public List<ChiTietHuyTuKhoDto> ChiTietPhieuHuy { get; set; } = new List<ChiTietHuyTuKhoDto>();
+    }
+
+    public class ChiTietHuyTuKhoDto
+    {
+        [Required]
+        public string MaLo { get; set; } = null!;
+
+        [Required]
+        [Range(0.01, double.MaxValue, ErrorMessage = "Số lượng hủy phải lớn hơn 0")]
+        public decimal SoLuongHuy { get; set; }
+
+        [StringLength(500, ErrorMessage = "Lý do chi tiết không được vượt quá 500 ký tự")]
+        public string? LyDoChiTiet { get; set; }
+    }
+
+    // DTO cho hủy từ hóa đơn
+    public class HuyTuHoaDonDto
+    {
+        [Required]
+        public string MaHoaDon { get; set; } = null!;
+
+        [Required]
+        public string MaNhanVien { get; set; } = null!;
+
+        [StringLength(1000, ErrorMessage = "Lý do hủy không được vượt quá 1000 ký tự")]
+        public string? LyDoHuy { get; set; }
+
+        [Required]
+        public List<ChiTietXuLyHoaDonDto> ChiTietXuLy { get; set; } = new List<ChiTietXuLyHoaDonDto>();
+    }
+
+    public class ChiTietXuLyHoaDonDto
+    {
+        [Required]
+        public string MaLo { get; set; } = null!;
+
+        [Required]
+        public string LoaiXuLy { get; set; } = null!; // "HUY" hoặc "HOAN_LAI"
+
+        [Range(0.01, double.MaxValue, ErrorMessage = "Số lượng hủy phải lớn hơn 0")]
+        public decimal? SoLuongHuy { get; set; } // Chỉ cần khi LoaiXuLy = "HUY"
+
+        [StringLength(500, ErrorMessage = "Lý do chi tiết không được vượt quá 500 ký tự")]
+        public string? LyDoChiTiet { get; set; } // Lý do cho việc hủy hoặc hoàn lại
+
+        public string? GhiChu { get; set; }
+    }
 }
