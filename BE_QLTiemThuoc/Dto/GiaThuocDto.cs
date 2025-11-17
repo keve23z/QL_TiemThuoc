@@ -4,10 +4,8 @@ namespace BE_QLTiemThuoc.Dto
 {
     public class GiaThuocDto
     {
-        // Optional for create (service can generate if missing)
         public string? MaGiaThuoc { get; set; }
 
-        // MaThuoc is optional on create (server will assign Thuoc.MaThuoc when missing)
         public string? MaThuoc { get; set; }
 
         [Required]

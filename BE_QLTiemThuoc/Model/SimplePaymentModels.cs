@@ -4,6 +4,8 @@ namespace BE_QLTiemThuoc.Model
     {
         public decimal Amount { get; set; }
         public string? Description { get; set; }
+        public string? ReturnUrl { get; set; }
+        public string? CancelUrl { get; set; }
     }
 
     public class SimplePaymentResponse

@@ -81,7 +81,7 @@ namespace BE_QLTiemThuoc.Services
                 .OrderByDescending(x => ((LoaiThuocThongKe)x).SoLuongThuoc)
                 .ToList();
 
-            return (object)thongKeList;
+            return thongKeList;
         }
         public Task<object> GetThuocAsync()
         {
@@ -98,6 +98,7 @@ namespace BE_QLTiemThuoc.Services
                 .ContinueWith(t => (object)t.Result);
         }
         // GET: list of Thuoc aggregated by available lots in TonKho (only lots with SoLuongCon>0 and TrangThaiSeal==0)
+        // Only show GiaThuoc where TrangThai == true (active prices)
         public async Task<object> GetListThuocTonKhoAsync()
         {
             var ctx = _repo.Context;
@@ -123,9 +124,9 @@ namespace BE_QLTiemThuoc.Services
                               moTa = t.MoTa,
                               urlAnh = t.UrlAnh,
                               tongSoLuongCon = g.TongSoLuongCon,
-                              // include all GiaThuoc rows for this Thuoc and compute available quantity per MaLoaiDonVi
+                              // include only active GiaThuoc rows (TrangThai == true) for this Thuoc and compute available quantity per MaLoaiDonVi
                               GiaThuocs = ctx.GiaThuocs
-                                            .Where(x => x.MaThuoc == t.MaThuoc)
+                                            .Where(x => x.MaThuoc == t.MaThuoc && x.TrangThai)
                                             .Select(x => new
                                             {
                                                 x.MaGiaThuoc,
@@ -138,10 +139,11 @@ namespace BE_QLTiemThuoc.Services
                                             })
                                             .ToList()
                           })
+                    .Where(x => x.GiaThuocs.Count > 0)
                     .OrderBy(x => x.tenThuoc)
                     .ToListAsync();
 
-            return (object)result;
+            return result;
         }
 
         public Task<object> GetThuocByLoaiAsync(string maLoaiThuoc)
@@ -193,8 +195,10 @@ namespace BE_QLTiemThuoc.Services
                     t.UrlAnh,
                     // price from GIATHUOC
                     TenNCC = ctx.NhaCungCaps.Where(n => n.MaNCC == t.MaNCC).Select(n => n.TenNCC).FirstOrDefault(),
+                    // include only active GiaThuoc rows that also have available stock in TonKho
                     GiaThuocs = ctx.GiaThuocs
-                                .Where(x => x.MaThuoc == t.MaThuoc)
+                                .Where(x => x.MaThuoc == t.MaThuoc && x.TrangThai
+                                             && ctx.TonKhos.Any(tk => tk.MaThuoc == t.MaThuoc && tk.MaLoaiDonViTinh == x.MaLoaiDonVi && tk.SoLuongCon > 0 && !tk.TrangThaiSeal))
                                 .Select(x => new
                                 {
                                     x.MaGiaThuoc,
@@ -207,6 +211,8 @@ namespace BE_QLTiemThuoc.Services
                                 })
                                 .ToList()
                 })
+                // remove Thuoc entries that ended up with no available GiaThuocs
+                .Where(t => t.GiaThuocs.Count > 0)
                 .ToListAsync()
                 .ContinueWith(t => (object)t.Result);
         }
@@ -257,7 +263,7 @@ namespace BE_QLTiemThuoc.Services
                 {
                     x.MaGiaThuoc,
                     x.MaLoaiDonVi,
-                    TenLoaiDonVi = ctx.Set<Model.Thuoc.LoaiDonVi>().Where(d => d.MaLoaiDonVi == x.MaLoaiDonVi).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
+                    TenLoaiDonVi = ctx.Set<LoaiDonVi>().Where(d => d.MaLoaiDonVi == x.MaLoaiDonVi).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
                     x.SoLuong,
                     x.DonGia,
                     x.TrangThai,
