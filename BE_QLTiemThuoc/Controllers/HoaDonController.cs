@@ -54,7 +54,7 @@ namespace BE_QLTiemThuoc.Controllers
                 var list = await (from h in q
                                    join kh in _ctx.KhachHangs on h.MaKH equals kh.MAKH into khGroup
                                    from kh in khGroup.DefaultIfEmpty()
-                                   join nv in _ctx.Set<NhanVien>() on h.MaNV equals nv.MANV into nvGroup
+                                   join nv in _ctx.Set<NhanVien>() on h.MaNV equals nv.MaNV into nvGroup
                                    from nv in nvGroup.DefaultIfEmpty()
                                    orderby h.NgayLap descending
                                    select new
@@ -104,14 +104,14 @@ namespace BE_QLTiemThuoc.Controllers
                 string? reportEmployeeName = null;
                 if (!string.IsNullOrWhiteSpace(maNv))
                 {
-                    var rep = await _ctx.Set<NhanVien>().FirstOrDefaultAsync(n => n.MANV == maNv);
+                    var rep = await _ctx.Set<NhanVien>().FirstOrDefaultAsync(n => n.MaNV == maNv);
                     if (rep != null) reportEmployeeName = rep.HoTen;
                 }
 
                 var list = await (from h in q
                                    join kh in _ctx.KhachHangs on h.MaKH equals kh.MAKH into khGroup
                                    from kh in khGroup.DefaultIfEmpty()
-                                   join nv in _ctx.Set<NhanVien>() on h.MaNV equals nv.MANV into nvGroup
+                                   join nv in _ctx.Set<NhanVien>() on h.MaNV equals nv.MaNV into nvGroup
                                    from nv in nvGroup.DefaultIfEmpty()
                                    orderby h.NgayLap descending
                                    select new
@@ -231,7 +231,7 @@ namespace BE_QLTiemThuoc.Controllers
                                       where h.MaHD == maHd
                                       join kh in _ctx.KhachHangs on h.MaKH equals kh.MAKH into khGroup
                                       from kh in khGroup.DefaultIfEmpty()
-                                      join nv in _ctx.Set<NhanVien>() on h.MaNV equals nv.MANV into nvGroup
+                                      join nv in _ctx.Set<NhanVien>() on h.MaNV equals nv.MaNV into nvGroup
                                       from nv in nvGroup.DefaultIfEmpty()
                                       select new
                                       {
@@ -298,37 +298,38 @@ namespace BE_QLTiemThuoc.Controllers
             {
                 if (string.IsNullOrWhiteSpace(maHd)) throw new ArgumentException("maHd is required");
 
-                var q = from ct in _ctx.ChiTietHoaDons
-                        where ct.MaHD == maHd
-                        join tk in _ctx.TonKhos on ct.MaLo equals tk.MaLo
-                        join t in _ctx.Thuoc on tk.MaThuoc equals t.MaThuoc
-                        join lieu in _ctx.Set<LieuDung>() on ct.MaLD equals lieu.MaLD into lieuGroup
-                        from lieu in lieuGroup.DefaultIfEmpty()
-                        join ldv in _ctx.Set<LoaiDonVi>() on (ct.MaLoaiDonVi ?? tk.MaLoaiDonViTinh) equals ldv.MaLoaiDonVi into ldvGroup
-                        from ldv in ldvGroup.DefaultIfEmpty()
-                        group new { ct, tk, t, lieu, ldv } by new { MaThuoc = (ct.MaThuoc ?? t.MaThuoc), MaLD = ct.MaLD, TenThuoc = t.TenThuoc, MaLoaiDonVi = ct.MaLoaiDonVi ?? tk.MaLoaiDonViTinh } into g
-                        select new
-                        {
-                            MaThuoc = g.Key.MaThuoc,
-                            TenThuoc = g.Key.TenThuoc,
-                            MaLD = g.Key.MaLD,
-                            TenLD = g.Max(x => x.lieu != null ? x.lieu.TenLieuDung : null),
-                            MaLoaiDonVi = g.Key.MaLoaiDonVi,
-                            TenLoaiDonVi = g.Max(x => x.ldv != null ? x.ldv.TenLoaiDonVi : null),
-                            TongSoLuong = g.Sum(x => x.ct.SoLuong),
-                            HanSuDungGanNhat = g.Max(x => (DateTime?)x.ct.HanSuDung),
-                            DonGiaTrungBinh = g.Average(x => x.ct.DonGia),
-                            TongThanhTien = g.Sum(x => x.ct.ThanhTien)
-                        };
-
-                var list = await q.ToListAsync();
+                var items = await (from ct in _ctx.ChiTietHoaDons
+                                   where ct.MaHD == maHd
+                                   join tk in _ctx.TonKhos on ct.MaLo equals tk.MaLo into tkGroup
+                                   from tk in tkGroup.DefaultIfEmpty()
+                                   join t in _ctx.Thuoc on (ct.MaThuoc ?? (tk != null ? tk.MaThuoc : null)) equals t.MaThuoc into tGroup
+                                   from t in tGroup.DefaultIfEmpty()
+                                   join lieu in _ctx.Set<LieuDung>() on ct.MaLD equals lieu.MaLD into lieuGroup
+                                   from lieu in lieuGroup.DefaultIfEmpty()
+                                   join ldv in _ctx.Set<LoaiDonVi>() on (ct.MaLoaiDonVi ?? (tk != null ? tk.MaLoaiDonViTinh : null)) equals ldv.MaLoaiDonVi into ldvGroup
+                                   from ldv in ldvGroup.DefaultIfEmpty()
+                                   group new { ct, tk, t, lieu, ldv } by new { MaThuoc = (ct.MaThuoc ?? (tk != null ? tk.MaThuoc : null)), MaLD = ct.MaLD, MaLoaiDonVi = ct.MaLoaiDonVi ?? (tk != null ? tk.MaLoaiDonViTinh : null) } into g
+                                   select new
+                                   {
+                                       MaThuoc = g.Key.MaThuoc,
+                                       TenThuoc = g.Max(x => x.t != null ? x.t.TenThuoc : null),
+                                       MaLD = g.Key.MaLD,
+                                       TenLD = g.Max(x => x.lieu != null ? x.lieu.TenLieuDung : null),
+                                       MaLoaiDonVi = g.Key.MaLoaiDonVi,
+                                       TenLoaiDonVi = g.Max(x => x.ldv != null ? x.ldv.TenLoaiDonVi : null),
+                                       TongSoLuong = g.Sum(x => x.ct.SoLuong),
+                                       HanSuDungGanNhat = g.Max(x => (DateTime?)x.ct.HanSuDung),
+                                       DonGiaTrungBinh = g.Average(x => x.ct.DonGia),
+                                       TongThanhTien = g.Sum(x => x.ct.ThanhTien)
+                                   })
+                    .ToListAsync();
 
                 // also load invoice header info to return together with the grouped summary
                 var invoice = await (from h in _ctx.HoaDons
                                       where h.MaHD == maHd
                                       join kh in _ctx.KhachHangs on h.MaKH equals kh.MAKH into khGroup
                                       from kh in khGroup.DefaultIfEmpty()
-                                      join nv in _ctx.Set<NhanVien>() on h.MaNV equals nv.MANV into nvGroup
+                                      join nv in _ctx.Set<NhanVien>() on h.MaNV equals nv.MaNV into nvGroup
                                       from nv in nvGroup.DefaultIfEmpty()
                                       select new
                                       {
@@ -351,7 +352,7 @@ namespace BE_QLTiemThuoc.Controllers
                                       })
                     .FirstOrDefaultAsync();
 
-                return (object)new { Invoice = invoice, Summary = list };
+                return (object)new { Invoice = invoice, Summary = items };
             });
 
             return Ok(response);
@@ -368,7 +369,7 @@ namespace BE_QLTiemThuoc.Controllers
                 // Historical: cancelled (-1) or received (3)
                 var history = await (from h in _ctx.HoaDons
                                      where h.MaKH == maKh && (h.TrangThaiGiaoHang == -1 || h.TrangThaiGiaoHang == 3)
-                                     join nv in _ctx.Set<NhanVien>() on h.MaNV equals nv.MANV into nvGroup
+                                     join nv in _ctx.Set<NhanVien>() on h.MaNV equals nv.MaNV into nvGroup
                                      from nv in nvGroup.DefaultIfEmpty()
                                      orderby h.NgayLap descending
                                      select new
@@ -386,7 +387,7 @@ namespace BE_QLTiemThuoc.Controllers
                 // Current: statuses 0 (placed), 1 (confirmed), 2 (delivered)
                 var current = await (from h in _ctx.HoaDons
                                      where h.MaKH == maKh && (h.TrangThaiGiaoHang == 0 || h.TrangThaiGiaoHang == 1 || h.TrangThaiGiaoHang == 2)
-                                     join nv in _ctx.Set<NhanVien>() on h.MaNV equals nv.MANV into nvGroup2
+                                     join nv in _ctx.Set<NhanVien>() on h.MaNV equals nv.MaNV into nvGroup2
                                      from nv in nvGroup2.DefaultIfEmpty()
                                      orderby h.NgayLap descending
                                      select new
@@ -530,7 +531,7 @@ namespace BE_QLTiemThuoc.Controllers
                                           where h.MaHD == hd.MaHD
                                           join kh in _ctx.KhachHangs on h.MaKH equals kh.MAKH into khGroup
                                           from kh in khGroup.DefaultIfEmpty()
-                                          join nv in _ctx.Set<NhanVien>() on h.MaNV equals nv.MANV into nvGroup
+                                          join nv in _ctx.Set<NhanVien>() on h.MaNV equals nv.MaNV into nvGroup
                                           from nv in nvGroup.DefaultIfEmpty()
                                           select new
                                           {
@@ -664,7 +665,7 @@ namespace BE_QLTiemThuoc.Controllers
                                           where h.MaHD == hd.MaHD
                                           join kh in _ctx.KhachHangs on h.MaKH equals kh.MAKH into khGroup
                                           from kh in khGroup.DefaultIfEmpty()
-                                          join nv in _ctx.Set<NhanVien>() on h.MaNV equals nv.MANV into nvGroup
+                                          join nv in _ctx.Set<NhanVien>() on h.MaNV equals nv.MaNV into nvGroup
                                           from nv in nvGroup.DefaultIfEmpty()
                                           select new
                                           {
@@ -765,7 +766,7 @@ namespace BE_QLTiemThuoc.Controllers
 
                 // Build professional pharmacy invoice (matching real-world pharmacy design)
                 var customerName = kh != null && !string.IsNullOrWhiteSpace(kh.HoTen) ? kh.HoTen : invoice.MaKH;
-                var nv = await _ctx.Set<NhanVien>().FirstOrDefaultAsync(n => n.MANV == invoice.MaNV);
+                var nv = await _ctx.Set<NhanVien>().FirstOrDefaultAsync(n => n.MaNV == invoice.MaNV);
                 // compute status display name
                 string statusName = (invoice.TrangThaiGiaoHang == -1) ? "Hủy" :
                                     (invoice.TrangThaiGiaoHang == 0) ? "Đã đặt" :

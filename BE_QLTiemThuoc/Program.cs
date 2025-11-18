@@ -58,6 +58,8 @@ builder.Services.AddScoped<PhieuNhapService>();
 builder.Services.AddScoped<ThuocRepository>();
 builder.Services.AddScoped<ThuocService>();
 builder.Services.AddScoped<PhieuQuyDoiService>();
+builder.Services.AddScoped<NhanVienRepository>();
+builder.Services.AddScoped<NhanVienService>();
 
 // =========================================================
 // !!! KHỐI CẤU HÌNH CLOUDINARY ĐÃ ĐƯỢC DI CHUYỂN LÊN TRƯỚC builder.Build() !!!

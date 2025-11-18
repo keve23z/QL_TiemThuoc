@@ -7,17 +7,17 @@ namespace BE_QLTiemThuoc.Model.Thuoc
     {
         [Key]
         [StringLength(10)]
-        public string MaLoaiThuoc { get; set; }
+        public string MaLoaiThuoc { get; set; } = null!;
 
         [Required]
         [StringLength(255)]
-        public string TenLoaiThuoc { get; set; }
+        public string TenLoaiThuoc { get; set; } = null!;
 
         [StringLength(10)]
-        public string MaNhomLoai { get; set; }
+        public string? MaNhomLoai { get; set; }
 
         [StringLength(50)]
-        public string Icon { get; set; }
+        public string? Icon { get; set; }
 
     }
 }

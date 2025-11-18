@@ -4,12 +4,10 @@ namespace BE_QLTiemThuoc.Dto
 {
     public class GiaThuocDto
     {
-        public string? MaGiaThuoc { get; set; }
-
-        public string? MaThuoc { get; set; }
+        // Note: MaGiaThuoc and MaThuoc removed from DTO; server generates/uses internal codes
 
         [Required]
-        public string MaLoaiDonVi { get; set; }
+        public string MaLoaiDonVi { get; set; } = null!;
 
         // number of base units (e.g. 1)
         public int SoLuong { get; set; } = 1;

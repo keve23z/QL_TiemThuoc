@@ -45,7 +45,7 @@ namespace BE_QLTiemThuoc.Controllers
         {
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
-                if (!ModelState.IsValid) throw new System.Exception("Dữ liệu không hợp lệ.");
+                if (!ModelState.IsValid) throw new Exception("Dữ liệu không hợp lệ.");
                 var created = await _service.CreateAsync(ncc);
                 return created;
             });
@@ -58,9 +58,21 @@ namespace BE_QLTiemThuoc.Controllers
         {
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
-                if (!ModelState.IsValid) throw new System.Exception("Dữ liệu không hợp lệ.");
+                if (!ModelState.IsValid) throw new Exception("Dữ liệu không hợp lệ.");
                 var updated = await _service.UpdateAsync(id, ncc);
                 return updated;
+            });
+            return Ok(response);
+        }
+
+        // DELETE: api/NhaCungCap/{id}
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(string id)
+        {
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                var result = await _service.DeleteAsync(id);
+                return result;
             });
             return Ok(response);
         }

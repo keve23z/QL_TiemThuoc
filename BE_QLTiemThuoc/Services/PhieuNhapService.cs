@@ -3,6 +3,7 @@ using BE_QLTiemThuoc.Model;
 using BE_QLTiemThuoc.Model.Kho;
 using BE_QLTiemThuoc.Model.Thuoc;
 using BE_QLTiemThuoc.Repositories;
+using BE_QLTiemThuoc.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace BE_QLTiemThuoc.Services
@@ -10,10 +11,12 @@ namespace BE_QLTiemThuoc.Services
     public class PhieuNhapService
     {
         private readonly PhieuNhapRepository _repo;
+        private readonly AppDbContext _context;
 
-        public PhieuNhapService(PhieuNhapRepository repo)
+        public PhieuNhapService(PhieuNhapRepository repo, AppDbContext context)
         {
             _repo = repo;
+            _context = context;
         }
 
         public async Task<List<object>> GetByDateRangeAsync(DateTime startDate, DateTime endDate, string? maNV = null, string? maNCC = null)
@@ -41,7 +44,7 @@ namespace BE_QLTiemThuoc.Services
                     pn.MaNCC,
                     pn.MaNV,
                     TenNCC = ctx.NhaCungCaps.Where(ncc => ncc.MaNCC == pn.MaNCC).Select(ncc => ncc.TenNCC).FirstOrDefault(),
-                    TenNV = ctx.Set<NhanVien>().Where(nv => nv.MANV == pn.MaNV).Select(nv => nv.HoTen).FirstOrDefault()
+                    TenNV = ctx.Set<NhanVien>().Where(nv => nv.MaNV == pn.MaNV).Select(nv => nv.HoTen).FirstOrDefault()
                 })
                 .ToListAsync();
 
@@ -53,7 +56,7 @@ namespace BE_QLTiemThuoc.Services
             if (phieuNhapDto == null || phieuNhapDto.ChiTietPhieuNhaps == null) throw new ArgumentException("Invalid input data");
 
             // Start transaction via repository
-            await using var tx = await _repo.BeginTransactionAsync();
+            await using var tx = await _context.Database.BeginTransactionAsync();
             try
             {
                 var entryDate = (phieuNhapDto.NgayNhap != default(DateTime)) ? phieuNhapDto.NgayNhap : DateTime.Now;
@@ -270,13 +273,13 @@ namespace BE_QLTiemThuoc.Services
                 await tx.RollbackAsync();
                 throw;
             }
+        }
 
-            static string GenMaLo(int index)
-            {
-                var ts = DateTime.UtcNow.ToString("yyMMddHHmmss");
-                var id = $"LO{ts}{index:D2}";
-                return id;
-            }
+        private static string GenMaLo(int index)
+        {
+            var ts = DateTime.UtcNow.ToString("yyMMddHHmmss");
+            var id = $"LO{ts}{index:D2}";
+            return id;
         }
 
         public async Task<object> GetChiTietPhieuNhapByMaPNAsync(string maPN)
@@ -294,7 +297,7 @@ namespace BE_QLTiemThuoc.Services
                     pn.GhiChu,
                     pn.MaNCC,
                     TenNCC = ctx.NhaCungCaps.Where(ncc => ncc.MaNCC == pn.MaNCC).Select(ncc => ncc.TenNCC).FirstOrDefault(),
-                    TenNV = ctx.Set<NhanVien>().Where(nv => nv.MANV == pn.MaNV).Select(nv => nv.HoTen).FirstOrDefault()
+                    TenNV = ctx.Set<NhanVien>().Where(nv => nv.MaNV == pn.MaNV).Select(nv => nv.HoTen).FirstOrDefault()
                 })
                 .FirstOrDefaultAsync();
 
@@ -318,6 +321,218 @@ namespace BE_QLTiemThuoc.Services
                 .ToListAsync();
 
             return new { PhieuNhap = phieuNhap, ChiTiet = chiTietPhieuNhaps };
+        }
+
+        public async Task<object?> UpdatePhieuNhapAsync(string maPN, PhieuNhapDto dto)
+        {
+            var existing = await _repo.GetByIdAsync(maPN);
+            if (existing == null) return null;
+
+            await using var tx = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                // Get current chi tiet to rollback inventory
+                var currentChiTiet = await _repo.Context.Set<ChiTietPhieuNhap>()
+                    .Where(c => c.MaPN == maPN)
+                    .ToListAsync();
+
+                // Rollback inventory for current chi tiet
+                foreach (var ct in currentChiTiet)
+                {
+                    if (!string.IsNullOrEmpty(ct.MaLo))
+                    {
+                        var tonKho = await _repo.Context.TonKhos.FirstOrDefaultAsync(t => t.MaLo == ct.MaLo);
+                        if (tonKho != null)
+                        {
+                            tonKho.SoLuongNhap -= ct.SoLuong;
+                            tonKho.SoLuongCon -= ct.SoLuong;
+                            if (tonKho.SoLuongNhap <= 0)
+                            {
+                                _repo.Context.TonKhos.Remove(tonKho);
+                            }
+                        }
+                    }
+                }
+
+                // Remove old chi tiet
+                _repo.Context.Set<ChiTietPhieuNhap>().RemoveRange(currentChiTiet);
+
+                // Update phieu nhap basic info
+                existing.GhiChu = dto.GhiChu;
+                existing.MaNCC = dto.MaNCC;
+                existing.MaNV = dto.MaNV;
+
+                // Process new chi tiet and update inventory
+                var existingCount = 0; // Reset for update
+                int idx = 0;
+                string maPNSuffix = "000";
+
+                try
+                {
+                    var pn = maPN ?? string.Empty;
+                    var parts = pn.Split('/');
+                    if (parts.Length > 0)
+                    {
+                        var left = parts[0];
+                        if (left.StartsWith("PN")) left = left.Substring(2);
+                        if (!string.IsNullOrEmpty(left))
+                        {
+                            var digits = left.Length <= 3 ? left : left.Substring(left.Length - 3);
+                            maPNSuffix = digits.PadLeft(3, '0');
+                        }
+                    }
+                }
+                catch { maPNSuffix = "000"; }
+
+                foreach (var ctDto in dto.ChiTietPhieuNhaps)
+                {
+                    idx++;
+                    string? maCTPN = ctDto.MaCTPN;
+                    if (string.IsNullOrEmpty(maCTPN))
+                    {
+                        var seq = existingCount + idx;
+                        var yy = existing.NgayNhap.Year % 100;
+                        var mm = existing.NgayNhap.Month;
+                        maCTPN = $"CTPN{seq.ToString("D3")}/{maPNSuffix}/{yy:D2}-{mm:D2}";
+                    }
+                    ctDto.MaCTPN = maCTPN;
+                }
+
+                // Add new lots to inventory (similar to AddPhieuNhapAsync)
+                var keyPairs = dto.ChiTietPhieuNhaps
+                    .Select(d => new { MaThuoc = d.MaThuoc ?? string.Empty, HSD = d.HanSuDung ?? existing.NgayNhap })
+                    .ToList();
+                var maThuocSet = keyPairs.Select(k => k.MaThuoc).Distinct().ToList();
+                var hsdSet = keyPairs.Select(k => k.HSD.Date).Distinct().ToList();
+
+                var existingLots = await _repo.GetExistingLotsAsync(maThuocSet, hsdSet);
+                var lotLookup = new Dictionary<(string, DateTime), TonKho>();
+                foreach (var lot in existingLots)
+                {
+                    var key = (lot.MaThuoc, lot.HanSuDung.Date);
+                    if (!lotLookup.ContainsKey(key)) lotLookup[key] = lot;
+                }
+
+                int lotIndex = 0;
+                var newChiTietEntities = new List<ChiTietPhieuNhap>();
+
+                foreach (var ctDto in dto.ChiTietPhieuNhaps)
+                {
+                    var maThuoc = ctDto.MaThuoc ?? string.Empty;
+                    var hsd = (ctDto.HanSuDung ?? existing.NgayNhap).Date;
+                    var key = (maThuoc, hsd);
+
+                    string? maLo = null;
+                    if (lotLookup.TryGetValue(key, out var existingLot))
+                    {
+                        existingLot.SoLuongNhap += ctDto.SoLuong;
+                        existingLot.SoLuongCon += ctDto.SoLuong;
+                        maLo = existingLot.MaLo;
+                    }
+                    else
+                    {
+                        lotIndex++;
+                        var maLoNew = GenMaLo(lotIndex);
+                        var code = (ctDto.MaLoaiDonViNhap ?? string.Empty).Trim();
+                        if (string.IsNullOrEmpty(code)) throw new InvalidOperationException($"MaLoaiDonViNhap is required for MaThuoc '{maThuoc}'");
+
+                        var donViTinhCode = code;
+                        if (donViTinhCode.Length > 10) donViTinhCode = donViTinhCode.Substring(0, 10);
+                        var ghi = dto.GhiChu ?? string.Empty;
+                        if (ghi.Length > 255) ghi = ghi.Substring(0, 255);
+
+                        var newLot = new TonKho
+                        {
+                            MaLo = maLoNew,
+                            MaThuoc = maThuoc,
+                            HanSuDung = hsd,
+                            TrangThaiSeal = false,
+                            MaLoaiDonViTinh = donViTinhCode,
+                            SoLuongNhap = ctDto.SoLuong,
+                            SoLuongCon = ctDto.SoLuong,
+                            GhiChu = ghi
+                        };
+                        await _repo.Context.TonKhos.AddAsync(newLot);
+                        lotLookup[key] = newLot;
+                        maLo = maLoNew;
+                    }
+
+                    var newChiTiet = new ChiTietPhieuNhap
+                    {
+                        MaCTPN = Guid.NewGuid().ToString("N").Substring(0, 20),
+                        MaPN = maPN,
+                        MaThuoc = ctDto.MaThuoc,
+                        MaLo = maLo,
+                        MaLoaiDonVi = ctDto.MaLoaiDonViNhap,
+                        SoLuong = ctDto.SoLuong,
+                        DonGia = ctDto.DonGia,
+                        ThanhTien = ctDto.ThanhTien,
+                        HanSuDung = ctDto.HanSuDung ?? existing.NgayNhap,
+                        GhiChu = ctDto.GhiChu
+                    };
+                    newChiTietEntities.Add(newChiTiet);
+                }
+
+                await _repo.Context.Set<ChiTietPhieuNhap>().AddRangeAsync(newChiTietEntities);
+                await _repo.SaveChangesAsync();
+
+                await tx.CommitAsync();
+                return existing;
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                throw;
+            }
+        }
+
+        public async Task<bool> DeletePhieuNhapAsync(string maPN)
+        {
+            var existing = await _repo.GetByIdAsync(maPN);
+            if (existing == null) return false;
+
+            await using var tx = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                // Get all chi tiet to rollback inventory
+                var chiTietList = await _repo.Context.Set<ChiTietPhieuNhap>()
+                    .Where(c => c.MaPN == maPN)
+                    .ToListAsync();
+
+                // Rollback inventory for each chi tiet
+                foreach (var ct in chiTietList)
+                {
+                    if (!string.IsNullOrEmpty(ct.MaLo))
+                    {
+                        var tonKho = await _repo.Context.TonKhos.FirstOrDefaultAsync(t => t.MaLo == ct.MaLo);
+                        if (tonKho != null)
+                        {
+                            tonKho.SoLuongNhap -= ct.SoLuong;
+                            tonKho.SoLuongCon -= ct.SoLuong;
+                            if (tonKho.SoLuongNhap <= 0)
+                            {
+                                _repo.Context.TonKhos.Remove(tonKho);
+                            }
+                        }
+                    }
+                }
+
+                // Remove chi tiet records
+                _repo.Context.Set<ChiTietPhieuNhap>().RemoveRange(chiTietList);
+
+                // Remove phieu nhap
+                _repo.Context.PhieuNhaps.Remove(existing);
+
+                await _repo.SaveChangesAsync();
+                await tx.CommitAsync();
+
+                return true;
+            }
+            catch
+            {
+                await tx.RollbackAsync();
+                throw;
+            }
         }
 
     }

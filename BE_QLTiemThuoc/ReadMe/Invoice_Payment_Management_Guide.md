@@ -225,7 +225,7 @@ flowchart TD
     B -->|💳 Thanh toán| D[🔍 Tra cứu theo orderCode]
     B -->|📈 Báo cáo| E[📊 Chọn loại báo cáo]
     C --> F[📤 GET /api/HoaDon theo filter]
-    D --> G[📤 GET /api/SimplePayment/Status/{orderCode}]
+    D --> G["📤 GET /api/SimplePayment/Status/{orderCode}"]
     E --> H[📊 Query database]
     F --> I[📋 Hiển thị danh sách]
     G --> J[💳 Hiển thị trạng thái]

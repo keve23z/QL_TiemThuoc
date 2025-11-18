@@ -1,6 +1,7 @@
 using BE_QLTiemThuoc.Dto;
 using BE_QLTiemThuoc.Model.Kho;
 using BE_QLTiemThuoc.Repositories;
+using BE_QLTiemThuoc.Data;
 using Microsoft.EntityFrameworkCore;
 
 namespace BE_QLTiemThuoc.Services
@@ -8,10 +9,12 @@ namespace BE_QLTiemThuoc.Services
     public class PhieuQuyDoiService
     {
         private readonly PhieuNhapRepository _repo;
+        private readonly AppDbContext _context;
         // constructor
-        public PhieuQuyDoiService(PhieuNhapRepository repo)
+        public PhieuQuyDoiService(PhieuNhapRepository repo, AppDbContext context)
         {
             _repo = repo ?? throw new ArgumentNullException(nameof(repo));
+            _context = context ?? throw new ArgumentNullException(nameof(context));
         }
 
         // in-memory queue for enqueue-by-ma requests
@@ -70,7 +73,7 @@ namespace BE_QLTiemThuoc.Services
             if (candidateLot == null) throw new InvalidOperationException("No sealed lot with sufficient quantity found");
 
             // perform single-lot conversion using a transaction
-            await using var tx = await _repo.BeginTransactionAsync();
+            await using var tx = await _context.Database.BeginTransactionAsync();
             try
             {
                 var ctx2 = _repo.Context;
@@ -93,7 +96,7 @@ namespace BE_QLTiemThuoc.Services
 
                 // determine MaNV to record on the phieu
                 var anyNv = await ctx2.Set<Model.NhanVien>().AsNoTracking().FirstOrDefaultAsync();
-                var maNVToRecord = anyNv?.MANV;
+                var maNVToRecord = anyNv?.MaNV;
                 if (string.IsNullOrEmpty(maNVToRecord)) throw new InvalidOperationException("No NhanVien found to attribute quick convert phieu.");
 
                 var targetDonVi = string.IsNullOrEmpty(maLoaiDonViMoi) ? "Viên" : maLoaiDonViMoi;
@@ -159,7 +162,7 @@ namespace BE_QLTiemThuoc.Services
             if (dto.Items == null || !dto.Items.Any()) throw new ArgumentException("Items list is required and cannot be empty");
             // New implementation: items contain MaThuoc (medicine code). For each item, consume sealed lots (TrangThaiSeal = false)
             // in HSD order until SoLuongGoc is satisfied. This may produce multiple CT rows per item.
-            await using var tx = await _repo.BeginTransactionAsync();
+            await using var tx = await _context.Database.BeginTransactionAsync();
             try
             {
                 var ctx = _repo.Context;
@@ -259,7 +262,7 @@ namespace BE_QLTiemThuoc.Services
                 if (string.IsNullOrEmpty(maNVToRecord))
                 {
                     var anyNv = await ctx.Set<Model.NhanVien>().AsNoTracking().FirstOrDefaultAsync();
-                    maNVToRecord = anyNv?.MANV;
+                    maNVToRecord = anyNv?.MaNV;
                 }
                 if (string.IsNullOrEmpty(maNVToRecord)) throw new InvalidOperationException("No MaNV provided and no NhanVien found in database to attribute the phieu.");
 

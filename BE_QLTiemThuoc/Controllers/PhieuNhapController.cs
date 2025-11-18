@@ -114,5 +114,86 @@ namespace BE_QLTiemThuoc.Controllers
             return Ok(response);
         }
 
+        // PUT: api/PhieuNhap/UpdatePhieuNhap/{maPN}
+        [HttpPut("UpdatePhieuNhap/{maPN}")]
+        public async Task<IActionResult> UpdatePhieuNhap(string maPN, [FromBody] PhieuNhapDto phieuNhapDto)
+        {
+            if (string.IsNullOrEmpty(maPN))
+            {
+                return BadRequest(new ApiResponse<string>
+                {
+                    Status = -1,
+                    Message = "MaPN cannot be null or empty.",
+                    Data = null
+                });
+            }
+
+            if (phieuNhapDto == null)
+            {
+                return BadRequest(new ApiResponse<string>
+                {
+                    Status = -1,
+                    Message = "Invalid input data.",
+                    Data = null
+                });
+            }
+
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                var result = await _service.UpdatePhieuNhapAsync(maPN, phieuNhapDto);
+                return result;
+            });
+
+            if (response.Data == null)
+            {
+                return NotFound(new ApiResponse<string>
+                {
+                    Status = -1,
+                    Message = "PhieuNhap not found.",
+                    Data = null
+                });
+            }
+
+            return Ok(response);
+        }
+
+        // DELETE: api/PhieuNhap/DeletePhieuNhap/{maPN}
+        [HttpDelete("DeletePhieuNhap/{maPN}")]
+        public async Task<IActionResult> DeletePhieuNhap(string maPN)
+        {
+            if (string.IsNullOrEmpty(maPN))
+            {
+                return BadRequest(new ApiResponse<string>
+                {
+                    Status = -1,
+                    Message = "MaPN cannot be null or empty.",
+                    Data = null
+                });
+            }
+
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                var result = await _service.DeletePhieuNhapAsync(maPN);
+                return result;
+            });
+
+            if (!(bool)response.Data!)
+            {
+                return NotFound(new ApiResponse<string>
+                {
+                    Status = -1,
+                    Message = "PhieuNhap not found.",
+                    Data = null
+                });
+            }
+
+            return Ok(new ApiResponse<string>
+            {
+                Status = 0,
+                Message = "PhieuNhap deleted successfully.",
+                Data = null
+            });
+        }
+
     }
 }

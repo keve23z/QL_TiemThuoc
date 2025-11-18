@@ -5,7 +5,7 @@ namespace BE_QLTiemThuoc.Model
     public class NhanVien
     {
     [Key]
-    public string MANV { get; set; } = string.Empty;
+    public string MaNV { get; set; } = string.Empty;
         public string? HoTen { get; set; }
         public DateTime? NgaySinh { get; set; }  // <- Có thể null
         public string? GioiTinh { get; set; }

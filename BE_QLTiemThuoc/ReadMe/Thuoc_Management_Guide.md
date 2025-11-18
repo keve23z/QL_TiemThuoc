@@ -63,18 +63,150 @@ Module này bao gồm các API quản lý danh mục thuốc, tồn kho, phân l
 
 **POST** `/api/Thuoc`
 
+Tạo thuốc mới. Server sẽ tự sinh `MaThuoc` (format: `T` + 9 ký tự hex, ví dụ `T4F2A1B3C`) và `MaGiaThuoc` cho các dòng giá nếu cung cấp.
+
 **Request Body (FormData):**
+- Gửi dữ liệu dưới dạng `multipart/form-data`.
+- Không cần gửi `MaThuoc` hoặc `MaGiaThuoc` — server sẽ xử lý.
+- Trường `GiaThuocs` là mảng các object, gửi bằng cách sử dụng chỉ số (ASP.NET model binder hỗ trợ).
+
+Ví dụ FormData fields:
 ```
-tenThuoc: Paracetamol
+tenThuoc: Aspirin
 maLoaiThuoc: LOAI001
-moTa: Thuốc giảm đau, hạ sốt
-hinhAnh: [file] (optional)
-trangThai: true
+moTa: Thuốc giảm đau
+thanhPhan: Acetylsalicylic acid
+congDung: Giảm đau, hạ sốt
+cachDung: Uống với nước
+luuY: Không dùng cho trẻ dưới 12 tuổi
+maNCC: NCC001
+fileAnh: [file] (optional, kích thước ≤ 5MB)
+GiaThuocs[0].MaLoaiDonVi: HOP
+GiaThuocs[0].SoLuong: 1
+GiaThuocs[0].DonGia: 15000
+GiaThuocs[0].TrangThai: true
+GiaThuocs[1].MaLoaiDonVi: VIEN
+GiaThuocs[1].SoLuong: 10
+GiaThuocs[1].DonGia: 2000
+GiaThuocs[1].TrangThai: true
+```
+
+**Response (thành công):**
+```json
+{
+  "status": 0,
+  "message": "Success",
+  "data": {
+    "maThuoc": "T4F2A1B3C",
+    "maLoaiThuoc": "LOAI001",
+    "tenThuoc": "Aspirin",
+    "thanhPhan": "Acetylsalicylic acid",
+    "moTa": "Thuốc giảm đau",
+    "congDung": "Giảm đau, hạ sốt",
+    "cachDung": "Uống với nước",
+    "luuY": "Không dùng cho trẻ dưới 12 tuổi",
+    "maNCC": "NCC001",
+    "urlAnh": "aspirin.jpg"
+  }
+}
 ```
 
 #### 1.10 Cập nhật thuốc
 
 **PUT** `/api/Thuoc/{id}`
+
+Cập nhật thuốc có `MaThuoc` = `{id}`. DTO không chứa `MaThuoc` — dùng route `id` làm định danh.
+
+Khi cập nhật `GiaThuocs`:
+- Server cố gắng khớp dòng giá hiện có theo `MaLoaiDonVi + SoLuong`.
+- Nếu khớp, cập nhật `DonGia` và `TrangThai`.
+- Nếu không khớp, tạo dòng giá mới với `MaGiaThuoc` sinh tự động.
+
+**Request Body (FormData):** Tương tự POST, nhưng không cần gửi tất cả trường — chỉ gửi những gì muốn cập nhật.
+
+Ví dụ FormData fields (cập nhật tên và giá):
+```
+tenThuoc: Aspirin 500mg
+GiaThuocs[0].MaLoaiDonVi: HOP
+GiaThuocs[0].SoLuong: 1
+GiaThuocs[0].DonGia: 16000
+GiaThuocs[0].TrangThai: true
+```
+
+**Response (thành công):**
+```json
+{
+  "status": 0,
+  "message": "Success",
+  "data": true
+}
+```
+
+### Ghi chú về POST / PUT
+
+- **Sinh mã tự động:** Client không gửi `MaThuoc` hoặc `MaGiaThuoc`. Server sinh `MaThuoc` duy nhất cho thuốc mới, và `MaGiaThuoc` cho mỗi dòng giá (format `GT{NNN}/{index}`, ví dụ `GT001/1`).
+- **FormData cho mảng:** Sử dụng `GiaThuocs[index].Property` để gửi mảng giá. Ví dụ: `GiaThuocs[0].MaLoaiDonVi`.
+- **Upload ảnh:** Gửi `fileAnh` nếu có file, hoặc `UrlAnh` nếu là URL. Server xử lý upload lên Cloudinary và lưu URL.
+- **PUT matching:** Cho giá, server match bằng `MaLoaiDonVi` và `SoLuong` để quyết định update hay create mới.
+- **Validation:** Đảm bảo `maLoaiThuoc` và `maNCC` tồn tại. File ảnh ≤ 5MB nếu upload.
+
+### Ví dụ client
+
+#### JavaScript (Fetch + FormData)
+
+```javascript
+// POST: Tạo thuốc mới
+const formData = new FormData();
+formData.append('tenThuoc', 'Aspirin');
+formData.append('maLoaiThuoc', 'LOAI001');
+formData.append('moTa', 'Thuốc giảm đau');
+formData.append('fileAnh', fileInput.files[0]); // optional
+
+// Append prices
+formData.append('GiaThuocs[0].MaLoaiDonVi', 'HOP');
+formData.append('GiaThuocs[0].SoLuong', '1');
+formData.append('GiaThuocs[0].DonGia', '15000');
+formData.append('GiaThuocs[0].TrangThai', 'true');
+
+const res = await fetch('/api/Thuoc', { method: 'POST', body: formData });
+const data = await res.json();
+// data.data.maThuoc sẽ là mã sinh tự động
+
+// PUT: Cập nhật thuốc
+const updateForm = new FormData();
+updateForm.append('tenThuoc', 'Aspirin 500mg');
+updateForm.append('GiaThuocs[0].DonGia', '16000');
+
+const putRes = await fetch(`/api/Thuoc/${maThuoc}`, { method: 'PUT', body: updateForm });
+const putData = await putRes.json();
+```
+
+#### PowerShell (Invoke-RestMethod)
+
+```powershell
+# POST: Tạo thuốc mới
+$form = @{
+  tenThuoc = 'Aspirin'
+  maLoaiThuoc = 'LOAI001'
+  moTa = 'Thuốc giảm đau'
+  'GiaThuocs[0].MaLoaiDonVi' = 'HOP'
+  'GiaThuocs[0].SoLuong' = '1'
+  'GiaThuocs[0].DonGia' = '15000'
+  'GiaThuocs[0].TrangThai' = 'true'
+  fileAnh = Get-Item .\aspirin.jpg  # optional
+}
+
+$result = Invoke-RestMethod -Uri "https://localhost:5001/api/Thuoc" -Method Post -Form $form -SkipCertificateCheck
+# $result.data.maThuoc
+
+# PUT: Cập nhật
+$updateForm = @{
+  tenThuoc = 'Aspirin 500mg'
+  'GiaThuocs[0].DonGia' = '16000'
+}
+
+$updateResult = Invoke-RestMethod -Uri "https://localhost:5001/api/Thuoc/$maThuoc" -Method Put -Form $updateForm -SkipCertificateCheck
+```
 
 #### 1.11 Xóa thuốc
 
@@ -217,8 +349,8 @@ const addResponse = await fetch('/api/Thuoc', {
 flowchart TD
     A[👨‍💼 Quản lý thuốc] --> B{💡 Muốn làm gì?}
     B -->|👀 Xem danh sách| C[📋 GET /api/Thuoc]
-    B -->|🔍 Xem chi tiết| D[💊 GET /api/Thuoc/{id}]
-    B -->|💰 Xem giá| E[💵 GET /api/Thuoc/{id}/GiaThuocs]
+    B -->|🔍 Xem chi tiết| D["💊 GET /api/Thuoc/{id}"]
+    B -->|💰 Xem giá| E["💵 GET /api/Thuoc/{id}/GiaThuocs"]
     B -->|➕ Thêm mới| F[📝 Nhập thông tin thuốc]
     B -->|✏️ Cập nhật| G[💊 Chọn thuốc cần sửa]
     B -->|🗑️ Xóa| H[💊 Chọn thuốc cần xóa]
@@ -226,8 +358,8 @@ flowchart TD
     D --> I
     E --> I
     F --> J[📤 POST /api/Thuoc]
-    G --> K[📤 PUT /api/Thuoc/{id}]
-    H --> L[📤 DELETE /api/Thuoc/{id}]
+    G --> K["📤 PUT /api/Thuoc/{id}"]
+    H --> L["📤 DELETE /api/Thuoc/{id}"]
     J --> M[🔍 Validate dữ liệu]
     K --> M
     L --> N[🔍 Kiểm tra tồn kho]
@@ -257,7 +389,7 @@ flowchart TD
     B -->|📋 Chưa tách lẻ| E[📦 GET /api/ThuocView/ChuaTachLe]
     B -->|🔢 Đã tách lẻ| F[📦 GET /api/ThuocView/DaTachLe]
     B -->|📊 Tổng hợp| G[📊 GET /api/ThuocView/TongSoLuongCon]
-    D --> H[📤 GET /api/Thuoc/ByLoaiTonKho/{maLoai}]
+    D --> H["📤 GET /api/Thuoc/ByLoaiTonKho/{maLoai}"]
     C --> I[🗄️ Query tồn kho]
     H --> I
     E --> I
@@ -284,7 +416,7 @@ flowchart TD
 flowchart TD
     A[👨‍💼 Quản lý danh mục] --> B{💡 Quản lý gì?}
     B -->|📁 Nhóm thuốc| C[📂 GET /api/NhomLoai]
-    B -->|🏷️ Loại thuốc| D[🏷️ GET /api/NhomLoai/Loai/{maNhom}]
+    B -->|🏷️ Loại thuốc| D["🏷️ GET /api/NhomLoai/Loai/{maNhom}"]
     B -->|📊 Nhóm + Loại| E[📊 GET /api/NhomLoai/WithLoai]
     C --> F[🗄️ Database]
     D --> F
