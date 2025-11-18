@@ -44,7 +44,7 @@ namespace BE_QLTiemThuoc.Services
                     pn.MaNCC,
                     pn.MaNV,
                     TenNCC = ctx.NhaCungCaps.Where(ncc => ncc.MaNCC == pn.MaNCC).Select(ncc => ncc.TenNCC).FirstOrDefault(),
-                    TenNV = ctx.Set<NhanVien>().Where(nv => nv.MANV == pn.MaNV).Select(nv => nv.HoTen).FirstOrDefault()
+                    TenNV = ctx.Set<NhanVien>().Where(nv => nv.MaNV == pn.MaNV).Select(nv => nv.HoTen).FirstOrDefault()
                 })
                 .ToListAsync();
 
@@ -297,7 +297,7 @@ namespace BE_QLTiemThuoc.Services
                     pn.GhiChu,
                     pn.MaNCC,
                     TenNCC = ctx.NhaCungCaps.Where(ncc => ncc.MaNCC == pn.MaNCC).Select(ncc => ncc.TenNCC).FirstOrDefault(),
-                    TenNV = ctx.Set<NhanVien>().Where(nv => nv.MANV == pn.MaNV).Select(nv => nv.HoTen).FirstOrDefault()
+                    TenNV = ctx.Set<NhanVien>().Where(nv => nv.MaNV == pn.MaNV).Select(nv => nv.HoTen).FirstOrDefault()
                 })
                 .FirstOrDefaultAsync();
 

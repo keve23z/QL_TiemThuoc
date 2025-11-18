@@ -96,7 +96,7 @@ namespace BE_QLTiemThuoc.Services
 
                 // determine MaNV to record on the phieu
                 var anyNv = await ctx2.Set<Model.NhanVien>().AsNoTracking().FirstOrDefaultAsync();
-                var maNVToRecord = anyNv?.MANV;
+                var maNVToRecord = anyNv?.MaNV;
                 if (string.IsNullOrEmpty(maNVToRecord)) throw new InvalidOperationException("No NhanVien found to attribute quick convert phieu.");
 
                 var targetDonVi = string.IsNullOrEmpty(maLoaiDonViMoi) ? "Viên" : maLoaiDonViMoi;
@@ -262,7 +262,7 @@ namespace BE_QLTiemThuoc.Services
                 if (string.IsNullOrEmpty(maNVToRecord))
                 {
                     var anyNv = await ctx.Set<Model.NhanVien>().AsNoTracking().FirstOrDefaultAsync();
-                    maNVToRecord = anyNv?.MANV;
+                    maNVToRecord = anyNv?.MaNV;
                 }
                 if (string.IsNullOrEmpty(maNVToRecord)) throw new InvalidOperationException("No MaNV provided and no NhanVien found in database to attribute the phieu.");
 

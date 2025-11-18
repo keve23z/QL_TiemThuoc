@@ -16,6 +16,7 @@ namespace BE_QLTiemThuoc.Data
         public DbSet<KhachHang> KhachHangs { get; set; }
         public DbSet<Thuoc> Thuoc { get; set; } // Add this DbSet for Thuoc
         public DbSet<NhaCungCap> NhaCungCaps { get; set; }
+        public DbSet<NhanVien> NhanViens { get; set; }
         public DbSet<LoaiThuoc> LoaiThuoc { get; set; }
         public DbSet<LoaiDonVi> LoaiDonVi { get; set; }
         public DbSet<NhomLoai> NhomLoai { get; set; }
@@ -36,6 +37,7 @@ namespace BE_QLTiemThuoc.Data
             modelBuilder.Entity<KhachHang>().ToTable("KhachHang");   
             modelBuilder.Entity<Thuoc>().ToTable("Thuoc");
             modelBuilder.Entity<NhaCungCap>().ToTable("NhaCungCap");
+            modelBuilder.Entity<NhanVien>().ToTable("NhanVien");
             modelBuilder.Entity<LoaiThuoc>().ToTable("LoaiThuoc");
             modelBuilder.Entity<LoaiDonVi>().ToTable("LoaiDonVi");
             modelBuilder.Entity<NhomLoai>().ToTable("NhomLoai");

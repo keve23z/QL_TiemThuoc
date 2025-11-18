@@ -52,7 +52,7 @@ namespace BE_QLTiemThuoc.Services
             }
         }
 
-    public async Task<object> GetTopLoaiThuocAsync()
+        public async Task<object> GetTopLoaiThuocAsync()
         {
             var ctx = _repo.Context;
             var thuocGroup = await ctx.Thuoc
@@ -83,6 +83,7 @@ namespace BE_QLTiemThuoc.Services
 
             return thongKeList;
         }
+
         public Task<object> GetThuocAsync()
         {
             return _repo.Context.Thuoc
@@ -111,37 +112,37 @@ namespace BE_QLTiemThuoc.Services
                     TongSoLuongCon = g.Sum(tk => tk.SoLuongCon)
                 });
 
-                var result = await grouped
-                    .Join(ctx.Thuoc,
-                          g => g.MaThuoc,
-                          t => t.MaThuoc,
-                          (g, t) => new
-                          {
-                              maThuoc = t.MaThuoc,
-                              maLoaiThuoc = t.MaLoaiThuoc,
-                              tenThuoc = t.TenThuoc,
-                              thanhPhan = t.ThanhPhan,
-                              moTa = t.MoTa,
-                              urlAnh = t.UrlAnh,
-                              tongSoLuongCon = g.TongSoLuongCon,
-                              // include only active GiaThuoc rows (TrangThai == true) for this Thuoc and compute available quantity per MaLoaiDonVi
-                              GiaThuocs = ctx.GiaThuocs
-                                            .Where(x => x.MaThuoc == t.MaThuoc && x.TrangThai)
-                                            .Select(x => new
-                                            {
-                                                x.MaGiaThuoc,
-                                                x.MaLoaiDonVi,
-                                                TenLoaiDonVi = ctx.Set<LoaiDonVi>().Where(d => d.MaLoaiDonVi == x.MaLoaiDonVi).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
-                                                x.SoLuong,
-                                                x.DonGia,
-                                                x.TrangThai,
-                                                SoLuongCon = ctx.TonKhos.Where(tk => tk.MaThuoc == t.MaThuoc && tk.MaLoaiDonViTinh == x.MaLoaiDonVi && tk.SoLuongCon > 0 && !tk.TrangThaiSeal).Sum(tk => (int?)tk.SoLuongCon) ?? 0
-                                            })
-                                            .ToList()
-                          })
-                    .Where(x => x.GiaThuocs.Count > 0)
-                    .OrderBy(x => x.tenThuoc)
-                    .ToListAsync();
+            var result = await grouped
+                .Join(ctx.Thuoc,
+                      g => g.MaThuoc,
+                      t => t.MaThuoc,
+                      (g, t) => new
+                      {
+                          maThuoc = t.MaThuoc,
+                          maLoaiThuoc = t.MaLoaiThuoc,
+                          tenThuoc = t.TenThuoc,
+                          thanhPhan = t.ThanhPhan,
+                          moTa = t.MoTa,
+                          urlAnh = t.UrlAnh,
+                          tongSoLuongCon = g.TongSoLuongCon,
+                          // include only active GiaThuoc rows (TrangThai == true) for this Thuoc and compute available quantity per MaLoaiDonVi
+                          GiaThuocs = ctx.GiaThuocs
+                                        .Where(x => x.MaThuoc == t.MaThuoc && x.TrangThai)
+                                        .Select(x => new
+                                        {
+                                            x.MaGiaThuoc,
+                                            x.MaLoaiDonVi,
+                                            TenLoaiDonVi = ctx.Set<LoaiDonVi>().Where(d => d.MaLoaiDonVi == x.MaLoaiDonVi).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
+                                            x.SoLuong,
+                                            x.DonGia,
+                                            x.TrangThai,
+                                            SoLuongCon = ctx.TonKhos.Where(tk => tk.MaThuoc == t.MaThuoc && tk.MaLoaiDonViTinh == x.MaLoaiDonVi && tk.SoLuongCon > 0 && !tk.TrangThaiSeal).Sum(tk => (int?)tk.SoLuongCon) ?? 0
+                                        })
+                                        .ToList()
+                      })
+                .Where(x => x.GiaThuocs.Count > 0)
+                .OrderBy(x => x.tenThuoc)
+                .ToListAsync();
 
             return result;
         }
@@ -235,19 +236,19 @@ namespace BE_QLTiemThuoc.Services
                     t.UrlAnh,
                     t.MaNCC,
                     TenNCC = ctx.NhaCungCaps.Where(n => n.MaNCC == t.MaNCC).Select(n => n.TenNCC).FirstOrDefault(),
-                        GiaThuocs = ctx.GiaThuocs
-                                    .Where(x => x.MaThuoc == t.MaThuoc)
-                                    .Select(x => new
-                                    {
-                                        x.MaGiaThuoc,
-                                        x.MaLoaiDonVi,
-                                        TenLoaiDonVi = ctx.Set<Model.Thuoc.LoaiDonVi>().Where(d => d.MaLoaiDonVi == x.MaLoaiDonVi).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
-                                        x.SoLuong,
-                                        x.DonGia,
-                                        x.TrangThai,
-                                        SoLuongCon = ctx.TonKhos.Where(tk => tk.MaThuoc == t.MaThuoc && tk.MaLoaiDonViTinh == x.MaLoaiDonVi && tk.SoLuongCon > 0 && !tk.TrangThaiSeal).Sum(tk => (int?)tk.SoLuongCon) ?? 0
-                                    })
-                                    .ToList()
+                    GiaThuocs = ctx.GiaThuocs
+                                .Where(x => x.MaThuoc == t.MaThuoc)
+                                .Select(x => new
+                                {
+                                    x.MaGiaThuoc,
+                                    x.MaLoaiDonVi,
+                                    TenLoaiDonVi = ctx.Set<LoaiDonVi>().Where(d => d.MaLoaiDonVi == x.MaLoaiDonVi).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
+                                    x.SoLuong,
+                                    x.DonGia,
+                                    x.TrangThai,
+                                    SoLuongCon = ctx.TonKhos.Where(tk => tk.MaThuoc == t.MaThuoc && tk.MaLoaiDonViTinh == x.MaLoaiDonVi && tk.SoLuongCon > 0 && !tk.TrangThaiSeal).Sum(tk => (int?)tk.SoLuongCon) ?? 0
+                                })
+                                .ToList()
                 })
                 .FirstOrDefaultAsync()
                 .ContinueWith(t => (object?)t.Result);
@@ -278,7 +279,6 @@ namespace BE_QLTiemThuoc.Services
             return _repo.Context.LoaiDonVi.ToListAsync();
         }
 
-        // Create
         public async Task<Thuoc> CreateThuocAsync(ThuocDto thuocDto, HttpRequest? request = null)
         {
             if (thuocDto == null) throw new ArgumentNullException(nameof(thuocDto));
@@ -287,7 +287,6 @@ namespace BE_QLTiemThuoc.Services
             string newMaThuoc;
             do
             {
-                // T + 9 hex chars from GUID => total length = 10
                 newMaThuoc = "T" + Guid.NewGuid().ToString("N").Substring(0, 9).ToUpper();
             } while (await _repo.AnyByMaThuocAsync(newMaThuoc));
 
@@ -371,7 +370,6 @@ namespace BE_QLTiemThuoc.Services
                 var urlToUse = !string.IsNullOrWhiteSpace(thuocDto?.UrlAnh) ? thuocDto.UrlAnh : providedUrlFromForm;
                 if (!string.IsNullOrWhiteSpace(urlToUse))
                 {
-                    // If client provided an absolute URL, keep it as-is (do not extract filename)
                     if (urlToUse.StartsWith("http://", StringComparison.OrdinalIgnoreCase) || urlToUse.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
                     {
                         imageUrl = urlToUse;
@@ -391,7 +389,6 @@ namespace BE_QLTiemThuoc.Services
                 TenThuoc = thuocDto?.TenThuoc ?? string.Empty,
                 ThanhPhan = thuocDto?.ThanhPhan ?? string.Empty,
                 MoTa = thuocDto?.MoTa ?? string.Empty,
-                // Note: unit/pricing moved to GIATHUOC; Thuoc table no longer stores MaLoaiDonVi/SoLuong
                 CongDung = thuocDto?.CongDung ?? string.Empty,
                 CachDung = thuocDto?.CachDung ?? string.Empty,
                 LuuY = thuocDto?.LuuY ?? string.Empty,
@@ -399,55 +396,49 @@ namespace BE_QLTiemThuoc.Services
                 UrlAnh = imageUrl ?? string.Empty
             };
 
-            await _repo.AddAsync(thuoc);
-            await _repo.SaveChangesAsync();
-
-            // If DTO provided GiaThuocs, create them
             var ctx = _repo.Context;
-            if (thuocDto.GiaThuocs?.Count > 0)
+            await using var tx = await ctx.Database.BeginTransactionAsync();
+            try
             {
-                // compute the current count once and increment in-memory to avoid generating duplicate MaGiaThuoc
-                var existingCount = await ctx.GiaThuocs.CountAsync(x => x.MaThuoc == thuoc.MaThuoc);
-                var nextIndex = existingCount + 1;
+                await _repo.AddAsync(thuoc);
+                await _repo.SaveChangesAsync();
 
-                // helper to build MaGiaThuoc in the format GT{NNN}/{index}
-                string BuildMaGiaThuoc(string baseMaThuoc, int idx)
+                if (thuocDto.GiaThuocs?.Count > 0)
                 {
-                    if (string.IsNullOrWhiteSpace(baseMaThuoc)) baseMaThuoc = "000";
-                    var digitMatch = Regex.Match(baseMaThuoc, "\\d+");
-                    string numPart;
-                    if (digitMatch.Success)
+                    var existingCount = await ctx.GiaThuocs.CountAsync(x => x.MaThuoc == thuoc.MaThuoc);
+                    var nextIndex = existingCount + 1;
+
+                    string BuildMaGiaThuoc(string baseMaThuoc, int idx)
                     {
-                        numPart = digitMatch.Value.PadLeft(3, '0');
+                        // Use GUID to ensure global uniqueness, 10 chars total
+                        return "GT" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper();
                     }
-                    else
+
+                    foreach (var g in thuocDto.GiaThuocs)
                     {
-                        var raw = baseMaThuoc.Length >= 3 ? baseMaThuoc.Substring(baseMaThuoc.Length - 3) : baseMaThuoc;
-                        raw = Regex.Replace(raw, "\\D", "0");
-                        numPart = raw.PadLeft(3, '0');
+                        var newMa = BuildMaGiaThuoc(newMaThuoc, nextIndex++);
+                        var newRow = new GiaThuoc
+                        {
+                            MaGiaThuoc = newMa,
+                            MaThuoc = newMaThuoc,
+                            MaLoaiDonVi = g.MaLoaiDonVi,
+                            SoLuong = g.SoLuong,
+                            DonGia = g.DonGia,
+                            TrangThai = g.TrangThai
+                        };
+                        await ctx.GiaThuocs.AddAsync(newRow);
                     }
-                    return $"GT{numPart}/{idx}";
+                    await ctx.SaveChangesAsync();
                 }
 
-                foreach (var g in thuocDto.GiaThuocs)
-                {
-                    // Create new GiaThuoc rows for the new Thuoc; server assigns MaGiaThuoc
-                    var newMa = BuildMaGiaThuoc(newMaThuoc, nextIndex++);
-                    var newRow = new GiaThuoc
-                    {
-                        MaGiaThuoc = newMa,
-                        MaThuoc = newMaThuoc,
-                        MaLoaiDonVi = g.MaLoaiDonVi,
-                        SoLuong = g.SoLuong,
-                        DonGia = g.DonGia,
-                        TrangThai = g.TrangThai
-                    };
-                    await ctx.GiaThuocs.AddAsync(newRow);
-                }
-                await ctx.SaveChangesAsync();
+                await tx.CommitAsync();
+                return thuoc;
             }
-
-            return thuoc;
+            catch
+            {
+                await tx.RollbackAsync();
+                throw;
+            }
         }
 
         // Update
@@ -515,26 +506,6 @@ namespace BE_QLTiemThuoc.Services
                     }
 
                     entity.UrlAnh = finalFileName;
-                    try
-                    {
-                        var beContentRoot = _env?.ContentRootPath;
-                        if (!string.IsNullOrEmpty(beContentRoot))
-                        {
-                            var solutionDir = Directory.GetParent(beContentRoot)?.FullName;
-                            if (!string.IsNullOrEmpty(solutionDir))
-                            {
-                                var feTargetDir = Path.Combine(solutionDir, "FE_QLTiemThuoc", "wwwroot", "assets_user", "img", "product");
-                                if (!Directory.Exists(feTargetDir)) Directory.CreateDirectory(feTargetDir);
-                                var feTargetPath = Path.Combine(feTargetDir, finalFileName);
-                                try { if (stream.CanSeek) stream.Seek(0, SeekOrigin.Begin); } catch { }
-                                using (var fs2 = new FileStream(feTargetPath, FileMode.Create, FileAccess.Write))
-                                {
-                                    stream.CopyTo(fs2);
-                                }
-                            }
-                        }
-                    }
-                    catch { }
                 }
             }
             else
@@ -603,20 +574,8 @@ namespace BE_QLTiemThuoc.Services
                 // helper to build MaGiaThuoc in the format GT{NNN}/{index}
                 string BuildMaGiaThuoc2(string baseMaThuoc, int idx)
                 {
-                    if (string.IsNullOrWhiteSpace(baseMaThuoc)) baseMaThuoc = "000";
-                    var digitMatch = Regex.Match(baseMaThuoc, "\\d+");
-                    string numPart;
-                    if (digitMatch.Success)
-                    {
-                        numPart = digitMatch.Value.PadLeft(3, '0');
-                    }
-                    else
-                    {
-                        var raw = baseMaThuoc.Length >= 3 ? baseMaThuoc.Substring(baseMaThuoc.Length - 3) : baseMaThuoc;
-                        raw = Regex.Replace(raw, "\\D", "0");
-                        numPart = raw.PadLeft(3, '0');
-                    }
-                    return $"GT{numPart}/{idx}";
+                    // Use GUID to ensure global uniqueness, 10 chars total
+                    return "GT" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper();
                 }
 
                 foreach (var g in thuocDto.GiaThuocs)
