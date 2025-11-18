@@ -283,21 +283,13 @@ namespace BE_QLTiemThuoc.Services
         {
             if (thuocDto == null) throw new ArgumentNullException(nameof(thuocDto));
 
-            // If client didn't provide MaThuoc, generate a unique one that starts with 'T'
-            if (string.IsNullOrWhiteSpace(thuocDto.MaThuoc))
+            // Server generates a unique MaThuoc for new medicines (clients don't send MaThuoc)
+            string newMaThuoc;
+            do
             {
-                string generated;
-                do
-                {
-                    // T + 9 hex chars from GUID => total length = 10
-                    generated = "T" + Guid.NewGuid().ToString("N").Substring(0, 9).ToUpper();
-                } while (await _repo.AnyByMaThuocAsync(generated));
-
-                thuocDto.MaThuoc = generated;
-            }
-
-            if (await _repo.AnyByMaThuocAsync(thuocDto.MaThuoc))
-                throw new Exception("Mã thuốc đã tồn tại.");
+                // T + 9 hex chars from GUID => total length = 10
+                newMaThuoc = "T" + Guid.NewGuid().ToString("N").Substring(0, 9).ToUpper();
+            } while (await _repo.AnyByMaThuocAsync(newMaThuoc));
 
             string? imageUrl = null;
             string? providedUrlFromForm = null;
@@ -394,7 +386,7 @@ namespace BE_QLTiemThuoc.Services
 
             var thuoc = new Thuoc
             {
-                MaThuoc = thuocDto?.MaThuoc ?? string.Empty,
+                MaThuoc = newMaThuoc,
                 MaLoaiThuoc = thuocDto?.MaLoaiThuoc ?? string.Empty,
                 TenThuoc = thuocDto?.TenThuoc ?? string.Empty,
                 ThanhPhan = thuocDto?.ThanhPhan ?? string.Empty,
@@ -439,25 +431,12 @@ namespace BE_QLTiemThuoc.Services
 
                 foreach (var g in thuocDto.GiaThuocs)
                 {
-                    // if MaGiaThuoc provided try update, otherwise create new
-                    if (!string.IsNullOrWhiteSpace(g.MaGiaThuoc))
-                    {
-                        var existing = await ctx.Set<GiaThuoc>().FindAsync(g.MaGiaThuoc);
-                        if (existing != null)
-                        {
-                            existing.MaLoaiDonVi = g.MaLoaiDonVi;
-                            existing.SoLuong = g.SoLuong;
-                            existing.DonGia = g.DonGia;
-                            existing.TrangThai = g.TrangThai;
-                            continue;
-                        }
-                    }
-
-                    var newMa = string.IsNullOrWhiteSpace(g.MaGiaThuoc) ? BuildMaGiaThuoc(thuoc.MaThuoc, nextIndex++) : g.MaGiaThuoc;
+                    // Create new GiaThuoc rows for the new Thuoc; server assigns MaGiaThuoc
+                    var newMa = BuildMaGiaThuoc(newMaThuoc, nextIndex++);
                     var newRow = new GiaThuoc
                     {
                         MaGiaThuoc = newMa,
-                        MaThuoc = thuoc.MaThuoc,
+                        MaThuoc = newMaThuoc,
                         MaLoaiDonVi = g.MaLoaiDonVi,
                         SoLuong = g.SoLuong,
                         DonGia = g.DonGia,
@@ -475,7 +454,7 @@ namespace BE_QLTiemThuoc.Services
         public async Task<bool> UpdateThuocAsync(string id, ThuocDto thuocDto, HttpRequest? request = null)
         {
             if (thuocDto == null) throw new ArgumentNullException(nameof(thuocDto));
-            if (id != thuocDto.MaThuoc) throw new Exception("Mã thuốc không khớp.");
+            // DTO no longer contains MaThuoc; use route `id` as the identifier for updates.
 
             var entity = await _repo.FindAsync(id);
             if (entity == null) throw new Exception("Không tìm thấy thuốc.");
@@ -642,20 +621,31 @@ namespace BE_QLTiemThuoc.Services
 
                 foreach (var g in thuocDto.GiaThuocs)
                 {
-                    if (!string.IsNullOrWhiteSpace(g.MaGiaThuoc))
+                    // Try to match an existing GiaThuoc by MaLoaiDonVi + SoLuong; if found update, otherwise create new
+                    var existing = await ctx.GiaThuocs.FirstOrDefaultAsync(x =>
+                        x.MaThuoc == entity.MaThuoc &&
+                        x.MaLoaiDonVi == g.MaLoaiDonVi &&
+                        x.SoLuong == g.SoLuong);
+
+                    if (existing != null)
                     {
-                        var existing = await ctx.GiaThuocs.FindAsync(g.MaGiaThuoc);
-                        if (existing != null)
-                        {
-                            existing.MaLoaiDonVi = g.MaLoaiDonVi;
-                            existing.SoLuong = g.SoLuong;
-                            existing.DonGia = g.DonGia;
-                            existing.TrangThai = g.TrangThai;
-                            continue;
-                        }
+                        existing.MaLoaiDonVi = g.MaLoaiDonVi;
+                        existing.SoLuong = g.SoLuong;
+                        existing.DonGia = g.DonGia;
+                        existing.TrangThai = g.TrangThai;
+                        continue;
                     }
 
-                    var newMa = string.IsNullOrWhiteSpace(g.MaGiaThuoc) ? BuildMaGiaThuoc2(entity.MaThuoc, nextIndex2++) : g.MaGiaThuoc;
+                    // Avoid adding duplicates if identical row already exists
+                    var isDuplicate = await ctx.GiaThuocs.AnyAsync(x =>
+                        x.MaThuoc == entity.MaThuoc &&
+                        x.MaLoaiDonVi == g.MaLoaiDonVi &&
+                        x.SoLuong == g.SoLuong);
+
+                    if (isDuplicate)
+                        continue;
+
+                    var newMa = BuildMaGiaThuoc2(entity.MaThuoc, nextIndex2++);
                     var newRow = new GiaThuoc
                     {
                         MaGiaThuoc = newMa,

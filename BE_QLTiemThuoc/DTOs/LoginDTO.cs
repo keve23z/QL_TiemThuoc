@@ -14,8 +14,13 @@ namespace BE_QLTiemThuoc.DTOs
     public class LoginResponse
     {
         public string Message { get; set; }
-        public string MaTK { get; set; }
-        public string TenDangNhap { get; set; }
-        public string Email { get; set; }
+        public string? MaTK { get; set; }
+        public string? TenDangNhap { get; set; }
+        public string? Email { get; set; }
+        public string? MaKH { get; set; }
+        public string? MaNV { get; set; }
+        public string? VaiTro { get; set; }
+        public bool HasCustomerInfo { get; set; }
+        public bool IsAdmin { get; set; }
     }
 }

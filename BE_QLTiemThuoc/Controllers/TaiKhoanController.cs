@@ -162,13 +162,88 @@ namespace BE_QLTiemThuoc.Controllers
             if (user.ISEMAILCONFIRMED == 0)
                 return BadRequest("Tài khoản chưa xác thực email.");
 
+            // Kiểm tra vai trò: Nếu có MaNV thì là Admin (Nhân viên)
+            bool isAdmin = !string.IsNullOrEmpty(user.MaNV);
+            bool hasCustomerInfo = false;
+            string vaiTro = "User";
+
+            // Nếu là Admin (có MaNV) - chuyển thẳng đến trang admin, không cần tạo mã khách hàng
+            if (isAdmin)
+            {
+                vaiTro = "Admin";
+                hasCustomerInfo = true; // Admin không cần nhập thông tin
+            }
+            else
+            {
+                // Nếu là User (không có MaNV) và chưa có MaKH, tự động tạo mã khách hàng
+                if (string.IsNullOrEmpty(user.MaKH))
+                {
+                    string newMaKH = GenerateKhachHangCode();
+
+                    // Gán MaKH vào TaiKhoan
+                    user.MaKH = newMaKH;
+                    _context.TaiKhoans.Update(user);
+
+                    // Tạo bản ghi KhachHang mới với thông tin rỗng
+                    var newKhachHang = new KhachHang
+                    {
+                        MAKH = newMaKH,
+                        HoTen = null,
+                        GioiTinh = null,
+                        NgaySinh = null,
+                        DiaChi = null,
+                        DienThoai = null
+                    };
+
+                    _context.KhachHangs.Add(newKhachHang);
+
+                    // Lưu cả MaKH vào bảng TaiKhoan và bản ghi KhachHang mới
+                    await _context.SaveChangesAsync();
+
+                    // Chưa điền thông tin nên hasCustomerInfo = false
+                    hasCustomerInfo = false;
+                }
+                else
+                {
+                    // Đã có MaKH, kiểm tra xem đã điền đầy đủ thông tin chưa
+                    var khachHang = await _context.KhachHangs.FirstOrDefaultAsync(k => k.MAKH == user.MaKH);
+                    if (khachHang != null)
+                    {
+                        // Kiểm tra các trường bắt buộc: HoTen, DienThoai, DiaChi
+                        hasCustomerInfo = !string.IsNullOrEmpty(khachHang.HoTen)
+                                       && !string.IsNullOrEmpty(khachHang.DienThoai)
+                                       && !string.IsNullOrEmpty(khachHang.DiaChi);
+                    }
+                    else
+                    {
+                        hasCustomerInfo = false;
+                    }
+                }
+            }
+
             return Ok(new LoginResponse
             {
                 Message = "Đăng nhập thành công",
                 MaTK = user.MaTK,
                 TenDangNhap = user.TenDangNhap,
-                Email = user.EMAIL
+                Email = user.EMAIL,
+                MaKH = user.MaKH,
+                MaNV = user.MaNV,
+                VaiTro = vaiTro,
+                HasCustomerInfo = hasCustomerInfo,
+                IsAdmin = isAdmin
             });
+        }
+
+        private string GenerateKhachHangCode()
+        {
+            var lastKhachHang = _context.KhachHangs
+                .OrderByDescending(k => k.MAKH)
+                .FirstOrDefault();
+
+            string lastCode = lastKhachHang?.MAKH ?? "KH0000";
+            int number = int.Parse(lastCode.Substring(2)) + 1;
+            return "KH" + number.ToString("D4");
         }
 
         // Gửi OTP về email khi quên mật khẩu
@@ -200,7 +275,7 @@ namespace BE_QLTiemThuoc.Controllers
                 EnableSsl = true,
                 Port = 587
             };
-            
+
             var mail = new MailMessage("khangtuong040@gmail.com", user.EMAIL)
             {
                 Subject = "Mã OTP đặt lại mật khẩu - Medion",
@@ -212,7 +287,7 @@ namespace BE_QLTiemThuoc.Controllers
                         <div style='background: #f8f9fa; padding: 20px; text-align: center; margin: 20px 0;'>
                             <h1 style='color: #17a2b8; margin: 0; font-size: 36px; letter-spacing: 5px;'>{otp}</h1>
                         </div>
-                        <p>Mã OTP có hiệu lực trong 5 phút.</p>
+<p>Mã OTP có hiệu lực trong 5 phút.</p>
                         <p>Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.</p>
                         <hr style='margin: 30px 0; border: none; border-top: 1px solid #ddd;'>
                         <p style='color: #6c757d; font-size: 12px;'>Đây là email tự động, vui lòng không trả lời.</p>
@@ -220,7 +295,7 @@ namespace BE_QLTiemThuoc.Controllers
                 ",
                 IsBodyHtml = true
             };
-            
+
             await smtp.SendMailAsync(mail);
 
             return Ok(new SendOtpResponse { Message = "OTP đã được gửi về email của bạn." });
@@ -249,5 +324,6 @@ namespace BE_QLTiemThuoc.Controllers
 
             return Ok(new ResetPasswordResponse { Message = "Đổi mật khẩu thành công. Vui lòng đăng nhập lại." });
         }
+
     }
 }
