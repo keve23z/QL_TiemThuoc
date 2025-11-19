@@ -1,4 +1,4 @@
-using BE_QLTiemThuoc.Services;
+﻿using BE_QLTiemThuoc.Services;
 using Microsoft.AspNetCore.Mvc;
 using BE_QLTiemThuoc.Dto;
 
@@ -115,9 +115,14 @@ namespace BE_QLTiemThuoc.Controllers
         }
 
         // PUT: api/PhieuNhap/UpdatePhieuNhap/{maPN}
-        [HttpPut("UpdatePhieuNhap/{maPN}")]
+        [HttpPut("UpdatePhieuNhap/{*maPN}")]
         public async Task<IActionResult> UpdatePhieuNhap(string maPN, [FromBody] PhieuNhapDto phieuNhapDto)
         {
+            // Decode lại maPN nếu có ký tự encode
+            maPN = Uri.UnescapeDataString(maPN);
+
+            Console.WriteLine("maPN sau decode: " + maPN);
+
             if (string.IsNullOrEmpty(maPN))
             {
                 return BadRequest(new ApiResponse<string>
@@ -158,9 +163,12 @@ namespace BE_QLTiemThuoc.Controllers
         }
 
         // DELETE: api/PhieuNhap/DeletePhieuNhap/{maPN}
-        [HttpDelete("DeletePhieuNhap/{maPN}")]
+        [HttpDelete("DeletePhieuNhap/{*maPN}")]
         public async Task<IActionResult> DeletePhieuNhap(string maPN)
         {
+            // Decode lại maPN nếu có ký tự encode
+            maPN = Uri.UnescapeDataString(maPN);
+
             if (string.IsNullOrEmpty(maPN))
             {
                 return BadRequest(new ApiResponse<string>

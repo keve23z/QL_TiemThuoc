@@ -4,7 +4,7 @@ namespace BE_QLTiemThuoc.Dto
 {
     public class GiaThuocDto
     {
-        // Note: MaGiaThuoc and MaThuoc removed from DTO; server generates/uses internal codes
+        public string? MaGiaThuoc { get; set; } = null!;
 
         [Required]
         public string MaLoaiDonVi { get; set; } = null!;
