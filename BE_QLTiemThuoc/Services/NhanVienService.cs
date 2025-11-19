@@ -18,5 +18,10 @@ namespace BE_QLTiemThuoc.Services
         {
             return await _repo.GetAllAsync();
         }
+
+        public async Task<NhanVien?> GetByIdAsync(string id)
+        {
+            return await _repo.GetByIdAsync(id);
+        }
     }
 }

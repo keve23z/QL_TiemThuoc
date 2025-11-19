@@ -92,6 +92,7 @@ namespace BE_QLTiemThuoc.Services
                     t.MaThuoc,
                     t.MaLoaiThuoc,
                     t.TenThuoc,
+                    t.ThanhPhan, 
                     t.MoTa,
                     t.UrlAnh,
                 })
@@ -560,51 +561,48 @@ namespace BE_QLTiemThuoc.Services
             var ctx = _repo.Context;
             if (thuocDto.GiaThuocs?.Any() == true)
             {
-                // if any incoming price row is active, deactivate existing rows first
-                if (thuocDto.GiaThuocs.Any(x => x.TrangThai))
+                // Lấy tất cả GiaThuoc hiện tại của thuốc
+                var allGiaThuoc = await ctx.GiaThuocs
+                    .Where(x => x.MaThuoc == entity.MaThuoc)
+                    .ToListAsync();
+
+                // Tạo danh sách các MaGiaThuoc từ client (chỉ những cái có MaGiaThuoc)
+                var inputMaGiaThuoc = thuocDto.GiaThuocs
+                    .Where(x => !string.IsNullOrEmpty(x.MaGiaThuoc))
+                    .Select(x => x.MaGiaThuoc)
+                    .ToHashSet();
+
+                // Xác định các GiaThuoc cần xóa (có trong DB nhưng không còn trong input)
+                var giaThuocToDelete = allGiaThuoc
+                    .Where(x => !inputMaGiaThuoc.Contains(x.MaGiaThuoc))
+                    .ToList();
+
+                // Xóa trực tiếp không kiểm tra liên kết
+                if (giaThuocToDelete.Any())
                 {
-                    var existingActive = ctx.GiaThuocs.Where(x => x.MaThuoc == entity.MaThuoc && x.TrangThai);
-                    await existingActive.ForEachAsync(x => x.TrangThai = false);
+                    ctx.GiaThuocs.RemoveRange(giaThuocToDelete);
+                    await ctx.SaveChangesAsync();
                 }
 
-                // compute existing count once to avoid duplicate MaGiaThuoc when adding multiple new rows
-                var existingCount2 = await ctx.GiaThuocs.CountAsync(x => x.MaThuoc == entity.MaThuoc);
-                var nextIndex2 = existingCount2 + 1;
-
-                // helper to build MaGiaThuoc in the format GT{NNN}/{index}
-                string BuildMaGiaThuoc2(string baseMaThuoc, int idx)
-                {
-                    // Use GUID to ensure global uniqueness, 10 chars total
-                    return "GT" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper();
-                }
-
+                // Cập nhật hoặc thêm mới các GiaThuoc từ input
                 foreach (var g in thuocDto.GiaThuocs)
                 {
-                    // Try to match an existing GiaThuoc by MaLoaiDonVi + SoLuong; if found update, otherwise create new
-                    var existing = await ctx.GiaThuocs.FirstOrDefaultAsync(x =>
-                        x.MaThuoc == entity.MaThuoc &&
-                        x.MaLoaiDonVi == g.MaLoaiDonVi &&
-                        x.SoLuong == g.SoLuong);
-
-                    if (existing != null)
+                    if (!string.IsNullOrEmpty(g.MaGiaThuoc))
                     {
-                        existing.MaLoaiDonVi = g.MaLoaiDonVi;
-                        existing.SoLuong = g.SoLuong;
-                        existing.DonGia = g.DonGia;
-                        existing.TrangThai = g.TrangThai;
-                        continue;
+                        // Cập nhật theo MaGiaThuoc
+                        var existing = allGiaThuoc.FirstOrDefault(x => x.MaGiaThuoc == g.MaGiaThuoc);
+                        if (existing != null)
+                        {
+                            existing.MaLoaiDonVi = g.MaLoaiDonVi;
+                            existing.SoLuong = g.SoLuong;
+                            existing.DonGia = g.DonGia;
+                            existing.TrangThai = g.TrangThai;
+                            continue;
+                        }
                     }
 
-                    // Avoid adding duplicates if identical row already exists
-                    var isDuplicate = await ctx.GiaThuocs.AnyAsync(x =>
-                        x.MaThuoc == entity.MaThuoc &&
-                        x.MaLoaiDonVi == g.MaLoaiDonVi &&
-                        x.SoLuong == g.SoLuong);
-
-                    if (isDuplicate)
-                        continue;
-
-                    var newMa = BuildMaGiaThuoc2(entity.MaThuoc, nextIndex2++);
+                    // Thêm mới nếu không có MaGiaThuoc hoặc không tìm thấy
+                    var newMa = "GT" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper();
                     var newRow = new GiaThuoc
                     {
                         MaGiaThuoc = newMa,
