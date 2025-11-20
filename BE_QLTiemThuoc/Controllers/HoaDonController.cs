@@ -22,7 +22,7 @@ namespace BE_QLTiemThuoc.Controllers
         {
             _ctx = ctx;
         }
-
+        //danh sách hoá đơn
         // GET: api/HoaDon/Search?from=2025-11-01&to=2025-11-07&status=3
         [HttpGet("Search")]
         public async Task<IActionResult> Search([FromQuery] DateTime? from, [FromQuery] DateTime? to, [FromQuery] int? status, [FromQuery] string? loai)
@@ -79,147 +79,7 @@ namespace BE_QLTiemThuoc.Controllers
             return Ok(response);
         }
 
-        // GET: api/HoaDon/ExportXlsx
-        // Exports same data as Export but returns an HTML-based Excel file (.xls) to avoid encoding problems when opening in Excel
-        [HttpGet("ExportXlsx")]
-        public async Task<IActionResult> ExportXlsx([FromQuery] DateTime? from, [FromQuery] DateTime? to, [FromQuery] int? status, [FromQuery] string? loai, [FromQuery] string? maNv)
-        {
-            try
-            {
-                if (from == null || to == null) return BadRequest(new { status = 0, message = "Cần cung cấp ngày 'from' và 'to'." });
-                var fromDate = from.Value.Date;
-                var toDate = to.Value.Date.AddDays(1).AddTicks(-1);
-                var culture = new CultureInfo("vi-VN");
-
-                var q = _ctx.HoaDons.AsQueryable();
-                q = q.Where(h => h.NgayLap >= fromDate && h.NgayLap <= toDate);
-                if (status != null) q = q.Where(h => h.TrangThaiGiaoHang == status.Value);
-                if (!string.IsNullOrEmpty(loai))
-                {
-                    if (loai.Equals("HDOL", StringComparison.OrdinalIgnoreCase)) q = q.Where(h => EF.Functions.Like(h.MaHD, "HDOL%"));
-                    else if (loai.Equals("HD", StringComparison.OrdinalIgnoreCase)) q = q.Where(h => EF.Functions.Like(h.MaHD, "HD%") && !EF.Functions.Like(h.MaHD, "HDOL%"));
-                }
-                // If maNv is provided, do NOT filter invoices by it. Instead capture the employee's name
-                // to show in the report header (user requested: "không select mã nhân viên cho điều kiện danh sách hoá đơn").
-                string? reportEmployeeName = null;
-                if (!string.IsNullOrWhiteSpace(maNv))
-                {
-                    var rep = await _ctx.Set<NhanVien>().FirstOrDefaultAsync(n => n.MaNV == maNv);
-                    if (rep != null) reportEmployeeName = rep.HoTen;
-                }
-
-                var list = await (from h in q
-                                   join kh in _ctx.KhachHangs on h.MaKH equals kh.MAKH into khGroup
-                                   from kh in khGroup.DefaultIfEmpty()
-                                   join nv in _ctx.Set<NhanVien>() on h.MaNV equals nv.MaNV into nvGroup
-                                   from nv in nvGroup.DefaultIfEmpty()
-                                   orderby h.NgayLap descending
-                                   select new
-                                   {
-                                       h.MaHD,
-                                       h.NgayLap,
-                                       h.MaKH,
-                                       TenKH = string.IsNullOrEmpty(kh.HoTen) ? h.MaKH : kh.HoTen,
-                                       DiaChiKH = kh.DiaChi,
-                                       DienThoaiKH = kh.DienThoai,
-                                       h.MaNV,
-                                       TenNV = nv.HoTen,
-                                       h.TongTien,
-                                       h.GhiChu,
-                                       h.TrangThaiGiaoHang,
-                                       TrangThaiGiaoHangName = (h.TrangThaiGiaoHang == -1) ? "Hủy" :
-                                                               (h.TrangThaiGiaoHang == 0) ? "Đã đặt" :
-                                                               (h.TrangThaiGiaoHang == 1) ? "Đã xác nhận" :
-                                                               (h.TrangThaiGiaoHang == 2) ? "Đã giao" :
-                                                               (h.TrangThaiGiaoHang == 3) ? "Đã nhận" : "Không xác định"
-                                   }).ToListAsync();
-
-                var sb = new StringBuilder();
-                sb.AppendLine("<html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\"/></head><body>");
-                // Title depends on invoice type filter 'loai'
-                string reportTitle;
-                if (!string.IsNullOrWhiteSpace(loai) && loai.Equals("HD", StringComparison.OrdinalIgnoreCase))
-                {
-                    reportTitle = $"BÁO CÁO HÓA ĐƠN MUA HÀNG TRỰC TIẾP TỪ NGÀY {fromDate:dd/MM/yyyy} ĐẾN {to.Value.Date:dd/MM/yyyy}";
-                }
-                else if (!string.IsNullOrWhiteSpace(loai) && loai.Equals("HDOL", StringComparison.OrdinalIgnoreCase))
-                {
-                    reportTitle = $"BÁO CÁO HÓA ĐƠN MUA HÀNG ONLINE TỪ NGÀY {fromDate:dd/MM/yyyy} ĐẾN {to.Value.Date:dd/MM/yyyy}";
-                }
-                else
-                {
-                    reportTitle = $"BÁO CÁO HÓA ĐƠN MUA HÀNG TỪ NGÀY {fromDate:dd/MM/yyyy} ĐẾN {to.Value.Date:dd/MM/yyyy}";
-                }
-
-                sb.AppendLine($"<h3>{System.Net.WebUtility.HtmlEncode(reportTitle)}</h3>");
-                sb.AppendLine($"<div>Thời gian xuất: {DateTime.Now:dd/MM/yyyy HH:mm:ss}</div>");
-                sb.AppendLine("<table border=\"1\" cellpadding=\"4\" cellspacing=\"0\">");
-                sb.AppendLine("<tr><th>MaHD</th><th>NgayLap</th><th>MaKH</th><th>TenKH</th><th>DiaChiKH</th><th>DienThoaiKH</th><th>MaNV</th><th>TenNV</th><th>TongTien</th><th>GhiChu</th><th>TrangThaiGiaoHangName</th></tr>");
-
-                if (!string.IsNullOrWhiteSpace(reportEmployeeName))
-                {
-                    sb.AppendLine($"<tr><td colspan=\"11\"><strong>Nhân viên xuất báo cáo:</strong> {System.Net.WebUtility.HtmlEncode(reportEmployeeName)}</td></tr>");
-                }
-
-                foreach (var it in list)
-                {
-                    sb.AppendLine("<tr>");
-                    sb.AppendLine($"<td>{System.Net.WebUtility.HtmlEncode(it.MaHD)}</td>");
-                    sb.AppendLine($"<td>{it.NgayLap:yyyy-MM-dd HH:mm}</td>");
-                    sb.AppendLine($"<td>{System.Net.WebUtility.HtmlEncode(it.MaKH)}</td>");
-                    sb.AppendLine($"<td>{System.Net.WebUtility.HtmlEncode(it.TenKH)}</td>");
-                    sb.AppendLine($"<td>{System.Net.WebUtility.HtmlEncode(it.DiaChiKH)}</td>");
-                    sb.AppendLine($"<td>{System.Net.WebUtility.HtmlEncode(it.DienThoaiKH)}</td>");
-                    sb.AppendLine($"<td>{System.Net.WebUtility.HtmlEncode(it.MaNV)}</td>");
-                    sb.AppendLine($"<td>{System.Net.WebUtility.HtmlEncode(it.TenNV)}</td>");
-                    sb.AppendLine($"<td>{Convert.ToInt64(Math.Round(it.TongTien))}</td>");
-                    sb.AppendLine($"<td>{System.Net.WebUtility.HtmlEncode(it.GhiChu)}</td>");
-                    sb.AppendLine($"<td>{System.Net.WebUtility.HtmlEncode(it.TrangThaiGiaoHangName)}</td>");
-                    sb.AppendLine("</tr>");
-                }
-
-                sb.AppendLine("</table>");
-
-                // Summary: total count, total amount, amount in words
-                var totalCount = list.Count;
-                var totalAmount = list.Sum(x => x.TongTien);
-                var totalAmountPlain = Convert.ToInt64(Math.Round(totalAmount)).ToString();
-                var totalInWords = NumberToVietnameseWords(Convert.ToInt64(Math.Round(totalAmount))) ?? string.Empty;
-                if (string.IsNullOrWhiteSpace(totalInWords))
-                {
-                    totalInWords = "Không đồng.";
-                }
-                else
-                {
-                    totalInWords = char.ToUpper(totalInWords[0]) + (totalInWords.Length > 1 ? totalInWords.Substring(1) : string.Empty) + " đồng.";
-                }
-
-                sb.AppendLine("<br/>");
-                sb.AppendLine("<table border=\"0\" cellpadding=\"2\" cellspacing=\"0\">\n<tr>");
-                sb.AppendLine($"<td><strong>Số lượng hoá đơn xuất:</strong> {totalCount}</td>");
-                sb.AppendLine($"<td style=\"padding-left:40px\"><strong>Tổng tiền:</strong> {System.Net.WebUtility.HtmlEncode(totalAmountPlain)}</td>");
-                sb.AppendLine("</tr>");
-                sb.AppendLine("<tr>");
-                sb.AppendLine($"<td colspan=\"2\"><strong>Bằng chữ:</strong> {System.Net.WebUtility.HtmlEncode(totalInWords)}</td>");
-                sb.AppendLine("</tr>");
-                sb.AppendLine("</table>");
-
-                // Signature block (right aligned)
-                sb.AppendLine("<br/><br/>");
-                sb.AppendLine("<div style=\"width:100%;display:flex;justify-content:flex-end;\">\n<div style=\"text-align:center;\">\n<p>Ký tên</p>\n<br/><br/>\n<p>______________________</p>\n</div>\n</div>");
-
-                sb.AppendLine("</body></html>");
-
-                var fileName = $"Bao_cao_hoa_don_{fromDate:yyyyMMdd}_{to.Value.Date:yyyyMMdd}.xls";
-                var bytes = Encoding.UTF8.GetPreamble().Concat(Encoding.UTF8.GetBytes(sb.ToString())).ToArray();
-                return File(bytes, "application/vnd.ms-excel; charset=utf-8", fileName);
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, new { status = 0, message = "Đã xảy ra lỗi máy chủ: " + ex.Message });
-            }
-        }
-
+        // chi tiết hoá đơn
         // GET: api/HoaDonChiTiet/{maHd}
         [HttpGet("ChiTiet/{maHd}")]
         public async Task<IActionResult> GetChiTiet(string maHd)
@@ -246,7 +106,8 @@ namespace BE_QLTiemThuoc.Controllers
                                           h.TongTien,
                                           h.GhiChu,
                                           h.TrangThaiGiaoHang,
-                                          TrangThaiGiaoHangName = (h.TrangThaiGiaoHang == -1) ? "Hủy" :
+                                          // Treat any of -1, -2, -3 as cancelled (Hủy)
+                                          TrangThaiGiaoHangName = (h.TrangThaiGiaoHang == -1 || h.TrangThaiGiaoHang == -2 || h.TrangThaiGiaoHang == -3) ? "Hủy" :
                                                                   (h.TrangThaiGiaoHang == 0) ? "Đã đặt" :
                                                                   (h.TrangThaiGiaoHang == 1) ? "Đã xác nhận" :
                                                                   (h.TrangThaiGiaoHang == 2) ? "Đã giao" :
@@ -274,6 +135,8 @@ namespace BE_QLTiemThuoc.Controllers
                                        ct.DonGia,
                                        ct.ThanhTien,
                                        HanSuDung = ct.HanSuDung,
+                                       TrangThaiXuLy = ct.TrangThaiXuLy,
+                                       TrangThaiXuLyName = (ct.TrangThaiXuLy == true) ? "Đã xử lý" : "Chưa xử lý",
                                        ct.MaLD,
                                        MaThuoc = ct.MaThuoc ?? (ton != null ? ton.MaThuoc : null),
                                        TenThuoc = thuoc != null ? thuoc.TenThuoc : null,
@@ -288,7 +151,7 @@ namespace BE_QLTiemThuoc.Controllers
 
             return Ok(response);
         }
-
+        // chi tiết tóm tắt hoá đơn
         // GET: api/HoaDon/ChiTiet/Summary/{maHd}
         // Returns grouped summary per MaThuoc and MaLD for a given invoice
         [HttpGet("ChiTiet/Summary/{maHd}")]
@@ -344,7 +207,7 @@ namespace BE_QLTiemThuoc.Controllers
                                           h.TongTien,
                                           h.GhiChu,
                                           h.TrangThaiGiaoHang,
-                                          TrangThaiGiaoHangName = (h.TrangThaiGiaoHang == -1) ? "Hủy" :
+                                          TrangThaiGiaoHangName = (h.TrangThaiGiaoHang == -1 || h.TrangThaiGiaoHang == -2 || h.TrangThaiGiaoHang == -3) ? "Hủy" :
                                                                   (h.TrangThaiGiaoHang == 0) ? "Đã đặt" :
                                                                   (h.TrangThaiGiaoHang == 1) ? "Đã xác nhận" :
                                                                   (h.TrangThaiGiaoHang == 2) ? "Đã giao" :
@@ -357,6 +220,7 @@ namespace BE_QLTiemThuoc.Controllers
 
             return Ok(response);
         }
+        // danh sách hoá đơn theo khách hàng
         // GET: api/HoaDon/HistoryByKhachHang/{maKh}
         // Returns historical invoices for a customer where TrangThaiGiaoHang is -1 (cancelled) or 3 (received)
         [HttpGet("HistoryByKhachHang/{maKh}")]
@@ -366,9 +230,9 @@ namespace BE_QLTiemThuoc.Controllers
             {
                 if (string.IsNullOrWhiteSpace(maKh)) throw new ArgumentException("maKh is required");
 
-                // Historical: cancelled (-1) or received (3)
+                // Historical: cancelled (-1, -2, -3) or received (3)
                 var history = await (from h in _ctx.HoaDons
-                                     where h.MaKH == maKh && (h.TrangThaiGiaoHang == -1 || h.TrangThaiGiaoHang == 3)
+                                     where h.MaKH == maKh && (h.TrangThaiGiaoHang == -1 || h.TrangThaiGiaoHang == -2 || h.TrangThaiGiaoHang == -3 || h.TrangThaiGiaoHang == 3)
                                      join nv in _ctx.Set<NhanVien>() on h.MaNV equals nv.MaNV into nvGroup
                                      from nv in nvGroup.DefaultIfEmpty()
                                      orderby h.NgayLap descending
@@ -379,6 +243,8 @@ namespace BE_QLTiemThuoc.Controllers
                                          h.TongTien,
                                          h.GhiChu,
                                          h.TrangThaiGiaoHang,
+                                         TrangThaiGiaoHangName = (h.TrangThaiGiaoHang == -1 || h.TrangThaiGiaoHang == -2 || h.TrangThaiGiaoHang == -3) ? "Hủy" :
+                                                                    (h.TrangThaiGiaoHang == 3) ? "Đã nhận" : "Không xác định",
                                          h.MaNV,
                                          TenNV = nv.HoTen
                                      })
@@ -397,6 +263,9 @@ namespace BE_QLTiemThuoc.Controllers
                                          h.TongTien,
                                          h.GhiChu,
                                          h.TrangThaiGiaoHang,
+                                         TrangThaiGiaoHangName = (h.TrangThaiGiaoHang == 0) ? "Đã đặt" :
+                                                                  (h.TrangThaiGiaoHang == 1) ? "Đã xác nhận" :
+                                                                  (h.TrangThaiGiaoHang == 2) ? "Đã giao" : "Không xác định",
                                          h.MaNV,
                                          TenNV = nv.HoTen
                                      })
@@ -407,6 +276,7 @@ namespace BE_QLTiemThuoc.Controllers
 
             return Ok(response);
         }
+        //tạo hoá đơn trực tiếp
         // POST: api/HoaDon/Create
         [HttpPost("Create")]
         public async Task<IActionResult> Create([FromBody] HoaDonCreateDto dto)
@@ -508,7 +378,8 @@ namespace BE_QLTiemThuoc.Controllers
                                     MaLD = item.MaLD,
                                     MaLoaiDonVi = donVi,
                                     MaThuoc = tk.MaThuoc
-                                        ,HanSuDung = requestedHsd
+                                            ,HanSuDung = requestedHsd
+                                            ,TrangThaiXuLy = true
                             };
                             await _ctx.Set<ChiTietHoaDon>().AddAsync(cthd);
 
@@ -575,7 +446,7 @@ namespace BE_QLTiemThuoc.Controllers
 
             return Ok(response);
         }
-
+        // tạo hoá đơn online
           // POST: api/HoaDon/CreateOnline
         // Similar to Create but for online orders:
         // - MaHD starts with 'HDOL'
@@ -646,6 +517,7 @@ namespace BE_QLTiemThuoc.Controllers
                             MaLoaiDonVi = string.IsNullOrWhiteSpace(item.DonVi) ? null : item.DonVi.Trim(),
                             MaThuoc = string.IsNullOrWhiteSpace(item.MaThuoc) ? null : item.MaThuoc.Trim()
                             ,HanSuDung = null
+                            ,TrangThaiXuLy = true
                         };
                         await _ctx.Set<ChiTietHoaDon>().AddAsync(cthd);
 
@@ -712,7 +584,7 @@ namespace BE_QLTiemThuoc.Controllers
 
         
         // NOTE: UpdateItems endpoint removed per user request — ConfirmOnline will directly allocate lots like direct Create.
-
+        //gửi hoá đơn cho khách hàng qua email
         // POST: api/HoaDon/SendToCustomer/{maHd}
         // Body: pass only invoice id (maHd) as route parameter
         [HttpPost("SendToCustomer/{maHd}")]
@@ -767,8 +639,8 @@ namespace BE_QLTiemThuoc.Controllers
                 // Build professional pharmacy invoice (matching real-world pharmacy design)
                 var customerName = kh != null && !string.IsNullOrWhiteSpace(kh.HoTen) ? kh.HoTen : invoice.MaKH;
                 var nv = await _ctx.Set<NhanVien>().FirstOrDefaultAsync(n => n.MaNV == invoice.MaNV);
-                // compute status display name
-                string statusName = (invoice.TrangThaiGiaoHang == -1) ? "Hủy" :
+                // compute status display name (treat -1/-2/-3 as Hủy)
+                string statusName = (invoice.TrangThaiGiaoHang == -1 || invoice.TrangThaiGiaoHang == -2 || invoice.TrangThaiGiaoHang == -3) ? "Hủy" :
                                     (invoice.TrangThaiGiaoHang == 0) ? "Đã đặt" :
                                     (invoice.TrangThaiGiaoHang == 1) ? "Đã xác nhận" :
                                     (invoice.TrangThaiGiaoHang == 2) ? "Đã giao" :
@@ -859,7 +731,7 @@ namespace BE_QLTiemThuoc.Controllers
 <body>
     <div class='invoice-container' style='{containerStyle}'>
         <div class='header' style='{headerStyle}'>
-            <h1>🏥 NHÀ THUỐC MELON</h1>
+            <h1>🏥 NHÀ THUỐC MELiON</h1>
             <h2>HÓA ĐƠN BÁN THUỐC</h2>
         </div>
         
@@ -1104,7 +976,7 @@ namespace BE_QLTiemThuoc.Controllers
 
             return string.Join(" ", parts).Trim().Replace("  ", " ");
         }
-        
+        // xác nhận hoá đơn online
         // POST: api/HoaDon/ConfirmOnline
         // Body: { MaHD, MaNV, Items: [{ MaThuoc, DonVi, SoLuong, DonGia, MaLD, HanSuDung }] }
         // This confirms an online order: assigns lots, decrements stock, saves requested HanSuDung and MaLD,
@@ -1208,7 +1080,8 @@ namespace BE_QLTiemThuoc.Controllers
                                 MaLD = string.IsNullOrWhiteSpace(item.MaLD) ? null : item.MaLD,
                                 MaLoaiDonVi = string.IsNullOrWhiteSpace(item.DonVi) ? null : item.DonVi.Trim(),
                                 MaThuoc = tk.MaThuoc,
-                                HanSuDung = requestedHsd
+                                HanSuDung = requestedHsd,
+                                TrangThaiXuLy = true
                             };
                             await _ctx.Set<ChiTietHoaDon>().AddAsync(cthd);
 
@@ -1264,9 +1137,8 @@ namespace BE_QLTiemThuoc.Controllers
 
             return Ok(response);
         }
-
+        //  cập nhật chi tiết hoá đơn
         // PUT: api/HoaDon/UpdateDetails
-        // Body: { MaHD, Items: [{ MaCTHD, HanSuDung, MaLD }] }
         // Upsert HanSuDung and MaLD on ChiTietHoaDon rows for a given invoice (PUT allows insert/update semantics).
         [HttpPut("UpdateDetails")]
         public async Task<IActionResult> UpdateDetails([FromBody] UpdateHoaDonDetailsDto dto)
@@ -1275,87 +1147,186 @@ namespace BE_QLTiemThuoc.Controllers
             {
                 if (dto == null) throw new ArgumentNullException(nameof(dto));
                 if (string.IsNullOrWhiteSpace(dto.MaHD)) throw new ArgumentException("MaHD is required.");
-                if (dto.Items == null || dto.Items.Count == 0) throw new ArgumentException("Items are required.");
+                if (dto.Items == null) dto.Items = new List<UpdateChiTietHoaDonItemDto>();
 
                 // Validate invoice exists
                 var hd = await _ctx.HoaDons.FirstOrDefaultAsync(h => h.MaHD == dto.MaHD);
                 if (hd == null) throw new KeyNotFoundException($"Hoá đơn '{dto.MaHD}' không tồn tại.");
 
-                // Prepare existing lines map (for items that provide MaCTHD)
-                var ids = dto.Items.Where(i => !string.IsNullOrWhiteSpace(i.MaCTHD)).Select(i => i.MaCTHD).ToList();
-                var existingLines = new List<ChiTietHoaDon>();
-                if (ids.Count > 0)
+                await using var tx = await _ctx.Database.BeginTransactionAsync();
+                try
                 {
-                    existingLines = await _ctx.ChiTietHoaDons.Where(ct => ct.MaHD == dto.MaHD && ids.Contains(ct.MaCTHD)).ToListAsync();
-                }
+                    if (!string.IsNullOrWhiteSpace(dto.MaKH)) hd.MaKH = dto.MaKH.Trim();
+                    if (!string.IsNullOrWhiteSpace(dto.MaNV)) hd.MaNV = dto.MaNV.Trim();
+                    if (!string.IsNullOrWhiteSpace(dto.GhiChu)) hd.GhiChu = dto.GhiChu.Trim();
 
-                // generator for MaCTHD for new inserted lines
-                string GenMaCtHd() => "CTHD" + DateTime.Now.ToString("yyyyMMddHHmmss") + new Random().Next(10, 99).ToString();
+                    var existingDetails = await _ctx.ChiTietHoaDons.Where(ct => ct.MaHD == dto.MaHD).ToListAsync();
 
-                // Upsert: update existing lines, insert new ones when MaCTHD missing or not found
-                foreach (var upd in dto.Items)
-                {
-                    ChiTietHoaDon? line = null;
-                    if (!string.IsNullOrWhiteSpace(upd.MaCTHD))
+                    var incomingIds = dto.Items.Where(i => !string.IsNullOrWhiteSpace(i.MaCTHD)).Select(i => i.MaCTHD).ToHashSet();
+
+                    var toRemove = existingDetails.Where(e => string.IsNullOrWhiteSpace(e.MaCTHD) ? false : !incomingIds.Contains(e.MaCTHD)).ToList();
+                    foreach (var rem in toRemove)
                     {
-                        line = existingLines.FirstOrDefault(l => l.MaCTHD == upd.MaCTHD);
+                        if (!string.IsNullOrWhiteSpace(rem.MaLo))
+                        {
+                            var tk = await _ctx.TonKhos.FirstOrDefaultAsync(t => t.MaLo == rem.MaLo);
+                            if (tk != null)
+                            {
+                                tk.SoLuongCon += rem.SoLuong;
+                                _ctx.TonKhos.Update(tk);
+                            }
+                        }
+                        _ctx.Set<ChiTietHoaDon>().Remove(rem);
                     }
 
-                    if (line != null)
+                    string GenMaCtHd() => "CTHD" + DateTime.Now.ToString("yyyyMMddHHmmss") + new Random().Next(10, 99).ToString();
+
+                    decimal computedTotal = 0m;
+
+                    foreach (var itm in dto.Items)
                     {
-                        // update provided fields
-                        if (upd.HanSuDung != null) line.HanSuDung = upd.HanSuDung;
-                        line.MaLD = string.IsNullOrWhiteSpace(upd.MaLD) ? null : upd.MaLD.Trim();
-                        if (!string.IsNullOrWhiteSpace(upd.DonVi)) line.MaLoaiDonVi = upd.DonVi.Trim();
-                        if (!string.IsNullOrWhiteSpace(upd.MaThuoc)) line.MaThuoc = upd.MaThuoc.Trim();
-                        if (upd.SoLuong != null) line.SoLuong = upd.SoLuong.Value;
-                        if (upd.DonGia != null) line.DonGia = upd.DonGia.Value;
-                        // recompute ThanhTien if DonGia and SoLuong are available
-                        line.ThanhTien = (line.DonGia) * (line.SoLuong);
+                        if (!string.IsNullOrWhiteSpace(itm.MaCTHD))
+                        {
+                            var existing = existingDetails.FirstOrDefault(e => e.MaCTHD == itm.MaCTHD);
+                            if (existing == null) throw new KeyNotFoundException($"Chi tiết '{itm.MaCTHD}' không tồn tại trên hoá đơn.");
+
+                            existing.HanSuDung = itm.HanSuDung ?? existing.HanSuDung;
+                            existing.MaLD = string.IsNullOrWhiteSpace(itm.MaLD) ? existing.MaLD : itm.MaLD.Trim();
+
+                            if (itm.SoLuong != null || itm.DonGia != null)
+                            {
+                                var newQty = itm.SoLuong ?? existing.SoLuong;
+                                var newPrice = itm.DonGia ?? existing.DonGia;
+                                var delta = newQty - existing.SoLuong;
+
+                                if (delta != 0 && !string.IsNullOrWhiteSpace(existing.MaLo))
+                                {
+                                    var tk = await _ctx.TonKhos.FirstOrDefaultAsync(t => t.MaLo == existing.MaLo);
+                                    if (tk == null) throw new KeyNotFoundException($"Lot '{existing.MaLo}' không tồn tại khi điều chỉnh số lượng.");
+
+                                    if (delta > 0)
+                                    {
+                                        if (tk.SoLuongCon < delta) throw new InvalidOperationException($"Kho lô {tk.MaLo} không đủ để tăng thêm {delta} đơn vị.");
+                                        tk.SoLuongCon -= delta;
+                                    }
+                                    else
+                                    {
+                                        tk.SoLuongCon += (-delta);
+                                    }
+                                    _ctx.TonKhos.Update(tk);
+                                }
+
+                                existing.SoLuong = newQty;
+                                existing.DonGia = newPrice;
+                                existing.ThanhTien = existing.DonGia * existing.SoLuong;
+                            }
+
+                            computedTotal += existing.ThanhTien;
+                        }
+                        else
+                        {
+                            // New insertion: must provide MaThuoc, SoLuong, DonGia
+                            if (string.IsNullOrWhiteSpace(itm.MaThuoc)) throw new ArgumentException("MaThuoc is required for new invoice detail items.");
+                            if (itm.SoLuong == null || itm.SoLuong <= 0) throw new ArgumentException($"SoLuong must be provided and > 0 for MaThuoc '{itm.MaThuoc}'.");
+                            if (itm.DonGia == null || itm.DonGia < 0) throw new ArgumentException($"DonGia must be provided for MaThuoc '{itm.MaThuoc}'.");
+
+                            var maThuoc = itm.MaThuoc.Trim();
+                            var donVi = string.IsNullOrWhiteSpace(itm.DonVi) ? null : itm.DonVi.Trim();
+                            var requestedHsd = itm.HanSuDung;
+
+                            // Allocate lots from TonKho (FIFO by HanSuDung) with row locks
+                            List<Model.Kho.TonKho> candidateLots;
+                            if (!string.IsNullOrEmpty(donVi))
+                            {
+                                var sql = "SELECT * FROM TON_KHO WITH (UPDLOCK, ROWLOCK) WHERE MaThuoc = {0} AND MaLoaiDonViTinh = {1} AND SoLuongCon > 0" + (requestedHsd.HasValue ? " AND HanSuDung >= {2} ORDER BY HanSuDung" : " ORDER BY HanSuDung");
+                                if (requestedHsd.HasValue)
+                                    candidateLots = await _ctx.TonKhos.FromSqlRaw(sql, maThuoc, donVi, requestedHsd.Value).AsTracking().ToListAsync();
+                                else
+                                    candidateLots = await _ctx.TonKhos.FromSqlRaw(sql, maThuoc, donVi).AsTracking().ToListAsync();
+                            }
+                            else
+                            {
+                                var sql = "SELECT * FROM TON_KHO WITH (UPDLOCK, ROWLOCK) WHERE MaThuoc = {0} AND SoLuongCon > 0" + (requestedHsd.HasValue ? " AND HanSuDung >= {1} ORDER BY HanSuDung" : " ORDER BY HanSuDung");
+                                if (requestedHsd.HasValue)
+                                    candidateLots = await _ctx.TonKhos.FromSqlRaw(sql, maThuoc, requestedHsd.Value).AsTracking().ToListAsync();
+                                else
+                                    candidateLots = await _ctx.TonKhos.FromSqlRaw(sql, maThuoc).AsTracking().ToListAsync();
+                            }
+
+                            var totalAvailable = candidateLots.Sum(l => l.SoLuongCon);
+                            if (totalAvailable < itm.SoLuong.Value)
+                            {
+                                throw new InvalidOperationException($"Hàng thuốc {maThuoc} trong kho không đủ. Yêu cầu {itm.SoLuong}, có {totalAvailable}.");
+                            }
+
+                            int remaining = itm.SoLuong.Value;
+                            // consume lots in FIFO by nearest expiry: fully deplete current lot before moving to next
+                            foreach (var tk in candidateLots)
+                            {
+                                if (remaining <= 0) break;
+                                var take = Math.Min(remaining, tk.SoLuongCon);
+                                if (take <= 0) continue;
+
+                                tk.SoLuongCon -= take;
+
+                                var cthd = new ChiTietHoaDon
+                                {
+                                    MaCTHD = GenMaCtHd(),
+                                    MaHD = dto.MaHD,
+                                    MaLo = tk.MaLo,
+                                    SoLuong = take,
+                                    DonGia = itm.DonGia.Value,
+                                    ThanhTien = itm.DonGia.Value * take,
+                                    MaLD = string.IsNullOrWhiteSpace(itm.MaLD) ? null : itm.MaLD.Trim(),
+                                    MaLoaiDonVi = donVi,
+                                    MaThuoc = tk.MaThuoc,
+                                    HanSuDung = requestedHsd,
+                                    TrangThaiXuLy = true
+                                };
+                                await _ctx.Set<ChiTietHoaDon>().AddAsync(cthd);
+                                _ctx.TonKhos.Update(tk);
+
+                                computedTotal += cthd.ThanhTien;
+                                remaining -= take;
+                            }
+                        }
+                    }
+
+                    if (dto.TongTien != null)
+                    {
+                        hd.TongTien = dto.TongTien.Value;
                     }
                     else
                     {
-                        // insert new line - require essential fields
-                        if (string.IsNullOrWhiteSpace(upd.MaThuoc)) throw new ArgumentException("MaThuoc is required for new invoice detail items.");
-                        if (upd.SoLuong == null || upd.SoLuong <= 0) throw new ArgumentException($"SoLuong must be provided and > 0 for MaThuoc '{upd.MaThuoc}'.");
-                        if (upd.DonGia == null || upd.DonGia < 0) throw new ArgumentException($"DonGia must be provided for MaThuoc '{upd.MaThuoc}'.");
-
-                        var newLine = new ChiTietHoaDon
-                        {
-                            MaCTHD = GenMaCtHd(),
-                            MaHD = dto.MaHD,
-                            MaLo = null,
-                            MaThuoc = upd.MaThuoc.Trim(),
-                            MaLoaiDonVi = string.IsNullOrWhiteSpace(upd.DonVi) ? null : upd.DonVi.Trim(),
-                            SoLuong = upd.SoLuong.Value,
-                            DonGia = upd.DonGia.Value,
-                            ThanhTien = upd.DonGia.Value * upd.SoLuong.Value,
-                            MaLD = string.IsNullOrWhiteSpace(upd.MaLD) ? null : upd.MaLD.Trim(),
-                            HanSuDung = upd.HanSuDung
-                        };
-                        await _ctx.Set<ChiTietHoaDon>().AddAsync(newLine);
+                        hd.TongTien = await _ctx.ChiTietHoaDons.Where(ct => ct.MaHD == dto.MaHD).SumAsync(ct => ct.ThanhTien);
                     }
+
+                    await _ctx.SaveChangesAsync();
+                    await tx.CommitAsync();
+
+                    var details = await _ctx.ChiTietHoaDons
+                        .Where(ct => ct.MaHD == dto.MaHD)
+                        .Select(ct => new
+                        {
+                            ct.MaCTHD,
+                            ct.MaHD,
+                            ct.MaLo,
+                            ct.SoLuong,
+                            ct.DonGia,
+                            ct.ThanhTien,
+                            ct.HanSuDung,
+                            ct.MaLD,
+                            ct.MaLoaiDonVi,
+                            ct.TrangThaiXuLy
+                        }).ToListAsync();
+
+                    return (object)new { Invoice = new { hd.MaHD, hd.NgayLap, hd.MaKH, hd.MaNV, hd.TongTien, hd.GhiChu, hd.TrangThaiGiaoHang }, Items = details };
                 }
-
-                await _ctx.SaveChangesAsync();
-
-                // Return updated lines for the invoice
-                var details = await _ctx.ChiTietHoaDons
-                    .Where(ct => ct.MaHD == dto.MaHD)
-                    .Select(ct => new
-                    {
-                        ct.MaCTHD,
-                        ct.MaHD,
-                        ct.MaLo,
-                        ct.SoLuong,
-                        ct.DonGia,
-                        ct.ThanhTien,
-                        ct.HanSuDung,
-                        ct.MaLD,
-                        ct.MaLoaiDonVi
-                    }).ToListAsync();
-
-                return (object)new { Invoice = new { hd.MaHD, hd.NgayLap, hd.MaKH, hd.MaNV, hd.TongTien, hd.GhiChu, hd.TrangThaiGiaoHang }, Items = details };
+                catch
+                {
+                    await tx.RollbackAsync();
+                    throw;
+                }
             });
 
             return Ok(response);
@@ -1375,7 +1346,24 @@ namespace BE_QLTiemThuoc.Controllers
                 var hd = await _ctx.HoaDons.FirstOrDefaultAsync(h => h.MaHD == dto.MaHD);
                 if (hd == null) throw new KeyNotFoundException($"Hoá đơn '{dto.MaHD}' không tồn tại.");
 
+                var originalStatus = hd.TrangThaiGiaoHang;
                 hd.TrangThaiGiaoHang = dto.TrangThaiGiaoHang;
+                if (dto.TrangThaiGiaoHang == -1 && originalStatus != 0)
+                {
+                    var detailsToUpdate = await _ctx.ChiTietHoaDons
+                        .Where(ct => ct.MaHD == dto.MaHD && ct.TrangThaiXuLy == true)
+                        .ToListAsync();
+
+                    if (detailsToUpdate.Count > 0)
+                    {
+                        foreach (var d in detailsToUpdate)
+                        {
+                            d.TrangThaiXuLy = false;
+                        }
+                        _ctx.Set<ChiTietHoaDon>().UpdateRange(detailsToUpdate);
+                    }
+                }
+
                 await _ctx.SaveChangesAsync();
 
                 return new { hd.MaHD, hd.TrangThaiGiaoHang };

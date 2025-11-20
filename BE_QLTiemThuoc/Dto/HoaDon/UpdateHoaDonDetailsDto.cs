@@ -7,6 +7,11 @@ namespace BE_QLTiemThuoc.Dto
     {
         public string? MaHD { get; set; }
 
+        public string? MaKH { get; set; }
+        public string? MaNV { get; set; }
+        public string? GhiChu { get; set; }
+        public decimal? TongTien { get; set; }
+
         public List<UpdateChiTietHoaDonItemDto>? Items { get; set; }
     }
 
@@ -17,7 +22,6 @@ namespace BE_QLTiemThuoc.Dto
         public DateTime? HanSuDung { get; set; }
 
         public string? MaLD { get; set; }
-        // optional fields to allow updating or inserting new details
         public string? MaThuoc { get; set; }
         public string? DonVi { get; set; }
         public int? SoLuong { get; set; }
