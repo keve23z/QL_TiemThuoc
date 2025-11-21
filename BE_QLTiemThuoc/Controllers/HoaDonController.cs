@@ -1347,20 +1347,34 @@ namespace BE_QLTiemThuoc.Controllers
                 if (hd == null) throw new KeyNotFoundException($"Hoá đơn '{dto.MaHD}' không tồn tại.");
 
                 var originalStatus = hd.TrangThaiGiaoHang;
-                hd.TrangThaiGiaoHang = dto.TrangThaiGiaoHang;
-                if (dto.TrangThaiGiaoHang == -1 && originalStatus != 0)
-                {
-                    var detailsToUpdate = await _ctx.ChiTietHoaDons
-                        .Where(ct => ct.MaHD == dto.MaHD && ct.TrangThaiXuLy == true)
-                        .ToListAsync();
 
-                    if (detailsToUpdate.Count > 0)
+                // Special rule: if the invoice is transitioning from "placed" (0) to "cancelled" (-1),
+                // we treat it as "-3: chưa hoàn tất xử lý huỷ" because the invoice never had lots allocated
+                // and therefore its chi tiết don't need to be marked as un-processed. Do not flip ChiTietHoaDon.TrangThaiXuLy.
+                if (dto.TrangThaiGiaoHang == -1 && originalStatus == 0)
+                {
+                    hd.TrangThaiGiaoHang = -3; // not fully processed cancellation
+                }
+                else
+                {
+                    // apply requested status
+                    hd.TrangThaiGiaoHang = dto.TrangThaiGiaoHang;
+
+                    // if moving to cancelled (-1) from a non-placed state, then mark previously-processed details as un-processed
+                    if (dto.TrangThaiGiaoHang == -1 && originalStatus != 0)
                     {
-                        foreach (var d in detailsToUpdate)
+                        var detailsToUpdate = await _ctx.ChiTietHoaDons
+                            .Where(ct => ct.MaHD == dto.MaHD && ct.TrangThaiXuLy == true)
+                            .ToListAsync();
+
+                        if (detailsToUpdate.Count > 0)
                         {
-                            d.TrangThaiXuLy = false;
+                            foreach (var d in detailsToUpdate)
+                            {
+                                d.TrangThaiXuLy = false;
+                            }
+                            _ctx.Set<ChiTietHoaDon>().UpdateRange(detailsToUpdate);
                         }
-                        _ctx.Set<ChiTietHoaDon>().UpdateRange(detailsToUpdate);
                     }
                 }
 

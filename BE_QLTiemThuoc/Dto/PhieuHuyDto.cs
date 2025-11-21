@@ -27,9 +27,14 @@ namespace BE_QLTiemThuoc.Dto
         [Range(0.01, double.MaxValue, ErrorMessage = "Số lượng hủy phải lớn hơn 0")]
         public decimal SoLuongHuy { get; set; }
 
+        // Đơn giá (tùy chọn) để tính ThanhTien khi cập nhật/nhập liệu
+        public decimal? DonGia { get; set; }
+
         [Required]
         [StringLength(500, ErrorMessage = "Lý do hủy không được vượt quá 500 ký tự")]
         public string LyDoHuy { get; set; } = null!;
+        // Nếu true => hủy vào kho (trả về tồn kho), false => hủy bình thường
+        public bool? LoaiHuy { get; set; }
 
         public string? GhiChu { get; set; }
 

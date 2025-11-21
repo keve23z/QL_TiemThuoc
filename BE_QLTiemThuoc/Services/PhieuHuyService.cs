@@ -14,9 +14,33 @@ namespace BE_QLTiemThuoc.Services
             _repo = repo;
         }
 
-        public async Task<List<PhieuHuy>> GetByDateRangeAsync(DateTime startDate, DateTime endDate)
+        public async Task<List<object>> GetByDateRangeAsync(DateTime startDate, DateTime endDate, bool? loaiHuy = null)
         {
-            return await _repo.GetByDateRangeAsync(startDate, endDate);
+            var phieuHuys = await _repo.GetByDateRangeAsync(startDate, endDate, loaiHuy);
+
+            // collect MaNV to fetch names
+            var maNvs = phieuHuys.Select(p => p.MaNV).Distinct().Where(m => !string.IsNullOrEmpty(m)).ToList();
+            var nvMap = await _repo.GetNhanVienNamesAsync(maNvs);
+
+            var result = phieuHuys.Select(p => new
+            {
+                p.MaPH,
+                p.NgayHuy,
+                LoaiHuy = p.LoaiHuy,
+                LoaiHuyName = p.LoaiHuy == true ? "Hủy từ hóa đơn" : "Hủy từ kho",
+                p.MaNV,
+                NhanVienName = nvMap.ContainsKey(p.MaNV) ? nvMap[p.MaNV] : null,
+                p.MaHD,
+                p.TongMatHangHuy,
+                p.TongSoLuongHuy,
+                p.TongTienHuy,
+                p.TongTienKho,
+                p.TongTien,
+                p.GhiChu,
+                ChiTietCount = p.ChiTietPhieuHuys?.Count ?? 0
+            }).ToList<object>();
+
+            return result;
         }
 
         private async Task UpdateHoaDonStatusAfterHuyAsync(string maHD)
@@ -47,17 +71,12 @@ namespace BE_QLTiemThuoc.Services
             // Lấy tổng số lượng trong hóa đơn
             var hoaDon = await _repo.GetHoaDonByIdAsync(maHD);
             if (hoaDon == null) return false;
+            // Lấy trực tiếp các chi tiết hóa đơn và kiểm tra cờ TrangThaiXuLy
+            var chiTietHoaDon = await _repo.GetChiTietHoaDonByMaHDAsync(maHD);
+            if (chiTietHoaDon == null || !chiTietHoaDon.Any()) return false;
 
-            // Lấy tất cả chi tiết hóa đơn (giả sử có thể truy vấn được)
-            // Đây là logic giả định - cần điều chỉnh theo cấu trúc thực tế của database
-
-            // Tạm thời: Kiểm tra tổng số lượng đã hủy >= tổng số lượng trong hóa đơn
-            // Logic thực tế cần truy vấn ChiTietHoaDon để lấy tổng số lượng gốc
-
-            var tongSoLuongHoaDon = await GetTongSoLuongHoaDonAsync(maHD);
-            var tongSoLuongDaHuy = await GetTongSoLuongDaHuyAsync(maHD);
-
-            return tongSoLuongDaHuy >= tongSoLuongHoaDon;
+            // Trả về true nếu mọi chi tiết đã có TrangThaiXuLy = true
+            return chiTietHoaDon.All(ct => ct.TrangThaiXuLy == true);
         }
 
         private async Task<int> GetTongSoLuongHoaDonAsync(string maHD)
@@ -69,9 +88,9 @@ namespace BE_QLTiemThuoc.Services
         {
             // Logic lấy tổng số lượng đã hủy từ các phiếu hủy liên quan
             var phieuHuys = await _repo.GetByDateRangeAsync(DateTime.MinValue, DateTime.MaxValue);
-            var relatedPhieuHuys = phieuHuys.Where(p => p.LoaiHuy == "HOADON" && p.MaHD == maHD).ToList();
+            var relatedPhieuHuys = phieuHuys.Where(p => p.LoaiHuy == true && p.MaHD == maHD).ToList();
 
-            return (int)relatedPhieuHuys.Sum(p => p.TongSoLuongHuy);
+            return relatedPhieuHuys.Sum(p => p.TongSoLuongHuy ?? 0);
         }
 
         public async Task<object> HuyHoaDonAsync(HuyHoaDonDto dto)
@@ -195,6 +214,44 @@ namespace BE_QLTiemThuoc.Services
                 };
 
                 phieuHuyResult = await CreatePhieuHuyAsync(phieuHuyDto);
+
+                // Nếu hủy theo hóa đơn thì đánh dấu các chi tiết hóa đơn tương ứng là đã xử lý (TrangThaiXuLy = true)
+                try
+                {
+                    var processedMaLos2 = phieuHuyDto.ChiTietPhieuHuys.Select(x => x.MaLo).Where(m => !string.IsNullOrEmpty(m)).Distinct().ToList();
+                    var affectedCthd2 = chiTietHoaDon.Where(ct => !string.IsNullOrEmpty(ct.MaLo) && processedMaLos2.Contains(ct.MaLo)).ToList();
+                    if (affectedCthd2.Any())
+                    {
+                        foreach (var c in affectedCthd2)
+                        {
+                            c.TrangThaiXuLy = true;
+                        }
+                        await _repo.UpdateChiTietHoaDonRangeAsync(affectedCthd2);
+                    }
+                }
+                catch
+                {
+                    // swallow exceptions here to avoid breaking the main flow; consider logging
+                }
+
+                // Nếu hủy theo hóa đơn thì đánh dấu các chi tiết hóa đơn tương ứng là đã xử lý (TrangThaiXuLy = true)
+                try
+                {
+                    var processedMaLos = phieuHuyDto.ChiTietPhieuHuys.Select(x => x.MaLo).Where(m => !string.IsNullOrEmpty(m)).Distinct().ToList();
+                    var affectedCthd = chiTietHoaDon.Where(ct => !string.IsNullOrEmpty(ct.MaLo) && processedMaLos.Contains(ct.MaLo)).ToList();
+                    if (affectedCthd.Any())
+                    {
+                        foreach (var c in affectedCthd)
+                        {
+                            c.TrangThaiXuLy = true;
+                        }
+                        await _repo.UpdateChiTietHoaDonRangeAsync(affectedCthd);
+                    }
+                }
+                catch
+                {
+                    // swallow exceptions here to avoid breaking the main flow; consider logging
+                }
             }
 
             // Cập nhật trạng thái hóa đơn sau khi xử lý
@@ -222,20 +279,46 @@ namespace BE_QLTiemThuoc.Services
             var phieuHuy = await _repo.GetByIdAsync(maPH);
             if (phieuHuy == null) return null;
 
-            // Lấy thông tin chi tiết với join
+            // Fetch employee name
+            var nvMap = await _repo.GetNhanVienNamesAsync(new List<string> { phieuHuy.MaNV });
+            var nhanVienName = nvMap.ContainsKey(phieuHuy.MaNV) ? nvMap[phieuHuy.MaNV] : null;
+
+            // Project phieu info
+            var phieuInfo = new
+            {
+                phieuHuy.MaPH,
+                phieuHuy.NgayHuy,
+                phieuHuy.MaNV,
+                NhanVienName = nhanVienName,
+                phieuHuy.MaHD,
+                phieuHuy.TongMatHangHuy,
+                phieuHuy.TongSoLuongHuy,
+                phieuHuy.TongTienHuy,
+                phieuHuy.TongTienKho,
+                phieuHuy.TongTien,
+                phieuHuy.GhiChu,
+                LoaiHuy = phieuHuy.LoaiHuy,
+                LoaiHuyName = phieuHuy.LoaiHuy == true ? "Hủy từ hóa đơn" : "Hủy từ kho"
+            };
+
+            // Project detail items with extra fields
             var chiTiet = phieuHuy.ChiTietPhieuHuys.Select(ct => new
             {
+                ct.MaCTPH,
                 ct.MaLo,
                 ct.SoLuongHuy,
+                ct.DonGia,
+                ct.ThanhTien,
                 ct.LyDoHuy,
                 ct.GhiChu,
-                // Thông tin từ TonKho với include Thuoc
+                LoaiHuy = ct.LoaiHuy,
+                LoaiHuyName = ct.LoaiHuy ? "Hủy vào kho" : "Hủy bình thường",
                 TenThuoc = ct.TonKho?.Thuoc?.TenThuoc,
                 HanSuDung = ct.TonKho?.HanSuDung,
                 DonViTinh = ct.TonKho?.MaLoaiDonViTinh
             }).ToList();
 
-            return new { PhieuHuy = phieuHuy, ChiTiet = chiTiet };
+            return new { PhieuHuy = phieuInfo, ChiTiet = chiTiet };
         }
 
         public async Task<object> HuyTuKhoAsync(HuyTuKhoDto dto)
@@ -471,9 +554,9 @@ namespace BE_QLTiemThuoc.Services
                 MaPH = GenerateMaPhieuHuy(),
                 NgayHuy = DateTime.Now,
                 MaNV = phieuHuyDto.MaNV,
-                LoaiHuy = phieuHuyDto.LoaiHuy,
+                LoaiHuy = phieuHuyDto.LoaiHuy?.ToUpper() == "HOADON" ? true : (phieuHuyDto.LoaiHuy?.ToUpper() == "KHO" ? false : (bool?)null),
                 MaHD = phieuHuyDto.MaHD,
-                TongSoLuongHuy = (decimal)phieuHuyDto.ChiTietPhieuHuys.Sum(c => c.SoLuongHuy)
+                TongSoLuongHuy = phieuHuyDto.ChiTietPhieuHuys.Sum(c => (int)c.SoLuongHuy)
             };
 
             // Tạo chi tiết phiếu hủy
@@ -486,22 +569,44 @@ namespace BE_QLTiemThuoc.Services
                     throw new ArgumentException($"Lô thuốc {chiTiet.MaLo} không tồn tại trong kho");
                 }
 
-                if (tonKho.SoLuongCon < chiTiet.SoLuongHuy)
-                {
-                    throw new ArgumentException($"Không đủ số lượng lô {chiTiet.MaLo} trong kho");
-                }
+                // Determine per-detail LoaiHuy: true => return to stock (add), false/null => normal (subtract/destroy)
+                var detailLoaiHuy = chiTiet.LoaiHuy ?? false;
 
-                // Giảm số lượng trong kho
-                tonKho.SoLuongCon -= (int)chiTiet.SoLuongHuy;
+                    // If the whole phieu is from HOADON (phieuHuy.LoaiHuy == true), do not subtract stock for normal cancels
+                    var phieuIsFromHoaDon = phieuHuy.LoaiHuy == true;
+                    if (detailLoaiHuy)
+                    {
+                        // Return to stock: increase available quantity
+                        tonKho.SoLuongCon += (int)chiTiet.SoLuongHuy;
+                    }
+                    else
+                    {
+                        // Normal cancel: only reduce stock when the phieu is not from HoaDon
+                        if (!phieuIsFromHoaDon)
+                        {
+                            if (tonKho.SoLuongCon < chiTiet.SoLuongHuy)
+                            {
+                                throw new ArgumentException($"Không đủ số lượng lô {chiTiet.MaLo} trong kho");
+                            }
+
+                            tonKho.SoLuongCon -= (int)chiTiet.SoLuongHuy;
+                        }
+                        // else: phieu from HoaDon -> do not subtract (already subtracted when selling)
+                    }
+
                 await _repo.UpdateTonKhoAsync(tonKho);
 
                 chiTietPhieuHuyList.Add(new ChiTietPhieuHuy
                 {
+                    MaCTPH = GenerateMaChiTietPhieuHuy(),
                     MaPH = phieuHuy.MaPH,
                     MaLo = chiTiet.MaLo,
-                    SoLuongHuy = (decimal)chiTiet.SoLuongHuy,
+                    SoLuongHuy = (int)chiTiet.SoLuongHuy,
+                        DonGia = 0m, // Removed DonGia usage
+                        ThanhTien = 0m, // Removed ThanhTien calculation
                     LyDoHuy = chiTiet.LyDoHuy,
-                    GhiChu = chiTiet.GhiChu
+                    GhiChu = chiTiet.GhiChu,
+                    LoaiHuy = detailLoaiHuy
                 });
             }
 
@@ -516,6 +621,194 @@ namespace BE_QLTiemThuoc.Services
                 TongSoLuongHuy = phieuHuy.TongSoLuongHuy,
                 Message = "Tạo phiếu hủy thành công"
             };
+        }
+
+        public async Task<object> UpdatePhieuHuyAsync(string maPH, PhieuHuyDto phieuHuyDto)
+        {
+            // Load existing PhieuHuy
+            var existing = await _repo.GetByIdAsync(maPH);
+            if (existing == null) throw new ArgumentException($"PhieuHuy {maPH} not found");
+
+            // Revert stock effects from existing details
+            var existingDetails = existing.ChiTietPhieuHuys.ToList();
+            var existingPhieuIsFromHoaDon = existing.LoaiHuy == true;
+            foreach (var old in existingDetails)
+            {
+                var ton = await _repo.GetTonKhoByMaLoAsync(old.MaLo);
+                if (ton == null) continue; // nothing we can do
+
+                // Revert logic depends on whether the original phieu was HOADON
+                if (existingPhieuIsFromHoaDon)
+                {
+                    // For HOADON phieu, we only changed stock for details where LoaiHuy == true (we returned to stock)
+                    // So to revert we must subtract the previously added quantity; if LoaiHuy == false there was no subtraction earlier.
+                    if (old.LoaiHuy)
+                    {
+                        ton.SoLuongCon -= old.SoLuongHuy;
+                        await _repo.UpdateTonKhoAsync(ton);
+                    }
+                }
+                else
+                {
+                    // For KHO phieu, we applied either addition (old.LoaiHuy==true) or subtraction (old.LoaiHuy==false)
+                    if (old.LoaiHuy)
+                    {
+                        // was added, so subtract to revert
+                        ton.SoLuongCon -= old.SoLuongHuy;
+                    }
+                    else
+                    {
+                        // was subtracted, so add back
+                        ton.SoLuongCon += old.SoLuongHuy;
+                    }
+                    await _repo.UpdateTonKhoAsync(ton);
+                }
+            }
+
+            // Remove old details
+            await _repo.DeleteChiTietPhieuHuyByMaPHAsync(maPH);
+
+            // Update PhieuHuy header fields
+            existing.MaNV = phieuHuyDto.MaNV;
+            // convert LoaiHuy string -> bool? same as Create
+            existing.LoaiHuy = phieuHuyDto.LoaiHuy?.ToUpper() == "HOADON" ? true : (phieuHuyDto.LoaiHuy?.ToUpper() == "KHO" ? false : (bool?)null);
+            existing.MaHD = phieuHuyDto.MaHD;
+            existing.GhiChu = phieuHuyDto.GhiChu;
+
+            // Create new details and apply stock impact
+            var newDetails = new List<ChiTietPhieuHuy>();
+            foreach (var dto in phieuHuyDto.ChiTietPhieuHuys)
+            {
+                var tonKho = await _repo.GetTonKhoByMaLoAsync(dto.MaLo);
+                if (tonKho == null) throw new ArgumentException($"TonKho {dto.MaLo} not found");
+
+                var detailLoaiHuy = dto.LoaiHuy ?? false;
+                var newPhieuIsFromHoaDon = phieuHuyDto.LoaiHuy?.ToUpper() == "HOADON";
+
+                if (detailLoaiHuy)
+                {
+                    // return to stock
+                    tonKho.SoLuongCon += (int)dto.SoLuongHuy;
+                    await _repo.UpdateTonKhoAsync(tonKho);
+                }
+                else
+                {
+                    // only subtract when the new phieu is not from HoaDon
+                    if (!newPhieuIsFromHoaDon)
+                    {
+                        if (tonKho.SoLuongCon < dto.SoLuongHuy)
+                            throw new ArgumentException($"Not enough stock in {dto.MaLo} to apply update");
+
+                        tonKho.SoLuongCon -= (int)dto.SoLuongHuy;
+                        await _repo.UpdateTonKhoAsync(tonKho);
+                    }
+                    // else: new phieu is from HoaDon -> do not subtract
+                }
+
+                newDetails.Add(new ChiTietPhieuHuy
+                {
+                    MaCTPH = GenerateMaChiTietPhieuHuy(),
+                    MaPH = existing.MaPH,
+                    MaLo = dto.MaLo,
+                    SoLuongHuy = (int)dto.SoLuongHuy,
+                    DonGia = dto.DonGia ?? 0m,
+                    ThanhTien = (dto.DonGia ?? 0m) * (int)dto.SoLuongHuy,
+                    LyDoHuy = dto.LyDoHuy,
+                    GhiChu = dto.GhiChu,
+                    LoaiHuy = detailLoaiHuy
+                });
+            }
+
+            // Save header and details
+            existing.TongMatHangHuy = newDetails.Count;
+            existing.TongSoLuongHuy = newDetails.Sum(x => x.SoLuongHuy);
+            existing.TongTienHuy = newDetails.Where(x => !x.LoaiHuy).Sum(x => x.ThanhTien);
+            existing.TongTienKho = newDetails.Where(x => x.LoaiHuy).Sum(x => x.ThanhTien);
+            existing.TongTien = (existing.TongTienHuy ?? 0m) + (existing.TongTienKho ?? 0m);
+
+            await _repo.UpdatePhieuHuyAsync(existing);
+            if (newDetails.Any()) await _repo.AddChiTietRangeAsync(newDetails);
+
+            // If PhieuHuy linked to HoaDon, update ChiTietHoaDon.TrangThaiXuLy for matched MaLo
+            if (!string.IsNullOrEmpty(existing.MaHD))
+            {
+                var chiTietHoaDon = await _repo.GetChiTietHoaDonByMaHDAsync(existing.MaHD);
+                if (chiTietHoaDon != null && chiTietHoaDon.Any())
+                {
+                    var processedMaLos = newDetails.Select(d => d.MaLo).Distinct().ToList();
+                    var affected = chiTietHoaDon.Where(ct => !string.IsNullOrEmpty(ct.MaLo) && processedMaLos.Contains(ct.MaLo)).ToList();
+                    foreach (var c in affected)
+                    {
+                        c.TrangThaiXuLy = true;
+                    }
+                    await _repo.UpdateChiTietHoaDonRangeAsync(affected);
+
+                    // After updating detail flags, update HoaDon.TrangThaiGiaoHang
+                    await UpdateHoaDonStatusAfterHuyAsync(existing.MaHD!);
+                }
+            }
+
+            return new { Message = "Cập nhật phiếu hủy thành công", PhieuHuy = existing };
+        }
+
+        public async Task<object> DeletePhieuHuyAsync(string maPH)
+        {
+            var existing = await _repo.GetByIdAsync(maPH);
+            if (existing == null) throw new ArgumentException($"PhieuHuy {maPH} not found");
+
+            // Revert stock effects based on stored details and phieu type
+            var existingDetails = existing.ChiTietPhieuHuys.ToList();
+            foreach (var old in existingDetails)
+            {
+                var ton = await _repo.GetTonKhoByMaLoAsync(old.MaLo);
+                if (ton == null) continue;
+
+                if (old.LoaiHuy)
+                {
+                    // old creation added to stock, so delete should subtract
+                    ton.SoLuongCon -= old.SoLuongHuy;
+                }
+                else
+                {
+                    // old.LoaiHuy == false: creation behavior depends on header.LoaiHuy
+                    if (existing.LoaiHuy == false || existing.LoaiHuy == null)
+                    {
+                        // KHO: creation subtracted stock, so revert by adding back
+                        ton.SoLuongCon += old.SoLuongHuy;
+                    }
+                    else
+                    {
+                        // HOADON: creation did not subtract, so nothing to revert
+                    }
+                }
+
+                await _repo.UpdateTonKhoAsync(ton);
+            }
+
+            // If linked to HoaDon, unset TrangThaiXuLy for matching MaLo
+            if (!string.IsNullOrEmpty(existing.MaHD))
+            {
+                var chiTietHoaDon = await _repo.GetChiTietHoaDonByMaHDAsync(existing.MaHD);
+                if (chiTietHoaDon != null && chiTietHoaDon.Any())
+                {
+                    var processedMaLos = existingDetails.Select(d => d.MaLo).Distinct().ToList();
+                    var affected = chiTietHoaDon.Where(ct => ct.MaLo != null && processedMaLos.Contains(ct.MaLo)).ToList();
+                    if (affected.Any())
+                    {
+                        foreach (var c in affected) c.TrangThaiXuLy = false;
+                        await _repo.UpdateChiTietHoaDonRangeAsync(affected);
+                    }
+
+                    // Update HoaDon.TrangThaiGiaoHang accordingly
+                    await UpdateHoaDonStatusAfterHuyAsync(existing.MaHD);
+                }
+            }
+
+            // Delete details and phieu
+            await _repo.DeleteChiTietPhieuHuyByMaPHAsync(maPH);
+            await _repo.DeletePhieuHuyAsync(maPH);
+
+            return new { Message = "Đã xoá phiếu hủy và hoàn tất phục hồi tồn kho/hoá đơn" };
         }
 
         private string GenerateMaPhieuHuy()

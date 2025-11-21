@@ -17,7 +17,7 @@ namespace BE_QLTiemThuoc.Controllers
 
         // GET: api/PhieuHuy/GetByDateRange?startDate=2025-01-01&endDate=2025-12-31
         [HttpGet("GetByDateRange")]
-        public async Task<IActionResult> GetByDateRange([FromQuery] string startDate, [FromQuery] string endDate)
+        public async Task<IActionResult> GetByDateRange([FromQuery] string startDate, [FromQuery] string endDate, [FromQuery] int? loaiHuy)
         {
             DateTime sDate, eDate;
             if (!TryParseDate(startDate, out sDate))
@@ -49,9 +49,26 @@ namespace BE_QLTiemThuoc.Controllers
                 });
             }
 
+            // loaiHuy: 0 => KHO (hủy từ kho), 1 => HOADON (hủy từ hóa đơn). If not provided, return all.
+            bool? loaiHuyFlag = null;
+            if (loaiHuy.HasValue)
+            {
+                if (loaiHuy.Value == 0) loaiHuyFlag = false;
+                else if (loaiHuy.Value == 1) loaiHuyFlag = true;
+                else
+                {
+                    return BadRequest(new ApiResponse<string>
+                    {
+                        Status = -1,
+                        Message = "loaiHuy must be 0 (KHO) or 1 (HOADON)",
+                        Data = null
+                    });
+                }
+            }
+
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
-                var data = await _service.GetByDateRangeAsync(sDate, eDate);
+                var data = await _service.GetByDateRangeAsync(sDate, eDate, loaiHuyFlag);
                 return data;
             });
 
@@ -116,15 +133,15 @@ namespace BE_QLTiemThuoc.Controllers
                 });
             }
 
-            // Validate dựa trên loại hủy
-            if (dto.LoaiHuy == "TU_KHO")
+            // Validate dựa trên loại hủy: 0 = KHO, 1 = HOA_DON
+            if (dto.LoaiHuy == 0)
             {
                 if (dto.HuyTuKho == null || dto.HuyTuKho.ChiTietPhieuHuy == null || !dto.HuyTuKho.ChiTietPhieuHuy.Any())
                 {
                     return BadRequest(new ApiResponse<string>
                     {
                         Status = -1,
-                        Message = "ChiTietPhieuHuy cannot be empty for TU_KHO.",
+                        Message = "ChiTietPhieuHuy cannot be empty for KHO (LoaiHuy=0).",
                         Data = null
                     });
                 }
@@ -137,14 +154,14 @@ namespace BE_QLTiemThuoc.Controllers
 
                 return Ok(response);
             }
-            else if (dto.LoaiHuy == "TU_HOA_DON")
+            else if (dto.LoaiHuy == 1)
             {
                 if (dto.HuyTuHoaDon == null || dto.HuyTuHoaDon.ChiTietXuLy == null || !dto.HuyTuHoaDon.ChiTietXuLy.Any())
                 {
                     return BadRequest(new ApiResponse<string>
                     {
                         Status = -1,
-                        Message = "ChiTietXuLy cannot be empty for TU_HOA_DON.",
+                        Message = "ChiTietXuLy cannot be empty for HOADON (LoaiHuy=1).",
                         Data = null
                     });
                 }
@@ -162,10 +179,66 @@ namespace BE_QLTiemThuoc.Controllers
                 return BadRequest(new ApiResponse<string>
                 {
                     Status = -1,
-                    Message = "LoaiHuy must be 'TU_KHO' or 'TU_HOA_DON'.",
+                    Message = "LoaiHuy must be 0 (KHO) or 1 (HOADON).",
                     Data = null
                 });
             }
+        }
+
+        // PUT: api/PhieuHuy/update/{maPH}
+        [HttpPut("update/{maPH}")]
+        public async Task<IActionResult> UpdatePhieuHuy(string maPH, [FromBody] PhieuHuyDto dto)
+        {
+            if (string.IsNullOrEmpty(maPH))
+            {
+                return BadRequest(new ApiResponse<string>
+                {
+                    Status = -1,
+                    Message = "MaPH is required",
+                    Data = null
+                });
+            }
+
+            if (dto == null || dto.ChiTietPhieuHuys == null || !dto.ChiTietPhieuHuys.Any())
+            {
+                return BadRequest(new ApiResponse<string>
+                {
+                    Status = -1,
+                    Message = "Invalid PhieuHuy data or empty ChiTietPhieuHuys",
+                    Data = null
+                });
+            }
+
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                var result = await _service.UpdatePhieuHuyAsync(maPH, dto);
+                return result;
+            });
+
+            return Ok(response);
+        }
+
+        // DELETE: api/PhieuHuy/delete/{maPH}
+        [HttpDelete("delete/{maPH}")]
+        public async Task<IActionResult> DeletePhieuHuy(string maPH)
+        {
+            if (string.IsNullOrEmpty(maPH))
+            {
+                return BadRequest(new ApiResponse<string>
+                {
+                    Status = -1,
+                    Message = "MaPH is required",
+                    Data = null
+                });
+            }
+
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                var result = await _service.DeletePhieuHuyAsync(maPH);
+                return result;
+            });
+
+            return Ok(response);
         }
     }
 }
