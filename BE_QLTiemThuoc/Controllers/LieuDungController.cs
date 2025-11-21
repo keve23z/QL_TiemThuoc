@@ -28,28 +28,6 @@ namespace BE_QLTiemThuoc.Controllers
             return Ok(response);
         }
 
-        // GET: api/LieuDung/{maLD}
-        [HttpGet("{maLD}")]
-        public async Task<IActionResult> GetById(string maLD)
-        {
-            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
-            {
-                var lieuDung = await _service.GetByIdAsync(maLD);
-                if (lieuDung == null)
-                {
-                    return null; // Will be handled as NotFound
-                }
-                return lieuDung;
-            });
-
-            if (response.Data == null)
-            {
-                return NotFound(new { status = 1, message = "Không tìm thấy liều dùng." });
-            }
-
-            return Ok(response);
-        }
-
         // POST: api/LieuDung
         [HttpPost]
         public async Task<IActionResult> Create(LieuDung dto)
@@ -61,6 +39,24 @@ namespace BE_QLTiemThuoc.Controllers
             });
 
             return CreatedAtAction(nameof(GetById), new { maLD = response.Data?.MaLD }, response);
+        }
+
+        // GET: api/LieuDung/{maLD}
+        [HttpGet("{maLD}")]
+        public async Task<IActionResult> GetById(string maLD)
+        {
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                var item = await _service.GetByIdAsync(maLD);
+                return item;
+            });
+
+            if (response.Data == null)
+            {
+                return NotFound(new { status = 1, message = "Không tìm thấy liều dùng." });
+            }
+
+            return Ok(response);
         }
 
         // PUT: api/LieuDung/{maLD}

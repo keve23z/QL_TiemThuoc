@@ -11,9 +11,6 @@ namespace BE_QLTiemThuoc.Services
             _repo = repo;
         }
 
-        public Task<List<LoaiDonVi>> GetAllAsync() => _repo.GetAllAsync();
-
-        public Task<LoaiDonVi?> GetByIdAsync(string ma) => _repo.GetByIdAsync(ma);
 
         public async Task<(bool Ok, string? Error)> CreateAsync(LoaiDonVi dto)
         {

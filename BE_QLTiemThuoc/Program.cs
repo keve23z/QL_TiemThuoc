@@ -59,6 +59,8 @@ builder.Services.AddScoped<ThuocRepository>();
 builder.Services.AddScoped<ThuocService>();
 builder.Services.AddScoped<LoaiThuocRepository>();
 builder.Services.AddScoped<LoaiThuocService>();
+builder.Services.AddScoped<LieuDungRepository>();
+builder.Services.AddScoped<LieuDungService>();
 builder.Services.AddScoped<PhieuQuyDoiService>();
 builder.Services.AddScoped<ThuocViewRepository>();
 builder.Services.AddScoped<ThuocViewService>();

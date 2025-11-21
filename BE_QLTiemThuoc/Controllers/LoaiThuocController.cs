@@ -10,59 +10,86 @@ namespace BE_QLTiemThuoc.Controllers
     {
         private readonly LoaiThuocService _service;
         private readonly NhomLoaiService _nhomService;
+        private readonly ThuocService _thuocService;
 
-        public LoaiThuocController(LoaiThuocService service, NhomLoaiService nhomService)
+        public LoaiThuocController(LoaiThuocService service, NhomLoaiService nhomService, ThuocService thuocService)
         {
             _service = service;
             _nhomService = nhomService;
+            _thuocService = thuocService;
         }
 
         [HttpGet]
         public async Task<IActionResult> GetAll()
         {
-            var list = await _service.GetAllAsync();
-            return Ok(list);
-        }
-
-        [HttpGet("ByNhom/{maNhom}")]
-        public async Task<IActionResult> GetByNhom(string maNhom)
-        {
-            // Validate group exists
-            try
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
-                var nhom = await _nhomService.GetByIdAsync(maNhom);
-            }
-            catch
-            {
-                return BadRequest(new { error = "NhomLoai not found" });
-            }
+                var list = await _service.GetAllAsync();
+                return list;
+            });
 
-            var list = await _service.GetByNhomAsync(maNhom);
-            return Ok(list);
+            return Ok(response);
         }
 
         [HttpPost]
         public async Task<IActionResult> Create([FromBody] LoaiThuoc dto)
         {
-            var (ok, err) = await _service.CreateAsync(dto);
-            if (!ok) return BadRequest(new { error = err });
-            return Created(string.Empty, dto);
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                var res = await _service.CreateAsync(dto);
+                if (!res.Ok) throw new Exception(res.Error ?? "Create failed");
+                return dto;
+            });
+
+            if (response.Status != 1) return BadRequest(response);
+            return Created(string.Empty, response);
         }
 
         [HttpPut("{id}")]
         public async Task<IActionResult> Update(string id, [FromBody] LoaiThuoc dto)
         {
-            var (ok, err) = await _service.UpdateAsync(id, dto);
-            if (!ok) return BadRequest(new { error = err });
-            return NoContent();
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                var res = await _service.UpdateAsync(id, dto);
+                return res;
+            });
+
+            if (response.Status != 1) return BadRequest(response);
+            return Ok(response);
         }
 
         [HttpDelete("{id}")]
         public async Task<IActionResult> Delete(string id)
         {
-            var (ok, err) = await _service.DeleteAsync(id);
-            if (!ok) return BadRequest(new { error = err });
-            return NoContent();
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                var res = await _service.DeleteAsync(id);
+                return res;
+            });
+
+            if (response.Status != 1) return BadRequest(response);
+            return Ok(response);
+        }
+
+        // GET: api/LoaiThuoc/{id}/Details
+        [HttpGet("{id}/Details")]
+        public async Task<IActionResult> Details(string id)
+        {
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                var loai = await _service.GetByIdAsync(id);
+                if (loai == null) throw new Exception("LoaiThuoc not found");
+                var thuocs = await _thuocService.GetThuocNamesByLoaiAsync(id);
+                var nhom = string.IsNullOrWhiteSpace(loai.MaNhomLoai) ? null : await _nhomService.GetByIdAsync(loai.MaNhomLoai!);
+                return new {
+                    Loai = loai,
+                    TenNhomLoai = nhom?.TenNhomLoai,
+                    Thuocs = thuocs
+                };
+            });
+
+            if (response.Status != 1) return BadRequest(response);
+            return Ok(response);
         }
     }
 }

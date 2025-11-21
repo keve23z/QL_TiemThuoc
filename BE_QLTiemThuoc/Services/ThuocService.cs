@@ -65,16 +65,20 @@ namespace BE_QLTiemThuoc.Services
                 .ToListAsync();
 
             var loaiThuocList = await ctx.LoaiThuoc.ToListAsync();
+            var nhomList = await ctx.NhomLoai.ToListAsync();
 
             var thongKeList = loaiThuocList
                 .Select(loai =>
                 {
                     var thuocInfo = thuocGroup.FirstOrDefault(x => x.MaLoaiThuoc == loai.MaLoaiThuoc);
+                    var nhom = nhomList.FirstOrDefault(n => n.MaNhomLoai == loai.MaNhomLoai);
                     return (object)new LoaiThuocThongKe
                     {
                         MaLoaiThuoc = loai.MaLoaiThuoc,
                         TenLoaiThuoc = loai.TenLoaiThuoc,
                         Icon = loai.Icon,
+                        MaNhomLoai = loai.MaNhomLoai,
+                        TenNhomLoai = nhom?.TenNhomLoai,
                         SoLuongThuoc = thuocInfo?.SoLuongThuoc ?? 0
                     };
                 })
@@ -177,6 +181,22 @@ namespace BE_QLTiemThuoc.Services
                 })
                 .ToListAsync()
                 .ContinueWith(t => (object)t.Result);
+        }
+
+        // lightweight: return only MaThuoc and TenThuoc for a given MaLoaiThuoc
+        public Task<object> GetThuocNamesByLoaiAsync(string maLoaiThuoc)
+        {
+            var ctx = _repo.Context;
+            return ctx.Thuoc
+                .Where(t => t.MaLoaiThuoc == maLoaiThuoc)
+                .Select(t => new
+                {
+                    t.MaThuoc,
+                    t.TenThuoc,
+                    t.UrlAnh
+                })
+                .ToListAsync()
+                .ContinueWith(t => (object)t.Result!);
         }
 
         // GET: api/Thuoc/ByLoaiTonKho/{maLoaiThuoc}

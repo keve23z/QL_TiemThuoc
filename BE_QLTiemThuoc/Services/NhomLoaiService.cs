@@ -18,21 +18,15 @@ namespace BE_QLTiemThuoc.Services
             _repo = repo;
         }
 
-        public async Task<List<NhomLoai>> GetAllAsync()
-        {
-            return await _repo.GetAllAsync();
-        }
-
-        public async Task<NhomLoai> GetByIdAsync(string maNhom)
-        {
-            var item = await _repo.GetByIdAsync(maNhom);
-            if (item == null) throw new System.Exception("Không tìm thấy nhóm loại.");
-            return item;
-        }
-
+       
         public async Task<List<LoaiThuoc>> GetLoaiByNhomAsync(string maNhom)
         {
             return await _repo.GetLoaiByNhomAsync(maNhom);
+        }
+
+        public Task<NhomLoai?> GetByIdAsync(string maNhom)
+        {
+            return _repo.GetByIdAsync(maNhom);
         }
 
         public async Task<List<GroupWithLoaiDto>> GetGroupsWithLoaiAsync()
@@ -53,6 +47,35 @@ namespace BE_QLTiemThuoc.Services
             }
 
             return result;
+        }
+
+        public async Task<(bool Ok, string? Error)> CreateAsync(NhomLoai dto)
+        {
+            if (dto == null) return (false, "Payload required");
+            if (string.IsNullOrWhiteSpace(dto.MaNhomLoai)) return (false, "MaNhomLoai is required");
+            var existing = await _repo.GetByIdAsync(dto.MaNhomLoai!);
+            if (existing != null) return (false, "MaNhomLoai already exists");
+            await _repo.AddAsync(dto);
+            return (true, null);
+        }
+
+        public async Task<(bool Ok, string? Error)> UpdateAsync(string maNhom, NhomLoai dto)
+        {
+            if (string.IsNullOrWhiteSpace(maNhom)) return (false, "MaNhomLoai is required");
+            var existing = await _repo.GetByIdAsync(maNhom);
+            if (existing == null) return (false, "Not found");
+            existing.TenNhomLoai = dto.TenNhomLoai;
+            await _repo.UpdateAsync(existing);
+            return (true, null);
+        }
+
+        public async Task<(bool Ok, string? Error)> DeleteAsync(string maNhom)
+        {
+            if (string.IsNullOrWhiteSpace(maNhom)) return (false, "MaNhomLoai is required");
+            var existing = await _repo.GetByIdAsync(maNhom);
+            if (existing == null) return (false, "Not found");
+            await _repo.DeleteAsync(maNhom);
+            return (true, null);
         }
     }
 }
