@@ -27,6 +27,7 @@ namespace BE_QLTiemThuoc.Repositories
                         tk.MaLo,
                         tk.MaThuoc,
                         TenThuoc = t.TenThuoc,
+                        ThanhPhan = t.ThanhPhan,
                         DonViGoc = tk.MaLoaiDonViTinh,
                         TenLoaiDonViGoc = _context.Set<BE_QLTiemThuoc.Model.Thuoc.LoaiDonVi>().Where(d => d.MaLoaiDonVi == tk.MaLoaiDonViTinh).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
                         tk.SoLuongCon,
