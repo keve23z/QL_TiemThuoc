@@ -1,5 +1,11 @@
 using BE_QLTiemThuoc.Data;
 using Microsoft.EntityFrameworkCore;
+using BE_QLTiemThuoc.Model;
+using System.Collections.Generic;
+using System.Threading.Tasks;
+using System.Linq;
+using BE_QLTiemThuoc.Model.Thuoc;
+using BE_QLTiemThuoc.Model.Kho;
 
 namespace BE_QLTiemThuoc.Repositories
 {
@@ -28,8 +34,10 @@ namespace BE_QLTiemThuoc.Repositories
                         tk.MaThuoc,
                         TenThuoc = t.TenThuoc,
                         ThanhPhan = t.ThanhPhan,
+                        MaLoaiThuoc = t.MaLoaiThuoc,
+                        TenLoaiThuoc = _context.Set<LoaiThuoc>().Where(l => l.MaLoaiThuoc == t.MaLoaiThuoc).Select(l => l.TenLoaiThuoc).FirstOrDefault(),
                         DonViGoc = tk.MaLoaiDonViTinh,
-                        TenLoaiDonViGoc = _context.Set<BE_QLTiemThuoc.Model.Thuoc.LoaiDonVi>().Where(d => d.MaLoaiDonVi == tk.MaLoaiDonViTinh).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
+                        TenLoaiDonViGoc = _context.Set<LoaiDonVi>().Where(d => d.MaLoaiDonVi == tk.MaLoaiDonViTinh).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
                         tk.SoLuongCon,
                         tk.HanSuDung,
                         tk.TrangThaiSeal,
@@ -54,9 +62,11 @@ namespace BE_QLTiemThuoc.Repositories
                         tk.MaLo,
                         tk.MaThuoc,
                         TenThuoc = t.TenThuoc,
+                        MaLoaiThuoc = t.MaLoaiThuoc,
+                        TenLoaiThuoc = _context.Set<LoaiThuoc>().Where(l => l.MaLoaiThuoc == t.MaLoaiThuoc).Select(l => l.TenLoaiThuoc).FirstOrDefault(),
                         TrangThai = "Đã tách lẻ",
                         DonViLe = tk.MaLoaiDonViTinh,
-                        TenLoaiDonViLe = _context.Set<BE_QLTiemThuoc.Model.Thuoc.LoaiDonVi>().Where(d => d.MaLoaiDonVi == tk.MaLoaiDonViTinh).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
+                        TenLoaiDonViLe = _context.Set<LoaiDonVi>().Where(d => d.MaLoaiDonVi == tk.MaLoaiDonViTinh).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
                         SoLuongConLe = tk.SoLuongCon,
                         tk.HanSuDung,
                         tk.TrangThaiSeal,
@@ -78,7 +88,7 @@ namespace BE_QLTiemThuoc.Repositories
                         MaThuoc = g.Key.MaThuoc,
                         TenThuoc = g.Key.TenThuoc,
                         DonViTinh = g.Key.MaLoaiDonViTinh,
-                        TenLoaiDonVi = _context.Set<BE_QLTiemThuoc.Model.Thuoc.LoaiDonVi>().Where(d => d.MaLoaiDonVi == g.Key.MaLoaiDonViTinh).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
+                        TenLoaiDonVi = _context.Set<LoaiDonVi>().Where(d => d.MaLoaiDonVi == g.Key.MaLoaiDonViTinh).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
                         TongSoLuongCon = g.Sum(x => x.SoLuongCon)
                     };
 
@@ -132,7 +142,7 @@ namespace BE_QLTiemThuoc.Repositories
                         tk.MaThuoc,
                         TenThuoc = t.TenThuoc,
                         DonViGoc = tk.MaLoaiDonViTinh,
-                        TenLoaiDonViGoc = _context.Set<Model.Thuoc.LoaiDonVi>().Where(d => d.MaLoaiDonVi == tk.MaLoaiDonViTinh).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
+                        TenLoaiDonViGoc = _context.Set<LoaiDonVi>().Where(d => d.MaLoaiDonVi == tk.MaLoaiDonViTinh).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
                         tk.SoLuongCon,
                         tk.HanSuDung,
                         tk.TrangThaiSeal,
@@ -150,11 +160,11 @@ namespace BE_QLTiemThuoc.Repositories
 
 #nullable disable
             // Phieu Nhap related history (existing behavior)
-            var qPhieuNhap = from ct in _context.Set<BE_QLTiemThuoc.Model.Kho.ChiTietPhieuNhap>()
+            var qPhieuNhap = from ct in _context.Set<ChiTietPhieuNhap>()
                              join pn in _context.PhieuNhaps on ct.MaPN equals pn.MaPN
                              join ncc in _context.NhaCungCaps on pn.MaNCC equals ncc.MaNCC into nccg
                              from ncc in nccg.DefaultIfEmpty()
-                             join nv in _context.Set<BE_QLTiemThuoc.Model.NhanVien>() on pn.MaNV equals nv.MaNV into nvg
+                             join nv in _context.Set<NhanVien>() on pn.MaNV equals nv.MaNV into nvg
                              from nv in nvg.DefaultIfEmpty()
                              where ct.MaLo == maLo
                              select new
@@ -193,12 +203,12 @@ namespace BE_QLTiemThuoc.Repositories
             var listQD = new List<dynamic>();
             // Use raw SQL reader to fetch PHIEU_QUY_DOI + CT_PHIEU_QUY_DOI rows because there are no EF model classes for these tables
             var sql = @"
-SELECT pq.MaPhieuQD, pq.NgayQuyDoi, pq.MaNV, pq.GhiChu AS PhieuGhiChu,
-       ct.MaPhieuQD AS CtMaPhieuQD, ct.MaLoGoc, ct.MaLoMoi, ct.MaThuoc, ct.SoLuongQuyDoi, ct.TyLeQuyDoi, ct.SoLuongGoc, ct.MaLoaiDonViGoc, ct.MaLoaiDonViMoi
-FROM PHIEU_QUY_DOI pq
-JOIN CT_PHIEU_QUY_DOI ct ON ct.MaPhieuQD = pq.MaPhieuQD
-WHERE ct.MaLoGoc = @maLo OR ct.MaLoMoi = @maLo
-";
+                SELECT pq.MaPhieuQD, pq.NgayQuyDoi, pq.MaNV, pq.GhiChu AS PhieuGhiChu,
+                    ct.MaPhieuQD AS CtMaPhieuQD, ct.MaLoGoc, ct.MaLoMoi, ct.MaThuoc, ct.SoLuongQuyDoi, ct.TyLeQuyDoi, ct.SoLuongGoc, ct.MaLoaiDonViGoc, ct.MaLoaiDonViMoi
+                FROM PHIEU_QUY_DOI pq
+                JOIN CT_PHIEU_QUY_DOI ct ON ct.MaPhieuQD = pq.MaPhieuQD
+                WHERE ct.MaLoGoc = @maLo OR ct.MaLoMoi = @maLo
+                ";
 
             using (var conn = _context.Database.GetDbConnection())
             {

@@ -3,6 +3,9 @@ using BE_QLTiemThuoc.Model.Kho;
 using BE_QLTiemThuoc.Repositories;
 using BE_QLTiemThuoc.Data;
 using Microsoft.EntityFrameworkCore;
+using System.Data.Common;
+using System.Dynamic;
+using System.Collections;
 
 namespace BE_QLTiemThuoc.Services
 {
@@ -15,6 +18,118 @@ namespace BE_QLTiemThuoc.Services
         {
             _repo = repo ?? throw new ArgumentNullException(nameof(repo));
             _context = context ?? throw new ArgumentNullException(nameof(context));
+        }
+
+        /// <summary>
+        /// Returns a list of PHIEU_QUY_DOI rows (MaPhieuQD, NgayQuyDoi, MaNV, GhiChu) ordered by NgayQuyDoi desc.
+        /// </summary>
+        public async Task<List<dynamic>> GetAllPhieuQuyDoiAsync()
+        {
+            var result = new List<dynamic>();
+            var ctx = _repo.Context;
+            var sql = "SELECT MaPhieuQD, NgayQuyDoi, MaNV, GhiChu FROM PHIEU_QUY_DOI ORDER BY NgayQuyDoi DESC";
+
+            using (var conn = ctx.Database.GetDbConnection())
+            {
+                await conn.OpenAsync();
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = sql;
+                    using (var reader = await cmd.ExecuteReaderAsync())
+                    {
+                        while (await reader.ReadAsync())
+                        {
+                            dynamic item = new ExpandoObject();
+                            var d = (IDictionary<string, object>)item;
+                            d["MaPhieuQD"] = reader["MaPhieuQD"] == DBNull.Value ? null : reader["MaPhieuQD"].ToString();
+                            d["NgayQuyDoi"] = reader["NgayQuyDoi"] == DBNull.Value ? (DateTime?)null : (DateTime)reader["NgayQuyDoi"];
+                            d["MaNV"] = reader["MaNV"] == DBNull.Value ? null : reader["MaNV"].ToString();
+                            d["GhiChu"] = reader["GhiChu"] == DBNull.Value ? null : reader["GhiChu"].ToString();
+                            result.Add(item);
+                        }
+                    }
+                }
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// Returns detail for a phieu quy doi: header + list of CT rows
+        /// </summary>
+        public async Task<dynamic> GetPhieuQuyDoiDetailsAsync(string maPhieu)
+        {
+            if (string.IsNullOrWhiteSpace(maPhieu)) throw new ArgumentException("maPhieu is required");
+
+            var ctx = _repo.Context;
+            dynamic output = new ExpandoObject();
+            var header = new ExpandoObject();
+            var headerDict = (IDictionary<string, object>)header;
+
+            var sqlHeader = "SELECT MaPhieuQD, NgayQuyDoi, MaNV, GhiChu FROM PHIEU_QUY_DOI WHERE MaPhieuQD = @maPhieu";
+            using (var conn = ctx.Database.GetDbConnection())
+            {
+                await conn.OpenAsync();
+                using (var cmd = conn.CreateCommand())
+                {
+                    cmd.CommandText = sqlHeader;
+                    var p = cmd.CreateParameter();
+                    p.ParameterName = "@maPhieu";
+                    p.Value = maPhieu;
+                    cmd.Parameters.Add(p);
+
+                    using (var reader = await cmd.ExecuteReaderAsync())
+                    {
+                        if (await reader.ReadAsync())
+                        {
+                            headerDict["MaPhieuQD"] = reader["MaPhieuQD"] == DBNull.Value ? null : reader["MaPhieuQD"].ToString();
+                            headerDict["NgayQuyDoi"] = reader["NgayQuyDoi"] == DBNull.Value ? (DateTime?)null : (DateTime)reader["NgayQuyDoi"];
+                            headerDict["MaNV"] = reader["MaNV"] == DBNull.Value ? null : reader["MaNV"].ToString();
+                            headerDict["GhiChu"] = reader["GhiChu"] == DBNull.Value ? null : reader["GhiChu"].ToString();
+                        }
+                        else
+                        {
+                            return null; // not found
+                        }
+                    }
+                }
+
+                // now read CT rows
+                var ctList = new List<dynamic>();
+                using (var cmd2 = conn.CreateCommand())
+                {
+                    cmd2.CommandText = "SELECT MaPhieuQD, MaLoGoc, MaLoMoi, MaThuoc, SoLuongQuyDoi, TyLeQuyDoi, SoLuongGoc, MaLoaiDonViGoc, MaLoaiDonViMoi FROM CT_PHIEU_QUY_DOI WHERE MaPhieuQD = @maPhieu";
+                    var p2 = cmd2.CreateParameter();
+                    p2.ParameterName = "@maPhieu";
+                    p2.Value = maPhieu;
+                    cmd2.Parameters.Add(p2);
+
+                    using (var reader2 = await cmd2.ExecuteReaderAsync())
+                    {
+                        while (await reader2.ReadAsync())
+                        {
+                            dynamic ct = new ExpandoObject();
+                            var ctD = (IDictionary<string, object>)ct;
+                            ctD["MaPhieuQD"] = reader2["MaPhieuQD"] == DBNull.Value ? null : reader2["MaPhieuQD"].ToString();
+                            ctD["MaLoGoc"] = reader2["MaLoGoc"] == DBNull.Value ? null : reader2["MaLoGoc"].ToString();
+                            ctD["MaLoMoi"] = reader2["MaLoMoi"] == DBNull.Value ? null : reader2["MaLoMoi"].ToString();
+                            ctD["MaThuoc"] = reader2["MaThuoc"] == DBNull.Value ? null : reader2["MaThuoc"].ToString();
+                            ctD["SoLuongQuyDoi"] = reader2["SoLuongQuyDoi"] == DBNull.Value ? (int?)null : Convert.ToInt32(reader2["SoLuongQuyDoi"]);
+                            ctD["TyLeQuyDoi"] = reader2["TyLeQuyDoi"] == DBNull.Value ? (int?)null : Convert.ToInt32(reader2["TyLeQuyDoi"]);
+                            ctD["SoLuongGoc"] = reader2["SoLuongGoc"] == DBNull.Value ? (int?)null : Convert.ToInt32(reader2["SoLuongGoc"]);
+                            ctD["MaLoaiDonViGoc"] = reader2["MaLoaiDonViGoc"] == DBNull.Value ? null : reader2["MaLoaiDonViGoc"].ToString();
+                            ctD["MaLoaiDonViMoi"] = reader2["MaLoaiDonViMoi"] == DBNull.Value ? null : reader2["MaLoaiDonViMoi"].ToString();
+                            ctList.Add(ct);
+                        }
+                    }
+                }
+
+                var outD = (IDictionary<string, object>)output;
+                outD["Phieu"] = header;
+                outD["ChiTiets"] = ctList;
+            }
+
+            return output;
         }
 
         // in-memory queue for enqueue-by-ma requests

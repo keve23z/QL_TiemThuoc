@@ -276,10 +276,12 @@ namespace BE_QLTiemThuoc.Services
         }
 
         // GET: all GiaThuoc rows for a given MaThuoc with computed SoLuongCon and TenLoaiDonVi
-        public Task<object> GetGiaThuocsByMaThuocAsync(string maThuoc)
+        // Also returns the nearest expiration date (HanSuDung) among available lots for this MaThuoc
+        public async Task<object> GetGiaThuocsByMaThuocAsync(string maThuoc)
         {
             var ctx = _repo.Context;
-            return ctx.GiaThuocs
+
+            var giaList = await ctx.GiaThuocs
                 .Where(g => g.MaThuoc == maThuoc)
                 .Select(x => new
                 {
@@ -289,10 +291,16 @@ namespace BE_QLTiemThuoc.Services
                     x.SoLuong,
                     x.DonGia,
                     x.TrangThai,
-                    SoLuongCon = ctx.TonKhos.Where(tk => tk.MaThuoc == x.MaThuoc && tk.MaLoaiDonViTinh == x.MaLoaiDonVi && tk.SoLuongCon > 0 && !tk.TrangThaiSeal).Sum(tk => (int?)tk.SoLuongCon) ?? 0
+                    SoLuongCon = ctx.TonKhos.Where(tk => tk.MaThuoc == x.MaThuoc && tk.MaLoaiDonViTinh == x.MaLoaiDonVi && tk.SoLuongCon > 0 && !tk.TrangThaiSeal).Sum(tk => (int?)tk.SoLuongCon) ?? 0,
+                    NearestHanSuDung = ctx.TonKhos
+                        .Where(tk => tk.MaThuoc == x.MaThuoc && tk.MaLoaiDonViTinh == x.MaLoaiDonVi && tk.SoLuongCon > 0 && !tk.TrangThaiSeal)
+                        .OrderBy(tk => tk.HanSuDung)
+                        .Select(tk => (DateTime?)tk.HanSuDung)
+                        .FirstOrDefault()
                 })
-                .ToListAsync()
-                .ContinueWith(t => (object)t.Result!);
+                .ToListAsync();
+
+            return new { GiaThuocs = giaList }!;
         }
 
         public Task<List<LoaiDonVi>> GetLoaiDonViAsync()

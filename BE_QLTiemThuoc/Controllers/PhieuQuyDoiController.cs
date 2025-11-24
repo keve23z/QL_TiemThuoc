@@ -60,5 +60,35 @@ namespace BE_QLTiemThuoc.Controllers
 
             return Ok(response);
         }
+
+        [HttpGet("List")]
+        public async Task<IActionResult> List()
+        {
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                var list = await _service.GetAllPhieuQuyDoiAsync();
+                return list;
+            });
+
+            return Ok(response);
+        }
+
+        [HttpGet("Details/{maPhieu}")]
+        public async Task<IActionResult> Details(string maPhieu)
+        {
+            if (string.IsNullOrWhiteSpace(maPhieu))
+            {
+                return BadRequest(new ApiResponse<string> { Status = -1, Message = "MaPhieu is required", Data = null });
+            }
+
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                var details = await _service.GetPhieuQuyDoiDetailsAsync(maPhieu);
+                if (details == null) throw new KeyNotFoundException($"PhieuQuyDoi '{maPhieu}' not found");
+                return details;
+            });
+
+            return Ok(response);
+        }
     }
 }
