@@ -134,7 +134,7 @@ namespace BE_QLTiemThuoc.Repositories
 
             var q = from tk in _context.TonKhos
                     join t in _context.Thuoc on tk.MaThuoc equals t.MaThuoc
-                    where tk.TrangThaiSeal == false && tk.SoLuongCon > 0 && tk.HanSuDung >= start && tk.HanSuDung <= end
+                    where tk.SoLuongCon > 0 && tk.HanSuDung >= start && tk.HanSuDung <= end
                     orderby tk.HanSuDung
                     select new
                     {

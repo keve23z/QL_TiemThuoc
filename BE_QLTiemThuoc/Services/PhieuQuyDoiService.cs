@@ -23,17 +23,39 @@ namespace BE_QLTiemThuoc.Services
         /// <summary>
         /// Returns a list of PHIEU_QUY_DOI rows (MaPhieuQD, NgayQuyDoi, MaNV, GhiChu) ordered by NgayQuyDoi desc.
         /// </summary>
-        public async Task<List<dynamic>> GetAllPhieuQuyDoiAsync()
+        public async Task<dynamic> GetAllPhieuQuyDoiAsync(DateTime? start = null, DateTime? end = null, string? maNV = null)
         {
             var result = new List<dynamic>();
             var ctx = _repo.Context;
-            var sql = "SELECT MaPhieuQD, NgayQuyDoi, MaNV, GhiChu FROM PHIEU_QUY_DOI ORDER BY NgayQuyDoi DESC";
+            // build SQL with optional date filter
+            var sql = "SELECT MaPhieuQD, NgayQuyDoi, MaNV, GhiChu FROM PHIEU_QUY_DOI";
+            var whereClauses = new List<string>();
 
             using (var conn = ctx.Database.GetDbConnection())
             {
                 await conn.OpenAsync();
                 using (var cmd = conn.CreateCommand())
                 {
+                    if (start.HasValue)
+                    {
+                        whereClauses.Add("NgayQuyDoi >= @start");
+                        var p = cmd.CreateParameter(); p.ParameterName = "@start"; p.Value = start.Value.Date; cmd.Parameters.Add(p);
+                    }
+                    if (end.HasValue)
+                    {
+                        whereClauses.Add("NgayQuyDoi <= @end");
+                        var p2 = cmd.CreateParameter(); p2.ParameterName = "@end"; p2.Value = end.Value.Date.AddDays(1).AddTicks(-1); cmd.Parameters.Add(p2);
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(maNV))
+                    {
+                        whereClauses.Add("MaNV = @maNV");
+                        var p3 = cmd.CreateParameter(); p3.ParameterName = "@maNV"; p3.Value = maNV; cmd.Parameters.Add(p3);
+                    }
+
+                    if (whereClauses.Any()) sql += " WHERE " + string.Join(" AND ", whereClauses);
+                    sql += " ORDER BY NgayQuyDoi DESC";
+
                     cmd.CommandText = sql;
                     using (var reader = await cmd.ExecuteReaderAsync())
                     {
@@ -44,14 +66,53 @@ namespace BE_QLTiemThuoc.Services
                             d["MaPhieuQD"] = reader["MaPhieuQD"] == DBNull.Value ? null : reader["MaPhieuQD"].ToString();
                             d["NgayQuyDoi"] = reader["NgayQuyDoi"] == DBNull.Value ? (DateTime?)null : (DateTime)reader["NgayQuyDoi"];
                             d["MaNV"] = reader["MaNV"] == DBNull.Value ? null : reader["MaNV"].ToString();
+                            // placeholder for employee name to be filled later
+                            d["NhanVienName"] = null;
                             d["GhiChu"] = reader["GhiChu"] == DBNull.Value ? null : reader["GhiChu"].ToString();
                             result.Add(item);
                         }
                     }
                 }
+
+                // enrich with employee names
+                try
+                {
+                    var maNvs = result
+                        .Select(r => ((IDictionary<string, object>)r).ContainsKey("MaNV") ? ((IDictionary<string, object>)r)["MaNV"] as string : null)
+                        .Where(m => !string.IsNullOrWhiteSpace(m))
+                        .Distinct(StringComparer.OrdinalIgnoreCase)
+                        .ToList();
+
+                    if (maNvs.Any())
+                    {
+                        var nvMap = await ctx.Set<Model.NhanVien>().AsNoTracking()
+                            .Where(n => maNvs.Contains(n.MaNV))
+                            .ToDictionaryAsync(n => n.MaNV, n => n.HoTen);
+
+                        foreach (var itm in result)
+                        {
+                            var dict = (IDictionary<string, object>)itm;
+                            if (dict.ContainsKey("MaNV") && dict["MaNV"] is string m && !string.IsNullOrWhiteSpace(m))
+                            {
+                                dict["NhanVienName"] = nvMap.ContainsKey(m) ? nvMap[m] : null;
+                            }
+                        }
+                    }
+                }
+                catch
+                {
+                    // non-fatal: if fetching names fails, return list without names
+                }
             }
 
-            return result;
+            // wrap into response object including requested date range and optional MaNV filter
+            dynamic outObj = new ExpandoObject();
+            var od = (IDictionary<string, object>)outObj;
+            od["StartDate"] = start;
+            od["EndDate"] = end;
+            od["MaNV"] = maNV;
+            od["Items"] = result;
+            return outObj;
         }
 
         /// <summary>
@@ -125,6 +186,80 @@ namespace BE_QLTiemThuoc.Services
                 }
 
                 var outD = (IDictionary<string, object>)output;
+                // Enrich header with employee name and detail rows with unit names
+                try
+                {
+                    // collect MaNV from header
+                    var maNv = headerDict.ContainsKey("MaNV") ? headerDict["MaNV"] as string : null;
+
+                    // collect unit codes and MaThuoc from details
+                    var unitCodes = new List<string>();
+                    var maThuocCodes = new List<string>();
+                    foreach (var ct in ctList)
+                    {
+                        var dict = (IDictionary<string, object>)ct;
+                        if (dict.TryGetValue("MaLoaiDonViGoc", out var mg) && mg is string mgv && !string.IsNullOrWhiteSpace(mgv)) unitCodes.Add(mgv);
+                        if (dict.TryGetValue("MaLoaiDonViMoi", out var mm) && mm is string mmv && !string.IsNullOrWhiteSpace(mmv)) unitCodes.Add(mmv);
+                        if (dict.TryGetValue("MaThuoc", out var mt) && mt is string mtv && !string.IsNullOrWhiteSpace(mtv)) maThuocCodes.Add(mtv);
+                    }
+
+                    var distinctUnits = unitCodes.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+
+                    // fetch employee name
+                    if (!string.IsNullOrWhiteSpace(maNv))
+                    {
+                        var nv = await ctx.Set<Model.NhanVien>().AsNoTracking().FirstOrDefaultAsync(n => n.MaNV == maNv);
+                        if (nv != null) headerDict["NhanVienName"] = nv.HoTen;
+                    }
+
+                    // fetch unit names
+                    if (distinctUnits.Any())
+                    {
+                        var unitMap = await ctx.Set<Model.Thuoc.LoaiDonVi>().AsNoTracking()
+                            .Where(u => distinctUnits.Contains(u.MaLoaiDonVi))
+                            .ToDictionaryAsync(u => u.MaLoaiDonVi ?? string.Empty, u => u.TenLoaiDonVi ?? string.Empty);
+
+                        foreach (var ct in ctList)
+                        {
+                            var dict = (IDictionary<string, object>)ct;
+                            if (dict.TryGetValue("MaLoaiDonViGoc", out var mg) && mg is string mgv && !string.IsNullOrWhiteSpace(mgv))
+                            {
+                                dict["MaLoaiDonViGocName"] = unitMap.ContainsKey(mgv) ? unitMap[mgv] : null;
+                            }
+                            else dict["MaLoaiDonViGocName"] = null;
+
+                            if (dict.TryGetValue("MaLoaiDonViMoi", out var mm) && mm is string mmv && !string.IsNullOrWhiteSpace(mmv))
+                            {
+                                dict["MaLoaiDonViMoiName"] = unitMap.ContainsKey(mmv) ? unitMap[mmv] : null;
+                            }
+                            else dict["MaLoaiDonViMoiName"] = null;
+                        }
+                    }
+
+                        // fetch TenThuoc for MaThuoc values
+                        var distinctMaThuoc = maThuocCodes.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
+                        if (distinctMaThuoc.Any())
+                        {
+                            var thuocMap = await ctx.Set<Model.Thuoc.Thuoc>().AsNoTracking()
+                                .Where(t => distinctMaThuoc.Contains(t.MaThuoc))
+                                .ToDictionaryAsync(t => t.MaThuoc ?? string.Empty, t => t.TenThuoc ?? string.Empty);
+
+                            foreach (var ct in ctList)
+                            {
+                                var dict = (IDictionary<string, object>)ct;
+                                if (dict.TryGetValue("MaThuoc", out var mt) && mt is string mtv && !string.IsNullOrWhiteSpace(mtv))
+                                {
+                                    dict["TenThuoc"] = thuocMap.ContainsKey(mtv) ? thuocMap[mtv] : null;
+                                }
+                                else dict["TenThuoc"] = null;
+                            }
+                        }
+                }
+                catch
+                {
+                    // non-fatal: if enrichment fails, continue returning base data
+                }
+
                 outD["Phieu"] = header;
                 outD["ChiTiets"] = ctList;
             }
@@ -147,7 +282,7 @@ namespace BE_QLTiemThuoc.Services
         /// Quick convert by MaThuoc (single package). unitsPerPackageOverride can be null to use THUOC.SoLuong.
         /// Returns MaPhieuQD and MaLoMoi.
         /// </summary>
-        public async Task<(string MaPhieuQD, string MaLoMoi)> QuickConvertByMaAsync(string maThuoc, int? unitsPerPackageOverride = null, string? maLoaiDonViMoi = null, DateTime? hanSuDungMoi = null)
+        public async Task<(string MaPhieuQD, string MaLoMoi, string MaLoaiDonViGoc, string MaLoaiDonViMoi, int SoLuongGoc, int SoLuongQuyDoi, int TyLeQuyDoi)> QuickConvertByMaAsync(string maThuoc, int? unitsPerPackageOverride = null, string? maLoaiDonViMoi = null, DateTime? hanSuDungMoi = null, string? maLoGoc = null, string? maLoaiDonViGoc = null, bool ignoreTrangThaiSeal = false)
         {
             if (string.IsNullOrWhiteSpace(maThuoc)) throw new ArgumentException("maThuoc is required");
 
@@ -162,7 +297,6 @@ namespace BE_QLTiemThuoc.Services
             }
             else
             {
-                // Try to resolve units per package from GIATHUOC based on requested target unit
                 if (!string.IsNullOrEmpty(maLoaiDonViMoi))
                 {
                     var gia = await ctx.GiaThuocs.AsNoTracking().FirstOrDefaultAsync(g => g.MaThuoc == maThuoc && g.MaLoaiDonVi == maLoaiDonViMoi);
@@ -181,10 +315,24 @@ namespace BE_QLTiemThuoc.Services
                 }
             }
 
-            // find nearest expiry sealed lot (TrangThaiSeal = 0 -> false)
-            var candidateLot = await ctx.TonKhos.Where(t => t.MaThuoc == maThuoc && !t.TrangThaiSeal && t.SoLuongCon >= 1)
-                .OrderBy(t => t.HanSuDung)
-                .FirstOrDefaultAsync();
+            // find source lot: prefer provided MaLoGoc if given, otherwise pick nearest expiry sealed lot
+            Model.Kho.TonKho? candidateLot = null;
+            if (!string.IsNullOrWhiteSpace(maLoGoc))
+            {
+                candidateLot = await ctx.TonKhos.Where(t => t.MaLo == maLoGoc).FirstOrDefaultAsync();
+                if (candidateLot == null) throw new KeyNotFoundException($"TonKho '{maLoGoc}' not found");
+                if (candidateLot.MaThuoc != maThuoc) throw new InvalidOperationException("Provided MaLoGoc does not belong to the specified MaThuoc.");
+                if (candidateLot.TrangThaiSeal && !ignoreTrangThaiSeal) throw new InvalidOperationException("Provided MaLoGoc has already been split (TrangThaiSeal = 1)");
+                if (candidateLot.SoLuongCon < 1) throw new InvalidOperationException("Provided MaLoGoc does not have sufficient quantity");
+            }
+            else
+            {
+                // If ignoreTrangThaiSeal is true, allow selecting lots that are already marked as split.
+                candidateLot = await ctx.TonKhos
+                    .Where(t => t.MaThuoc == maThuoc && (ignoreTrangThaiSeal || !t.TrangThaiSeal) && t.SoLuongCon >= 1)
+                    .OrderBy(t => t.HanSuDung)
+                    .FirstOrDefaultAsync();
+            }
             if (candidateLot == null) throw new InvalidOperationException("No sealed lot with sufficient quantity found");
 
             // perform single-lot conversion using a transaction
@@ -200,7 +348,7 @@ namespace BE_QLTiemThuoc.Services
                     .FirstOrDefaultAsync();
 
                 if (tk == null) throw new KeyNotFoundException($"TonKho '{candidateLot.MaLo}' not found");
-                if (tk.TrangThaiSeal) throw new InvalidOperationException("Lot is already split (TrangThaiSeal = 1)");
+                if (tk.TrangThaiSeal && !ignoreTrangThaiSeal) throw new InvalidOperationException("Lot is already split (TrangThaiSeal = 1)");
                 if (tk.SoLuongCon < 1) throw new InvalidOperationException("Not enough quantity in source lot");
 
                 // consume one source package
@@ -214,20 +362,38 @@ namespace BE_QLTiemThuoc.Services
                 var maNVToRecord = anyNv?.MaNV;
                 if (string.IsNullOrEmpty(maNVToRecord)) throw new InvalidOperationException("No NhanVien found to attribute quick convert phieu.");
 
-                var targetDonVi = string.IsNullOrEmpty(maLoaiDonViMoi) ? "Viên" : maLoaiDonViMoi;
+                    // Determine real unit codes. Prefer explicit maLoaiDonViGoc argument when provided.
+                    var maLoaiDonViGocResolved = !string.IsNullOrWhiteSpace(maLoaiDonViGoc) ? maLoaiDonViGoc : tk.MaLoaiDonViTinh;
+                    var maLoaiDonViMoiResolved = string.IsNullOrEmpty(maLoaiDonViMoi) ? maLoaiDonViGocResolved : maLoaiDonViMoi;
+
+                // get size (base unit count) for source and target units from GiaThuoc.SoLuong
+                var giaGoc = await ctx2.GiaThuocs.AsNoTracking().FirstOrDefaultAsync(g => g.MaThuoc == maThuoc && g.MaLoaiDonVi == maLoaiDonViGoc);
+                var giaMoi = await ctx2.GiaThuocs.AsNoTracking().FirstOrDefaultAsync(g => g.MaThuoc == maThuoc && g.MaLoaiDonVi == maLoaiDonViMoiResolved);
+                var sizeGoc = (giaGoc?.SoLuong > 0) ? giaGoc.SoLuong : 1;
+                var sizeMoi = (giaMoi?.SoLuong > 0) ? giaMoi.SoLuong : unitsPerPackage; // fallback to unitsPerPackage
+
+                // TyLeQuyDoi = number of target units produced per 1 source unit
+                int tyLeQuyDoi;
+                try { checked { tyLeQuyDoi = (int)((long)sizeGoc / (long)sizeMoi); } }
+                catch { tyLeQuyDoi = 1; }
+                if (tyLeQuyDoi <= 0) tyLeQuyDoi = 1;
+
+                // number of source units consumed (we take 1)
+                int soLuongGoc = 1;
+                int soLuongQuyDoi = soLuongGoc * tyLeQuyDoi;
 
                 // determine which expiry date the new lot should have (explicit override or source lot's HSD)
                 var targetHanSuDung = hanSuDungMoi ?? tk.HanSuDung;
 
                 // check for existing aggregated lot (same MaThuoc, HanSuDung, MaLoaiDonViTinh)
                 var existing = await ctx2.TonKhos
-                    .Where(t => t.MaThuoc == tk.MaThuoc && t.HanSuDung == targetHanSuDung && t.MaLoaiDonViTinh == targetDonVi)
+                    .Where(t => t.MaThuoc == tk.MaThuoc && t.HanSuDung == targetHanSuDung && t.MaLoaiDonViTinh == maLoaiDonViMoiResolved)
                     .FirstOrDefaultAsync();
 
                 if (existing != null)
                 {
-                    existing.SoLuongNhap += unitsPerPackage;
-                    existing.SoLuongCon += unitsPerPackage;
+                    existing.SoLuongNhap += soLuongQuyDoi;
+                    existing.SoLuongCon += soLuongQuyDoi;
                     maLoMoi = existing.MaLo;
                 }
                 else
@@ -238,9 +404,9 @@ namespace BE_QLTiemThuoc.Services
                         MaThuoc = tk.MaThuoc,
                         HanSuDung = targetHanSuDung,
                         TrangThaiSeal = true,
-                        MaLoaiDonViTinh = targetDonVi,
-                        SoLuongNhap = unitsPerPackage,
-                        SoLuongCon = unitsPerPackage,
+                        MaLoaiDonViTinh = maLoaiDonViMoiResolved,
+                        SoLuongNhap = soLuongQuyDoi,
+                        SoLuongCon = soLuongQuyDoi,
                         GhiChu = $"Tách từ {tk.MaLo} (Phiếu {maPhieu})"
                     };
                     await ctx2.TonKhos.AddAsync(newLot);
@@ -254,13 +420,13 @@ namespace BE_QLTiemThuoc.Services
                     "INSERT INTO PHIEU_QUY_DOI (MaPhieuQD, NgayQuyDoi, MaNV, GhiChu) VALUES ({0}, {1}, {2}, {3})",
                     maPhieu, DateTime.Now, maNVToRecord, $"Quick convert: {maThuoc}");
 
-                // insert CT_PHIEU_QUY_DOI
+                // insert CT_PHIEU_QUY_DOI with correct conversion values
                 await ctx2.Database.ExecuteSqlRawAsync(
                     "INSERT INTO CT_PHIEU_QUY_DOI (MaPhieuQD, MaLoGoc, MaLoMoi, MaThuoc, SoLuongQuyDoi, TyLeQuyDoi, SoLuongGoc, MaLoaiDonViGoc, MaLoaiDonViMoi) VALUES ({0},{1},{2},{3},{4},{5},{6},{7},{8})",
-                    maPhieu, tk.MaLo, maLoMoi, tk.MaThuoc, unitsPerPackage, unitsPerPackage, 1, tk.MaLoaiDonViTinh, targetDonVi);
+                    maPhieu, tk.MaLo, maLoMoi, tk.MaThuoc, soLuongQuyDoi, tyLeQuyDoi, soLuongGoc, maLoaiDonViGocResolved, maLoaiDonViMoiResolved);
 
                 await tx.CommitAsync();
-                return (maPhieu, maLoMoi);
+                return (maPhieu, maLoMoi, maLoaiDonViGoc ?? string.Empty, maLoaiDonViMoiResolved ?? string.Empty, soLuongGoc, soLuongQuyDoi, tyLeQuyDoi);
             }
             catch
             {

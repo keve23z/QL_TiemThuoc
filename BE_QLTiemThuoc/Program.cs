@@ -10,9 +10,13 @@ var builder = WebApplication.CreateBuilder(args);
 
 var configuration = builder.Configuration; // Biến này đã có sẵn thông qua builder
 
+// Load environment variables first so they can override appsettings when configuring services
+Env.Load();
+
+// Register DbContext after environment variables are loaded so connection string
+// injected via environment (e.g., DOTNET or .env) is available here.
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
-Env.Load();
 // Cấu hình CORS
 var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
 
@@ -68,6 +72,8 @@ builder.Services.AddScoped<NhanVienRepository>();
 builder.Services.AddScoped<NhanVienService>();
 builder.Services.AddScoped<LoaiDonViRepository>();
 builder.Services.AddScoped<LoaiDonViService>();
+builder.Services.AddScoped<PhieuHuyRepository>();
+builder.Services.AddScoped<PhieuHuyService>();
 
 // =========================================================
 // !!! KHỐI CẤU HÌNH CLOUDINARY ĐÃ ĐƯỢC DI CHUYỂN LÊN TRƯỚC builder.Build() !!!

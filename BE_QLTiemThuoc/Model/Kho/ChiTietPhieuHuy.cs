@@ -9,6 +9,9 @@ namespace BE_QLTiemThuoc.Model.Kho
         [Key]
         [StringLength(20)]
         public string MaCTPH { get; set; } = null!;
+        
+        [Required]
+        public bool LoaiHuy { get; set; }
 
         [Required]
         [StringLength(20)]
@@ -29,20 +32,7 @@ namespace BE_QLTiemThuoc.Model.Kho
         [Column(TypeName = "decimal(18,2)")]
         public decimal ThanhTien { get; set; }
 
-        [StringLength(500)]
-        public string? LyDoHuy { get; set; }
-
         [StringLength(1000)]
         public string? GhiChu { get; set; }
-
-        [Required]
-        public bool LoaiHuy { get; set; }
-
-        // Navigation properties
-        [ForeignKey("MaPH")]
-        public virtual PhieuHuy PhieuHuy { get; set; } = null!;
-
-        [ForeignKey("MaLo")]
-        public virtual TonKho TonKho { get; set; } = null!;
     }
 }

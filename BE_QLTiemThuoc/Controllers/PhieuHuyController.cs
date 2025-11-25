@@ -119,6 +119,31 @@ namespace BE_QLTiemThuoc.Controllers
             return Ok(response);
         }
 
+        // GET: api/PhieuHuy/TraceMaLo?maLo={maLo}&depth={depth}
+        [HttpGet("TraceMaLo")]
+        public async Task<IActionResult> TraceMaLo([FromQuery] string maLo, [FromQuery] int? depth)
+        {
+            if (string.IsNullOrWhiteSpace(maLo))
+            {
+                return BadRequest(new ApiResponse<string>
+                {
+                    Status = -1,
+                    Message = "maLo is required",
+                    Data = null
+                });
+            }
+
+            var maxDepth = depth ?? 2;
+
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                var data = await _service.FindOriginalPhieuNhapsByMaLoAsync(maLo, maxDepth);
+                return data;
+            });
+
+            return Ok(response);
+        }
+
         // POST: api/PhieuHuy/huy-thuoc - API thống nhất cho tất cả loại hủy
         [HttpPost("huy-thuoc")]
         public async Task<IActionResult> HuyThuoc([FromBody] HuyThuocRequestDto dto)

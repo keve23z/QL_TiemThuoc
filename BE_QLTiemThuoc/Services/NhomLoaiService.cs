@@ -41,7 +41,7 @@ namespace BE_QLTiemThuoc.Services
                 {
                     MaNhomLoai = g.MaNhomLoai,
                     TenNhomLoai = g.TenNhomLoai,
-                    Loai = loai.Select(l => new LoaiItemDto { MaLoaiThuoc = l.MaLoaiThuoc, TenLoaiThuoc = l.TenLoaiThuoc, Icon = l.Icon }).ToList()
+                    Loai = loai.Select(l => new LoaiItemDto { MaLoaiThuoc = l.MaLoaiThuoc, TenLoaiThuoc = l.TenLoaiThuoc }).ToList()
                 };
                 result.Add(dto);
             }

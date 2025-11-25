@@ -8,10 +8,12 @@ namespace BE_QLTiemThuoc.Services
     public class PhieuHuyService
     {
         private readonly PhieuHuyRepository _repo;
+        private readonly BE_QLTiemThuoc.Data.AppDbContext _context;
 
-        public PhieuHuyService(PhieuHuyRepository repo)
+        public PhieuHuyService(PhieuHuyRepository repo, BE_QLTiemThuoc.Data.AppDbContext context)
         {
             _repo = repo;
+            _context = context;
         }
 
         public async Task<List<object>> GetByDateRangeAsync(DateTime startDate, DateTime endDate, bool? loaiHuy = null)
@@ -148,7 +150,7 @@ namespace BE_QLTiemThuoc.Services
                                         var thangConLai = (tonKho.HanSuDung - DateTime.Now).TotalDays / 30;
 
                     // Nếu thuốc còn hạn > 6 tháng, cảnh báo nhưng vẫn cho phép hủy nếu có lý do đặc biệt
-                    if (thangConLai > 6 && string.IsNullOrEmpty(xuLy.LyDoHuy))
+                    if (thangConLai > 6 && string.IsNullOrEmpty(xuLy.GhiChu))
                     {
                         throw new ArgumentException($"Thuốc {xuLy.MaLo} còn hạn {thangConLai:F1} tháng. Cần có lý do hủy cụ thể.");
                     }
@@ -197,9 +199,9 @@ namespace BE_QLTiemThuoc.Services
                 var phieuHuyDto = new PhieuHuyDto
                 {
                     MaNV = dto.MaNV,
-                    LoaiHuy = "HOADON",
+                    LoaiHuy = true,
                     MaHD = dto.MaHD,
-                    GhiChu = dto.GhiChu,
+                    LyDoHuy = dto.GhiChu,
                     ChiTietPhieuHuys = thuocCanHuy.Select(t =>
                     {
                         var chiTietHD = chiTietHoaDon.FirstOrDefault(ct => ct.MaLo == t.MaLo);
@@ -207,7 +209,7 @@ namespace BE_QLTiemThuoc.Services
                         {
                             MaLo = t.MaLo,
                             SoLuongHuy = t.SoLuongHuy ?? (chiTietHD?.SoLuong ?? 0),
-                            LyDoHuy = t.LyDoHuy ?? "Hủy từ hóa đơn khách hàng",
+                            LoaiHuy = t.LoaiHuy ?? false,
                             GhiChu = t.GhiChu
                         };
                     }).ToList()
@@ -309,8 +311,7 @@ namespace BE_QLTiemThuoc.Services
                 ct.SoLuongHuy,
                 ct.DonGia,
                 ct.ThanhTien,
-                ct.LyDoHuy,
-                ct.GhiChu,
+                GhiChu = ct.GhiChu,
                 LoaiHuy = ct.LoaiHuy,
                 LoaiHuyName = ct.LoaiHuy ? "Hủy vào kho" : "Hủy bình thường",
                 TenThuoc = ct.TonKho?.Thuoc?.TenThuoc,
@@ -319,6 +320,114 @@ namespace BE_QLTiemThuoc.Services
             }).ToList();
 
             return new { PhieuHuy = phieuInfo, ChiTiet = chiTiet };
+        }
+
+        /// <summary>
+        /// Given a MaLo (lot code), trace and return the originating PhieuNhap(s).
+        /// Algorithm:
+        /// 1) If there is a ChiTietPhieuNhap with MaLo == maLo, return its MaPN.
+        /// 2) Otherwise, look up CT_PHIEU_QUY_DOI rows where MaLoMoi == maLo to find MaLoGoc and the MaPhieuQD that produced it.
+        ///    Repeat step 1 for each MaLoGoc. If MaLoGoc itself is not found in ChiTietPhieuNhap, repeat the CT_PHIEU_QUY_DOI lookup
+        ///    up to a configurable depth (default 2 conversion levels) to find the original MaPN.
+        /// Returns a list of trace results (may be multiple if lot originated from multiple source lots).
+        /// </summary>
+        public async Task<List<object>> FindOriginalPhieuNhapsByMaLoAsync(string maLo, int maxConversionDepth = 0)
+        {
+            if (string.IsNullOrWhiteSpace(maLo)) throw new ArgumentException("maLo is required");
+
+            var ctx = _context;
+            // Defensive check: ensure the underlying DbConnection has a connection string.
+            // If this is empty it usually means configuration/environment wasn't loaded
+            // before registering DbContext (or the launch profile overridden it with an empty value).
+            var runtimeConn = ctx.Database.GetDbConnection();
+            if (runtimeConn == null || string.IsNullOrWhiteSpace(runtimeConn.ConnectionString))
+            {
+                throw new InvalidOperationException("Database connection is not configured. Ensure 'DefaultConnection' is set in appsettings or provided via environment (.env) and Env.Load() runs before DbContext registration.");
+            }
+            var results = new List<object>();
+            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            // Normalize input
+            string Normalize(string s) => s?.Trim() ?? string.Empty;
+
+            // BFS queue: tuple of (currentMaLo, viaPhieuQD)
+            var queue = new Queue<(string MaLo, string? ViaPhieuQD)>();
+            queue.Enqueue((Normalize(maLo), null));
+
+            using (var conn = ctx.Database.GetDbConnection())
+            {
+                await conn.OpenAsync();
+
+                while (queue.Any())
+                {
+                    var (currentLoRaw, viaPhieuQD) = queue.Dequeue();
+                    var currentLo = Normalize(currentLoRaw);
+                    if (string.IsNullOrEmpty(currentLo) || visited.Contains(currentLo)) continue;
+                    visited.Add(currentLo);
+
+                    // 1) Check ChiTietPhieuNhap (case-insensitive, trimmed)
+                    var ct = await ctx.ChiTietPhieuNhaps.AsNoTracking()
+                        .FirstOrDefaultAsync(c => c.MaLo != null && c.MaLo.Trim().ToLower() == currentLo.ToLower());
+
+                    if (ct != null)
+                    {
+                        results.Add(new
+                        {
+                            MaLo = currentLo,
+                            FoundIn = "ChiTietPhieuNhap",
+                            MaCTPN = ct.MaCTPN,
+                            MaPN = ct.MaPN,
+                            ViaPhieuQD = viaPhieuQD
+                        });
+                        // once found, do not traverse further from this branch
+                        continue;
+                    }
+
+                    // 2) Not found in ChiTietPhieuNhap -> look up CT_PHIEU_QUY_DOI where MaLoMoi = currentLo
+                    using (var cmd = conn.CreateCommand())
+                    {
+                        cmd.CommandText = "SELECT MaPhieuQD, MaLoGoc FROM CT_PHIEU_QUY_DOI WHERE LTRIM(RTRIM(MaLoMoi)) = @maLo";
+                        var p = cmd.CreateParameter();
+                        p.ParameterName = "@maLo";
+                        p.Value = currentLo;
+                        cmd.Parameters.Add(p);
+
+                        using (var reader = await cmd.ExecuteReaderAsync())
+                        {
+                            var foundAny = false;
+                            while (await reader.ReadAsync())
+                            {
+                                foundAny = true;
+                                var maPhieuQD = reader["MaPhieuQD"] == DBNull.Value ? null : reader["MaPhieuQD"].ToString();
+                                var maLoGoc = reader["MaLoGoc"] == DBNull.Value ? null : reader["MaLoGoc"].ToString();
+
+                                results.Add(new
+                                {
+                                    MaLo = currentLo,
+                                    FoundIn = "CT_PHIEU_QUY_DOI",
+                                    MaPhieuQD = maPhieuQD,
+                                    MaLoGoc = maLoGoc?.Trim(),
+                                    ViaPhieuQD = viaPhieuQD
+                                });
+
+                                // Enqueue source lot for further tracing
+                                if (!string.IsNullOrWhiteSpace(maLoGoc))
+                                {
+                                    queue.Enqueue((Normalize(maLoGoc), maPhieuQD));
+                                }
+                            }
+
+                            if (!foundAny)
+                            {
+                                // nothing produced this lot (no CT_PHIEU_QUY_DOI with MaLoMoi)
+                                results.Add(new { MaLo = currentLo, FoundIn = "Unknown", ViaPhieuQD = viaPhieuQD });
+                            }
+                        }
+                    }
+                }
+            }
+
+            return results;
         }
 
         public async Task<object> HuyTuKhoAsync(HuyTuKhoDto dto)
@@ -360,14 +469,14 @@ namespace BE_QLTiemThuoc.Services
             var phieuHuyDto = new PhieuHuyDto
             {
                 MaNV = dto.MaNhanVien,
-                LoaiHuy = "KHO",
+                LoaiHuy = false,
                 MaHD = null,
-                GhiChu = dto.LyDoHuy,
+                LyDoHuy = dto.LyDoHuy,
                 ChiTietPhieuHuys = dto.ChiTietPhieuHuy.Select(c => new ChiTietPhieuHuyDto
                 {
                     MaLo = c.MaLo,
                     SoLuongHuy = c.SoLuongHuy,
-                    LyDoHuy = c.LyDoChiTiet,
+                    LoaiHuy = false,
                     GhiChu = c.LyDoChiTiet
                 }).ToList()
             };
@@ -488,9 +597,9 @@ namespace BE_QLTiemThuoc.Services
                 var phieuHuyDto = new PhieuHuyDto
                 {
                     MaNV = dto.MaNhanVien,
-                    LoaiHuy = "HOADON",
+                    LoaiHuy = true,
                     MaHD = dto.MaHoaDon,
-                    GhiChu = dto.LyDoHuy,
+                    LyDoHuy = dto.LyDoHuy,
                     ChiTietPhieuHuys = thuocCanHuy.Select(t =>
                     {
                         var chiTietHD = chiTietHoaDon.FirstOrDefault(ct => ct.MaLo == t.MaLo);
@@ -498,7 +607,7 @@ namespace BE_QLTiemThuoc.Services
                         {
                             MaLo = t.MaLo,
                             SoLuongHuy = t.SoLuongHuy ?? (chiTietHD?.SoLuong ?? 0),
-                            LyDoHuy = t.LyDoChiTiet ?? "Hủy từ hóa đơn khách hàng",
+                            LoaiHuy = false,
                             GhiChu = t.LyDoChiTiet
                         };
                     }).ToList()
@@ -554,7 +663,7 @@ namespace BE_QLTiemThuoc.Services
                 MaPH = GenerateMaPhieuHuy(),
                 NgayHuy = DateTime.Now,
                 MaNV = phieuHuyDto.MaNV,
-                LoaiHuy = phieuHuyDto.LoaiHuy?.ToUpper() == "HOADON" ? true : (phieuHuyDto.LoaiHuy?.ToUpper() == "KHO" ? false : (bool?)null),
+                LoaiHuy = phieuHuyDto.LoaiHuy,
                 MaHD = phieuHuyDto.MaHD,
                 TongSoLuongHuy = phieuHuyDto.ChiTietPhieuHuys.Sum(c => (int)c.SoLuongHuy)
             };
@@ -604,7 +713,6 @@ namespace BE_QLTiemThuoc.Services
                     SoLuongHuy = (int)chiTiet.SoLuongHuy,
                         DonGia = 0m, // Removed DonGia usage
                         ThanhTien = 0m, // Removed ThanhTien calculation
-                    LyDoHuy = chiTiet.LyDoHuy,
                     GhiChu = chiTiet.GhiChu,
                     LoaiHuy = detailLoaiHuy
                 });
@@ -670,10 +778,10 @@ namespace BE_QLTiemThuoc.Services
 
             // Update PhieuHuy header fields
             existing.MaNV = phieuHuyDto.MaNV;
-            // convert LoaiHuy string -> bool? same as Create
-            existing.LoaiHuy = phieuHuyDto.LoaiHuy?.ToUpper() == "HOADON" ? true : (phieuHuyDto.LoaiHuy?.ToUpper() == "KHO" ? false : (bool?)null);
+            // Map LoaiHuy boolean and header reason
+            existing.LoaiHuy = phieuHuyDto.LoaiHuy;
             existing.MaHD = phieuHuyDto.MaHD;
-            existing.GhiChu = phieuHuyDto.GhiChu;
+            existing.GhiChu = phieuHuyDto.LyDoHuy;
 
             // Create new details and apply stock impact
             var newDetails = new List<ChiTietPhieuHuy>();
@@ -683,7 +791,8 @@ namespace BE_QLTiemThuoc.Services
                 if (tonKho == null) throw new ArgumentException($"TonKho {dto.MaLo} not found");
 
                 var detailLoaiHuy = dto.LoaiHuy ?? false;
-                var newPhieuIsFromHoaDon = phieuHuyDto.LoaiHuy?.ToUpper() == "HOADON";
+                // phieuHuyDto.LoaiHuy is a boolean: true means HOADON, false means KHO
+                var newPhieuIsFromHoaDon = phieuHuyDto.LoaiHuy == true;
 
                 if (detailLoaiHuy)
                 {
@@ -713,7 +822,6 @@ namespace BE_QLTiemThuoc.Services
                     SoLuongHuy = (int)dto.SoLuongHuy,
                     DonGia = dto.DonGia ?? 0m,
                     ThanhTien = (dto.DonGia ?? 0m) * (int)dto.SoLuongHuy,
-                    LyDoHuy = dto.LyDoHuy,
                     GhiChu = dto.GhiChu,
                     LoaiHuy = detailLoaiHuy
                 });
