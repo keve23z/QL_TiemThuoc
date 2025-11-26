@@ -12,7 +12,7 @@ namespace BE_QLTiemThuoc.Model.Kho
         public string MaPH { get; set; } = null!;
 
         [Required]
-        public DateTime NgayHuy { get; set; } ;
+        public DateTime NgayHuy { get; set; }
 
         [Required]
         [StringLength(10)]
@@ -37,6 +37,9 @@ namespace BE_QLTiemThuoc.Model.Kho
         public decimal? TongTien { get; set; }
 
         public string? LyDoHuy { get; set; }
+
+        [StringLength(255)]
+        public string? GhiChu { get; set; }
 
         // Navigation properties
         public virtual ICollection<ChiTietPhieuHuy> ChiTietPhieuHuys { get; set; } = new List<ChiTietPhieuHuy>();

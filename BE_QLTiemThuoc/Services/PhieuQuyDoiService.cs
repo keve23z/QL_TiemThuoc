@@ -367,7 +367,7 @@ namespace BE_QLTiemThuoc.Services
                     var maLoaiDonViMoiResolved = string.IsNullOrEmpty(maLoaiDonViMoi) ? maLoaiDonViGocResolved : maLoaiDonViMoi;
 
                 // get size (base unit count) for source and target units from GiaThuoc.SoLuong
-                var giaGoc = await ctx2.GiaThuocs.AsNoTracking().FirstOrDefaultAsync(g => g.MaThuoc == maThuoc && g.MaLoaiDonVi == maLoaiDonViGoc);
+                var giaGoc = await ctx2.GiaThuocs.AsNoTracking().FirstOrDefaultAsync(g => g.MaThuoc == maThuoc && g.MaLoaiDonVi == maLoaiDonViGocResolved);
                 var giaMoi = await ctx2.GiaThuocs.AsNoTracking().FirstOrDefaultAsync(g => g.MaThuoc == maThuoc && g.MaLoaiDonVi == maLoaiDonViMoiResolved);
                 var sizeGoc = (giaGoc?.SoLuong > 0) ? giaGoc.SoLuong : 1;
                 var sizeMoi = (giaMoi?.SoLuong > 0) ? giaMoi.SoLuong : unitsPerPackage; // fallback to unitsPerPackage
@@ -426,7 +426,7 @@ namespace BE_QLTiemThuoc.Services
                     maPhieu, tk.MaLo, maLoMoi, tk.MaThuoc, soLuongQuyDoi, tyLeQuyDoi, soLuongGoc, maLoaiDonViGocResolved, maLoaiDonViMoiResolved);
 
                 await tx.CommitAsync();
-                return (maPhieu, maLoMoi, maLoaiDonViGoc ?? string.Empty, maLoaiDonViMoiResolved ?? string.Empty, soLuongGoc, soLuongQuyDoi, tyLeQuyDoi);
+                return (maPhieu, maLoMoi, maLoaiDonViGocResolved ?? string.Empty, maLoaiDonViMoiResolved ?? string.Empty, soLuongGoc, soLuongQuyDoi, tyLeQuyDoi);
             }
             catch
             {
@@ -567,6 +567,21 @@ namespace BE_QLTiemThuoc.Services
                 await tx.RollbackAsync();
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Return TonKho projection for a given MaLo.
+        /// </summary>
+        public async Task<dynamic> GetTonKhoAsync(string maLo)
+        {
+            if (string.IsNullOrWhiteSpace(maLo)) return null;
+            var ctx = _repo.Context;
+            var tk = await ctx.TonKhos
+                .Where(t => t.MaLo == maLo)
+                .Select(t => new { t.MaLo, t.MaThuoc, t.MaLoaiDonViTinh, t.SoLuongNhap, t.SoLuongCon, t.HanSuDung, t.GhiChu })
+                .AsNoTracking()
+                .FirstOrDefaultAsync();
+            return tk;
         }
     }
 }

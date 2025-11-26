@@ -66,7 +66,6 @@ builder.Services.AddScoped<LoaiThuocService>();
 builder.Services.AddScoped<LieuDungRepository>();
 builder.Services.AddScoped<LieuDungService>();
 builder.Services.AddScoped<PhieuQuyDoiService>();
-builder.Services.AddScoped<ThuocViewRepository>();
 builder.Services.AddScoped<ThuocViewService>();
 builder.Services.AddScoped<NhanVienRepository>();
 builder.Services.AddScoped<NhanVienService>();
@@ -74,6 +73,8 @@ builder.Services.AddScoped<LoaiDonViRepository>();
 builder.Services.AddScoped<LoaiDonViService>();
 builder.Services.AddScoped<PhieuHuyRepository>();
 builder.Services.AddScoped<PhieuHuyService>();
+builder.Services.AddScoped<PhieuXuLyHoanHuyRepository>();
+builder.Services.AddScoped<PhieuXuLyHoanHuyService>();
 
 // =========================================================
 // !!! KHỐI CẤU HÌNH CLOUDINARY ĐÃ ĐƯỢC DI CHUYỂN LÊN TRƯỚC builder.Build() !!!

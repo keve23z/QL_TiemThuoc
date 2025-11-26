@@ -34,5 +34,9 @@ namespace BE_QLTiemThuoc.Model.Kho
 
         [StringLength(1000)]
         public string? GhiChu { get; set; }
+
+        // Navigation to TonKho (the lot being referenced by MaLo)
+        [ForeignKey("MaLo")]
+        public virtual TonKho? TonKho { get; set; }
     }
 }

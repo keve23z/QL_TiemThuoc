@@ -55,10 +55,15 @@ namespace BE_QLTiemThuoc.Controllers
                 // allow QuickByMa to force conversion even if the source lot has TrangThaiSeal set
                 var result = await _service.QuickConvertByMaAsync(dto.MaThuoc!, null, dto.MaLoaiDonViMoi, dto.HanSuDungMoi, dto.MaLoGoc, dto.MaLoaiDonViGoc, true);
                 var (maPhieu, maLoMoi, maLoaiDonViGoc, maLoaiDonViMoi, soLuongGoc, soLuongQuyDoi, tyLeQuyDoi) = result;
+
+                // fetch TonKho details for the created/used MaLoMoi
+                var tonKho = await _service.GetTonKhoAsync(maLoMoi);
+
                 return new
                 {
                     MaPhieuQD = maPhieu,
                     MaLoMoi = maLoMoi,
+                    TonKho = tonKho,
                     MaLoaiDonViGoc = maLoaiDonViGoc,
                     MaLoaiDonViMoi = maLoaiDonViMoi,
                     SoLuongGoc = soLuongGoc,

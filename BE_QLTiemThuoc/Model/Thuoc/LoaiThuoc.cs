@@ -16,6 +16,9 @@ namespace BE_QLTiemThuoc.Model.Thuoc
         [StringLength(10)]
         public string? MaNhomLoai { get; set; }
 
+        [StringLength(255)]
+        public string? Icon { get; set; }
+
 
     }
 }
