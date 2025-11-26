@@ -40,11 +40,11 @@ namespace BE_QLTiemThuoc.Controllers
                 // filter by invoice type: 'HD' (direct) and 'HDOL' (online)
                 if (!string.IsNullOrEmpty(loai))
                 {
-                    if (loai.Equals("HDOL", System.StringComparison.OrdinalIgnoreCase))
+                    if (loai.Equals("HDOL", StringComparison.OrdinalIgnoreCase))
                     {
                         q = q.Where(h => EF.Functions.Like(h.MaHD, "HDOL%"));
                     }
-                    else if (loai.Equals("HD", System.StringComparison.OrdinalIgnoreCase))
+                    else if (loai.Equals("HD", StringComparison.OrdinalIgnoreCase))
                     {
                         // starts with HD but exclude HDOL which is online
                         q = q.Where(h => EF.Functions.Like(h.MaHD, "HD%") && !EF.Functions.Like(h.MaHD, "HDOL%"));
@@ -999,6 +999,8 @@ namespace BE_QLTiemThuoc.Controllers
                     // set employee and status
                     hd.MaNV = dto.MaNV;
                     hd.TrangThaiGiaoHang = 1; // confirmed
+                    // update note if provided
+                    if (!string.IsNullOrWhiteSpace(dto.GhiChu)) hd.GhiChu = dto.GhiChu.Trim();
 
                     // generator for MaCTHD
                     string GenMaCtHd() => "CTHD" + DateTime.Now.ToString("yyyyMMddHHmmss") + new Random().Next(10, 99).ToString();
@@ -1012,21 +1014,35 @@ namespace BE_QLTiemThuoc.Controllers
                     if (placeholders == null || placeholders.Count == 0)
                         throw new ArgumentException("Không có mục nào để xác nhận. Vui lòng đảm bảo hoá đơn có các mục chờ (placeholders).");
 
-                    // convert placeholders to item requests (require that HanSuDung was previously set)
+                    // convert placeholders to item requests (allow overrides from dto.Items)
                     foreach (var ph in placeholders)
                     {
                         if (string.IsNullOrWhiteSpace(ph.MaThuoc)) throw new ArgumentException("Placeholder thiếu MaThuoc.");
                         if (ph.SoLuong <= 0) throw new ArgumentException($"Placeholder có SoLuong không hợp lệ cho MaThuoc '{ph.MaThuoc}'.");
-                        if (ph.HanSuDung == null) throw new ArgumentException($"Placeholder cho MaThuoc '{ph.MaThuoc}' chưa có HanSuDung. Vui lòng cập nhật hạn sử dụng trước khi xác nhận.");
+
+                        // find matching incoming item (if any) to override fields like MaLD and HanSuDung
+                        ChiTietHoaDonCreateDto? incoming = null;
+                        if (dto.Items != null)
+                        {
+                            incoming = dto.Items.FirstOrDefault(i => string.Equals(i.MaThuoc?.Trim(), ph.MaThuoc?.Trim(), StringComparison.OrdinalIgnoreCase));
+                        }
+
+                        var finalDonVi = incoming != null && !string.IsNullOrWhiteSpace(incoming.DonVi) ? incoming.DonVi!.Trim() : ph.MaLoaiDonVi;
+                        var finalSoLuong = (incoming != null && incoming.SoLuong > 0) ? incoming.SoLuong : ph.SoLuong;
+                        var finalDonGia = (incoming != null && incoming.DonGia > 0) ? incoming.DonGia : ph.DonGia;
+                        var finalMaLD = incoming != null && !string.IsNullOrWhiteSpace(incoming.MaLD) ? incoming.MaLD!.Trim() : ph.MaLD;
+                        var finalHsd = incoming != null && incoming.HanSuDung.HasValue ? incoming.HanSuDung.Value : ph.HanSuDung;
+
+                        if (finalHsd == null) throw new ArgumentException($"Hạn sử dụng (HanSuDung) phải được cung cấp cho MaThuoc '{ph.MaThuoc}'.");
 
                         itemsToProcess.Add(new HoaDonItemDto
                         {
                             MaThuoc = ph.MaThuoc,
-                            DonVi = ph.MaLoaiDonVi,
-                            SoLuong = ph.SoLuong,
-                            DonGia = ph.DonGia,
-                            MaLD = ph.MaLD,
-                            HanSuDung = ph.HanSuDung
+                            DonVi = finalDonVi,
+                            SoLuong = finalSoLuong,
+                            DonGia = finalDonGia,
+                            MaLD = finalMaLD,
+                            HanSuDung = finalHsd
                         });
                     }
                     // remove placeholders — we'll create allocated rows below
@@ -1347,20 +1363,34 @@ namespace BE_QLTiemThuoc.Controllers
                 if (hd == null) throw new KeyNotFoundException($"Hoá đơn '{dto.MaHD}' không tồn tại.");
 
                 var originalStatus = hd.TrangThaiGiaoHang;
-                hd.TrangThaiGiaoHang = dto.TrangThaiGiaoHang;
-                if (dto.TrangThaiGiaoHang == -1 && originalStatus != 0)
-                {
-                    var detailsToUpdate = await _ctx.ChiTietHoaDons
-                        .Where(ct => ct.MaHD == dto.MaHD && ct.TrangThaiXuLy == true)
-                        .ToListAsync();
 
-                    if (detailsToUpdate.Count > 0)
+                // Special rule: if the invoice is transitioning from "placed" (0) to "cancelled" (-1),
+                // we treat it as "-3: chưa hoàn tất xử lý huỷ" because the invoice never had lots allocated
+                // and therefore its chi tiết don't need to be marked as un-processed. Do not flip ChiTietHoaDon.TrangThaiXuLy.
+                if (dto.TrangThaiGiaoHang == -1 && originalStatus == 0)
+                {
+                    hd.TrangThaiGiaoHang = -3; // not fully processed cancellation
+                }
+                else
+                {
+                    // apply requested status
+                    hd.TrangThaiGiaoHang = dto.TrangThaiGiaoHang;
+
+                    // if moving to cancelled (-1) from a non-placed state, then mark previously-processed details as un-processed
+                    if (dto.TrangThaiGiaoHang == -1 && originalStatus != 0)
                     {
-                        foreach (var d in detailsToUpdate)
+                        var detailsToUpdate = await _ctx.ChiTietHoaDons
+                            .Where(ct => ct.MaHD == dto.MaHD && ct.TrangThaiXuLy == true)
+                            .ToListAsync();
+
+                        if (detailsToUpdate.Count > 0)
                         {
-                            d.TrangThaiXuLy = false;
+                            foreach (var d in detailsToUpdate)
+                            {
+                                d.TrangThaiXuLy = false;
+                            }
+                            _ctx.Set<ChiTietHoaDon>().UpdateRange(detailsToUpdate);
                         }
-                        _ctx.Set<ChiTietHoaDon>().UpdateRange(detailsToUpdate);
                     }
                 }
 

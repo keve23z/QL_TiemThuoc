@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using BE_QLTiemThuoc.Services;
+using BE_QLTiemThuoc.Model.Thuoc;
 
 namespace BE_QLTiemThuoc.Controllers
 {
@@ -12,30 +13,6 @@ namespace BE_QLTiemThuoc.Controllers
         public NhomLoaiController(NhomLoaiService service)
         {
             _service = service;
-        }
-
-        // GET: api/NhomLoai
-        [HttpGet]
-        public async Task<IActionResult> GetAll()
-        {
-            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
-            {
-                var list = await _service.GetAllAsync();
-                return list;
-            });
-            return Ok(response);
-        }
-
-        // GET: api/NhomLoai/{maNhom}
-        [HttpGet("{maNhom}")]
-        public async Task<IActionResult> GetById(string maNhom)
-        {
-            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
-            {
-                var item = await _service.GetByIdAsync(maNhom);
-                return item;
-            });
-            return Ok(response);
         }
 
         // GET: api/NhomLoai/Loai/{maNhom}
@@ -58,6 +35,48 @@ namespace BE_QLTiemThuoc.Controllers
             {
                 var groups = await _service.GetGroupsWithLoaiAsync();
                 return groups;
+            });
+
+            return Ok(response);
+        }
+
+        // POST: api/NhomLoai
+        [HttpPost]
+        public async Task<IActionResult> Create([FromBody] NhomLoai dto)
+        {
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                var (ok, error) = await _service.CreateAsync(dto);
+                if (!ok) throw new Exception(error);
+                return dto;
+            });
+
+            return Ok(response);
+        }
+
+        // PUT: api/NhomLoai/{maNhom}
+        [HttpPut("{maNhom}")]
+        public async Task<IActionResult> Update(string maNhom, [FromBody] NhomLoai dto)
+        {
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                var (ok, error) = await _service.UpdateAsync(maNhom, dto);
+                if (!ok) throw new Exception(error);
+                return dto;
+            });
+
+            return Ok(response);
+        }
+
+        // DELETE: api/NhomLoai/{maNhom}
+        [HttpDelete("{maNhom}")]
+        public async Task<IActionResult> Delete(string maNhom)
+        {
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                var (ok, error) = await _service.DeleteAsync(maNhom);
+                if (!ok) throw new Exception(error);
+                return true;
             });
 
             return Ok(response);

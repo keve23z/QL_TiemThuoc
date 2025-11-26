@@ -12,22 +12,33 @@ namespace BE_QLTiemThuoc.Model.Kho
         public string MaPH { get; set; } = null!;
 
         [Required]
-        public DateTime NgayHuy { get; set; } = DateTime.Now;
+        public DateTime NgayHuy { get; set; }
 
         [Required]
         [StringLength(10)]
         public string MaNV { get; set; } = null!;
 
         [Required]
-        [StringLength(10)]
-        public string LoaiHuy { get; set; } = null!; // "KHO" hoặc "HOADON"
+        public bool? LoaiHuy { get; set; } // bit: 0 = KHO, 1 = HOADON
 
         [StringLength(20)]
         public string? MaHD { get; set; } // Mã hóa đơn (nếu hủy từ hóa đơn)
 
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal TongSoLuongHuy { get; set; } = 0;
+        public int? TongMatHangHuy { get; set; }
+        public int? TongSoLuongHuy { get; set; }
 
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal? TongTienHuy { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal? TongTienKho { get; set; }
+
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal? TongTien { get; set; }
+
+        public string? LyDoHuy { get; set; }
+
+        [StringLength(255)]
         public string? GhiChu { get; set; }
 
         // Navigation properties

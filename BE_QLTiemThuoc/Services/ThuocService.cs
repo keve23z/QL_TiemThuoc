@@ -65,16 +65,19 @@ namespace BE_QLTiemThuoc.Services
                 .ToListAsync();
 
             var loaiThuocList = await ctx.LoaiThuoc.ToListAsync();
+            var nhomList = await ctx.NhomLoai.ToListAsync();
 
             var thongKeList = loaiThuocList
                 .Select(loai =>
                 {
                     var thuocInfo = thuocGroup.FirstOrDefault(x => x.MaLoaiThuoc == loai.MaLoaiThuoc);
+                    var nhom = nhomList.FirstOrDefault(n => n.MaNhomLoai == loai.MaNhomLoai);
                     return (object)new LoaiThuocThongKe
                     {
                         MaLoaiThuoc = loai.MaLoaiThuoc,
                         TenLoaiThuoc = loai.TenLoaiThuoc,
-                        Icon = loai.Icon,
+                        MaNhomLoai = loai.MaNhomLoai,
+                        TenNhomLoai = nhom?.TenNhomLoai,
                         SoLuongThuoc = thuocInfo?.SoLuongThuoc ?? 0
                     };
                 })
@@ -126,7 +129,6 @@ namespace BE_QLTiemThuoc.Services
                           moTa = t.MoTa,
                           urlAnh = t.UrlAnh,
                           tongSoLuongCon = g.TongSoLuongCon,
-                          // include only active GiaThuoc rows (TrangThai == true) for this Thuoc and compute available quantity per MaLoaiDonVi
                           GiaThuocs = ctx.GiaThuocs
                                         .Where(x => x.MaThuoc == t.MaThuoc && x.TrangThai)
                                         .Select(x => new
@@ -137,7 +139,7 @@ namespace BE_QLTiemThuoc.Services
                                             x.SoLuong,
                                             x.DonGia,
                                             x.TrangThai,
-                                            SoLuongCon = ctx.TonKhos.Where(tk => tk.MaThuoc == t.MaThuoc && tk.MaLoaiDonViTinh == x.MaLoaiDonVi && tk.SoLuongCon > 0 && !tk.TrangThaiSeal).Sum(tk => (int?)tk.SoLuongCon) ?? 0
+                                            SoLuongCon = ctx.TonKhos.Where(tk => tk.MaThuoc == t.MaThuoc && tk.MaLoaiDonViTinh == x.MaLoaiDonVi && tk.SoLuongCon > 0).Sum(tk => (int?)tk.SoLuongCon) ?? 0
                                         })
                                         .ToList()
                       })
@@ -171,12 +173,28 @@ namespace BE_QLTiemThuoc.Services
                                     x.SoLuong,
                                     x.DonGia,
                                     x.TrangThai,
-                                    SoLuongCon = ctx.TonKhos.Where(tk => tk.MaThuoc == t.MaThuoc && tk.MaLoaiDonViTinh == x.MaLoaiDonVi && tk.SoLuongCon > 0 && !tk.TrangThaiSeal).Sum(tk => (int?)tk.SoLuongCon) ?? 0
+                                    SoLuongCon = ctx.TonKhos.Where(tk => tk.MaThuoc == t.MaThuoc && tk.MaLoaiDonViTinh == x.MaLoaiDonVi && tk.SoLuongCon > 0).Sum(tk => (int?)tk.SoLuongCon) ?? 0
                                 })
                                 .ToList()
                 })
                 .ToListAsync()
                 .ContinueWith(t => (object)t.Result);
+        }
+
+        // lightweight: return only MaThuoc and TenThuoc for a given MaLoaiThuoc
+        public Task<object> GetThuocNamesByLoaiAsync(string maLoaiThuoc)
+        {
+            var ctx = _repo.Context;
+            return ctx.Thuoc
+                .Where(t => t.MaLoaiThuoc == maLoaiThuoc)
+                .Select(t => new
+                {
+                    t.MaThuoc,
+                    t.TenThuoc,
+                    t.UrlAnh
+                })
+                .ToListAsync()
+                .ContinueWith(t => (object)t.Result!);
         }
 
         // GET: api/Thuoc/ByLoaiTonKho/{maLoaiThuoc}
@@ -195,9 +213,7 @@ namespace BE_QLTiemThuoc.Services
                     t.TenThuoc,
                     t.MoTa,
                     t.UrlAnh,
-                    // price from GIATHUOC
                     TenNCC = ctx.NhaCungCaps.Where(n => n.MaNCC == t.MaNCC).Select(n => n.TenNCC).FirstOrDefault(),
-                    // include only active GiaThuoc rows that also have available stock in TonKho
                     GiaThuocs = ctx.GiaThuocs
                                 .Where(x => x.MaThuoc == t.MaThuoc && x.TrangThai
                                              && ctx.TonKhos.Any(tk => tk.MaThuoc == t.MaThuoc && tk.MaLoaiDonViTinh == x.MaLoaiDonVi && tk.SoLuongCon > 0 && !tk.TrangThaiSeal))
@@ -205,15 +221,14 @@ namespace BE_QLTiemThuoc.Services
                                 {
                                     x.MaGiaThuoc,
                                     x.MaLoaiDonVi,
-                                    TenLoaiDonVi = ctx.Set<Model.Thuoc.LoaiDonVi>().Where(d => d.MaLoaiDonVi == x.MaLoaiDonVi).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
+                                    TenLoaiDonVi = ctx.Set<LoaiDonVi>().Where(d => d.MaLoaiDonVi == x.MaLoaiDonVi).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
                                     x.SoLuong,
                                     x.DonGia,
                                     x.TrangThai,
-                                    SoLuongCon = ctx.TonKhos.Where(tk => tk.MaThuoc == t.MaThuoc && tk.MaLoaiDonViTinh == x.MaLoaiDonVi && tk.SoLuongCon > 0 && !tk.TrangThaiSeal).Sum(tk => (int?)tk.SoLuongCon) ?? 0
+                                    SoLuongCon = ctx.TonKhos.Where(tk => tk.MaThuoc == t.MaThuoc && tk.MaLoaiDonViTinh == x.MaLoaiDonVi && tk.SoLuongCon > 0).Sum(tk => (int?)tk.SoLuongCon) ?? 0
                                 })
                                 .ToList()
                 })
-                // remove Thuoc entries that ended up with no available GiaThuocs
                 .Where(t => t.GiaThuocs.Count > 0)
                 .ToListAsync()
                 .ContinueWith(t => (object)t.Result);
@@ -247,7 +262,7 @@ namespace BE_QLTiemThuoc.Services
                                     x.SoLuong,
                                     x.DonGia,
                                     x.TrangThai,
-                                    SoLuongCon = ctx.TonKhos.Where(tk => tk.MaThuoc == t.MaThuoc && tk.MaLoaiDonViTinh == x.MaLoaiDonVi && tk.SoLuongCon > 0 && !tk.TrangThaiSeal).Sum(tk => (int?)tk.SoLuongCon) ?? 0
+                                    SoLuongCon = ctx.TonKhos.Where(tk => tk.MaThuoc == t.MaThuoc && tk.MaLoaiDonViTinh == x.MaLoaiDonVi && tk.SoLuongCon > 0 ).Sum(tk => (int?)tk.SoLuongCon) ?? 0
                                 })
                                 .ToList()
                 })
@@ -256,23 +271,36 @@ namespace BE_QLTiemThuoc.Services
         }
 
         // GET: all GiaThuoc rows for a given MaThuoc with computed SoLuongCon and TenLoaiDonVi
-        public Task<object> GetGiaThuocsByMaThuocAsync(string maThuoc)
+        // Also returns the nearest expiration date (HanSuDung) among available lots for this MaThuoc
+        public async Task<object> GetGiaThuocsByMaThuocAsync(string maThuoc)
         {
             var ctx = _repo.Context;
-            return ctx.GiaThuocs
+
+            // Fetch all GiaThuoc rows for the MaThuoc
+            var giaEntities = await ctx.GiaThuocs
                 .Where(g => g.MaThuoc == maThuoc)
-                .Select(x => new
-                {
-                    x.MaGiaThuoc,
-                    x.MaLoaiDonVi,
-                    TenLoaiDonVi = ctx.Set<LoaiDonVi>().Where(d => d.MaLoaiDonVi == x.MaLoaiDonVi).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
-                    x.SoLuong,
-                    x.DonGia,
-                    x.TrangThai,
-                    SoLuongCon = ctx.TonKhos.Where(tk => tk.MaThuoc == x.MaThuoc && tk.MaLoaiDonViTinh == x.MaLoaiDonVi && tk.SoLuongCon > 0 && !tk.TrangThaiSeal).Sum(tk => (int?)tk.SoLuongCon) ?? 0
-                })
-                .ToListAsync()
-                .ContinueWith(t => (object)t.Result!);
+                .ToListAsync();
+
+            // Precompute nearest HanSuDung per MaLoaiDonViTinh among available lots (SoLuongCon>0)
+            var nearestByUnit = await ctx.TonKhos
+                .Where(tk => tk.MaThuoc == maThuoc && tk.SoLuongCon > 0)
+                .GroupBy(tk => tk.MaLoaiDonViTinh)
+                .Select(g => new { MaLoaiDonVi = g.Key, Nearest = g.Min(tk => (DateTime?)tk.HanSuDung) })
+                .ToListAsync();
+
+            var giaList = giaEntities.Select(x => new
+            {
+                x.MaGiaThuoc,
+                x.MaLoaiDonVi,
+                TenLoaiDonVi = ctx.Set<LoaiDonVi>().Where(d => d.MaLoaiDonVi == x.MaLoaiDonVi).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
+                x.SoLuong,
+                x.DonGia,
+                x.TrangThai,
+                SoLuongCon = ctx.TonKhos.Where(tk => tk.MaThuoc == x.MaThuoc && tk.MaLoaiDonViTinh == x.MaLoaiDonVi && tk.SoLuongCon > 0).Sum(tk => (int?)tk.SoLuongCon) ?? 0,
+                NearestHanSuDung = nearestByUnit.FirstOrDefault(n => n.MaLoaiDonVi == x.MaLoaiDonVi)?.Nearest
+            }).ToList();
+
+            return new { GiaThuocs = giaList }!;
         }
 
         public Task<List<LoaiDonVi>> GetLoaiDonViAsync()
@@ -284,7 +312,6 @@ namespace BE_QLTiemThuoc.Services
         {
             if (thuocDto == null) throw new ArgumentNullException(nameof(thuocDto));
 
-            // Server generates a unique MaThuoc for new medicines (clients don't send MaThuoc)
             string newMaThuoc;
             do
             {
@@ -411,7 +438,6 @@ namespace BE_QLTiemThuoc.Services
 
                     string BuildMaGiaThuoc(string baseMaThuoc, int idx)
                     {
-                        // Use GUID to ensure global uniqueness, 10 chars total
                         return "GT" + Guid.NewGuid().ToString("N").Substring(0, 8).ToUpper();
                     }
 

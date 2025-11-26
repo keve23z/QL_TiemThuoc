@@ -6,10 +6,9 @@ namespace BE_QLTiemThuoc.Dto
     public class HuyThuocRequestDto
     {
         [Required]
-        [StringLength(20)]
-        public string LoaiHuy { get; set; } // "TU_KHO" hoặc "TU_HOA_DON"
+        public int LoaiHuy { get; set; } // 0 = KHO (hủy từ kho), 1 = HOADON (hủy từ hóa đơn)
 
-        public HuyTuKhoDto HuyTuKho { get; set; }
-        public HuyTuHoaDonDto HuyTuHoaDon { get; set; }
+        public HuyTuKhoDto? HuyTuKho { get; set; }
+        public HuyTuHoaDonDto? HuyTuHoaDon { get; set; }
     }
 }

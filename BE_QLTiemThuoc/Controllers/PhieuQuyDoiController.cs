@@ -38,7 +38,7 @@ namespace BE_QLTiemThuoc.Controllers
         }
 
         [HttpPost("QuickByMa")]
-        public async Task<IActionResult> QuickByMa([FromBody] Dto.PhieuQuyDoiQuickByMaDto dto)
+        public async Task<IActionResult> QuickByMa([FromBody] PhieuQuyDoiQuickByMaDto dto)
         {
             if (dto == null || string.IsNullOrEmpty(dto.MaThuoc))
             {
@@ -52,10 +52,54 @@ namespace BE_QLTiemThuoc.Controllers
 
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
-                var result = await _service.QuickConvertByMaAsync(dto.MaThuoc!, null, dto.MaLoaiDonViMoi, dto.HanSuDungMoi);
-                var maPhieu = result.Item1;
-                var maLoMoi = result.Item2;
-                return new { MaPhieuQD = maPhieu, MaLoMoi = maLoMoi };
+                // allow QuickByMa to force conversion even if the source lot has TrangThaiSeal set
+                var result = await _service.QuickConvertByMaAsync(dto.MaThuoc!, null, dto.MaLoaiDonViMoi, dto.HanSuDungMoi, dto.MaLoGoc, dto.MaLoaiDonViGoc, true);
+                var (maPhieu, maLoMoi, maLoaiDonViGoc, maLoaiDonViMoi, soLuongGoc, soLuongQuyDoi, tyLeQuyDoi) = result;
+
+                // fetch TonKho details for the created/used MaLoMoi
+                var tonKho = await _service.GetTonKhoAsync(maLoMoi);
+
+                return new
+                {
+                    MaPhieuQD = maPhieu,
+                    MaLoMoi = maLoMoi,
+                    TonKho = tonKho,
+                    MaLoaiDonViGoc = maLoaiDonViGoc,
+                    MaLoaiDonViMoi = maLoaiDonViMoi,
+                    SoLuongGoc = soLuongGoc,
+                    SoLuongQuyDoi = soLuongQuyDoi,
+                    TyLeQuyDoi = tyLeQuyDoi
+                };
+            });
+
+            return Ok(response);
+        }
+
+        [HttpGet("List")]
+        public async Task<IActionResult> List([FromQuery] DateTime? start, [FromQuery] DateTime? end, [FromQuery] string? maNV)
+        {
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                var list = await _service.GetAllPhieuQuyDoiAsync(start, end, maNV);
+                return list;
+            });
+
+            return Ok(response);
+        }
+
+        [HttpGet("Details/{maPhieu}")]
+        public async Task<IActionResult> Details(string maPhieu)
+        {
+            if (string.IsNullOrWhiteSpace(maPhieu))
+            {
+                return BadRequest(new ApiResponse<string> { Status = -1, Message = "MaPhieu is required", Data = null });
+            }
+
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                var details = await _service.GetPhieuQuyDoiDetailsAsync(maPhieu);
+                if (details == null) throw new KeyNotFoundException($"PhieuQuyDoi '{maPhieu}' not found");
+                return details;
             });
 
             return Ok(response);

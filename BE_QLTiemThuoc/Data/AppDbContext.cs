@@ -28,6 +28,8 @@ namespace BE_QLTiemThuoc.Data
         public DbSet<HoaDon> HoaDons { get; set; }
         public DbSet<ChiTietHoaDon> ChiTietHoaDons { get; set; }
         public DbSet<LieuDung> LieuDungs { get; set; }
+        public DbSet<PhieuXuLyHoanHuy> PhieuXuLyHoanHuys { get; set; }
+        public DbSet<ChiTietPhieuXuLy> ChiTietPhieuXuLys { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -50,6 +52,7 @@ namespace BE_QLTiemThuoc.Data
             modelBuilder.Entity<ChiTietHoaDon>().ToTable("ChiTietHoaDon");
             modelBuilder.Entity<ChiTietHoaDon>().HasKey(ct => ct.MaCTHD);
             modelBuilder.Entity<LieuDung>().ToTable("LieuDung");
+            modelBuilder.Entity<ChiTietPhieuXuLy>().ToTable("ChiTietPhieuXuLy");
 
         }
     }
