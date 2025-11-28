@@ -28,7 +28,7 @@ namespace BE_QLTiemThuoc.Model.Kho
         public int? TrangThai { get; set; } // 0: Chờ duyệt, 1: Đã duyệt
 
         [StringLength(500)]
-        public string? LyDo { get; set; }
+        public string? GhiChu { get; set; }
 
     }
 }

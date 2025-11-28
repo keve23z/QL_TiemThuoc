@@ -30,6 +30,8 @@ namespace BE_QLTiemThuoc.Data
         public DbSet<LieuDung> LieuDungs { get; set; }
         public DbSet<PhieuXuLyHoanHuy> PhieuXuLyHoanHuys { get; set; }
         public DbSet<ChiTietPhieuXuLy> ChiTietPhieuXuLys { get; set; }
+        public DbSet<PhieuHuy> PhieuHuys { get; set; }
+        public DbSet<ChiTietPhieuHuy> ChiTietPhieuHuys { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -53,6 +55,19 @@ namespace BE_QLTiemThuoc.Data
             modelBuilder.Entity<ChiTietHoaDon>().HasKey(ct => ct.MaCTHD);
             modelBuilder.Entity<LieuDung>().ToTable("LieuDung");
             modelBuilder.Entity<ChiTietPhieuXuLy>().ToTable("ChiTietPhieuXuLy");
+            modelBuilder.Entity<PhieuHuy>().ToTable("PhieuHuy");
+            modelBuilder.Entity<ChiTietPhieuHuy>().ToTable("ChiTietPhieuHuy");
+
+            // Explicit keys
+            modelBuilder.Entity<PhieuHuy>().HasKey(p => p.MaPH);
+            modelBuilder.Entity<ChiTietPhieuHuy>().HasKey(c => c.MaCTPH);
+
+            // Ensure EF uses ChiTietPhieuHuy.MaPH as FK to PhieuHuy.MaPH (avoid shadow FK 'PhieuHuyMaPH')
+            modelBuilder.Entity<ChiTietPhieuHuy>()
+                .HasOne<PhieuHuy>()
+                .WithMany(p => p.ChiTietPhieuHuys)
+                .HasForeignKey(c => c.MaPH)
+                .HasPrincipalKey(p => p.MaPH);
 
         }
     }

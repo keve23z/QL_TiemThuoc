@@ -25,7 +25,13 @@ namespace BE_QLTiemThuoc.Controllers
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
                 var list = await _service.GetAllAsync();
-                return list;
+                // Project to a response shape that does not include any Icon field
+                var projected = list.Select(x => new {
+                    MaLoaiThuoc = x.MaLoaiThuoc,
+                    TenLoaiThuoc = x.TenLoaiThuoc,
+                    MaNhomLoai = x.MaNhomLoai
+                }).ToList();
+                return projected;
             });
 
             return Ok(response);
