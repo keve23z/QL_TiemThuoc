@@ -3,7 +3,7 @@ using BE_QLTiemThuoc.Model.Kho;
 using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Threading.Tasks;
-
+using BE_QLTiemThuoc.Model.Thuoc;
 namespace BE_QLTiemThuoc.Repositories
 {
     public class PhieuXuLyHoanHuyRepository
@@ -100,14 +100,14 @@ namespace BE_QLTiemThuoc.Repositories
                 )
                 .SelectMany(x => x.tks.DefaultIfEmpty(), (x, tk) => new { x.ct, tk })
                 .GroupJoin(
-                    _context.Set<BE_QLTiemThuoc.Model.Thuoc.Thuoc>().AsNoTracking(),
+                    _context.Set<Thuoc>().AsNoTracking(),
                     x => x.tk != null ? x.tk.MaThuoc : null,
                     th => th.MaThuoc,
                     (x, ths) => new { x.ct, x.tk, ths }
                 )
                 .SelectMany(x => x.ths.DefaultIfEmpty(), (x, th) => new { x.ct, x.tk, th })
                 .GroupJoin(
-                    _context.Set<BE_QLTiemThuoc.Model.Thuoc.LoaiDonVi>().AsNoTracking(),
+                    _context.Set<LoaiDonVi>().AsNoTracking(),
                     x => x.tk != null ? x.tk.MaLoaiDonViTinh : null,
                     ldv => ldv.MaLoaiDonVi,
                     (x, ldvs) => new { x.ct, x.tk, x.th, ldvs }

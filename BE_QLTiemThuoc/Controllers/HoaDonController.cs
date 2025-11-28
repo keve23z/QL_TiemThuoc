@@ -379,12 +379,12 @@ namespace BE_QLTiemThuoc.Controllers
                                 MaCTHD = GenMaCtHd(),
                                 MaHD = maHd,
                                 MaLo = tk.MaLo,
-                                    SoLuong = take,
+                                SoLuong = take,
                                 DonGia = item.DonGia,
                                 ThanhTien = item.DonGia * take,
-                                    MaLD = item.MaLD,
-                                    MaLoaiDonVi = donVi,
-                                    MaThuoc = tk.MaThuoc
+                                MaLD = item.MaLD,
+                                MaLoaiDonVi = donVi,
+                                MaThuoc = tk.MaThuoc
                                             ,HanSuDung = requestedHsd
                                             ,TrangThaiXuLy = true
                             };
