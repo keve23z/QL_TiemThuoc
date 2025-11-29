@@ -29,12 +29,17 @@ namespace BE_QLTiemThuoc.Controllers
         {
             var response = await ApiResponseHelper.ExecuteSafetyAsync<object>(async () =>
             {
-                if (from == null || to == null) throw new ArgumentException("Both 'from' and 'to' query parameters are required and must be valid dates.");
-                var fromDate = from.Value.Date;
-                var toDate = to.Value.Date.AddDays(1).AddTicks(-1); // include entire 'to' day
+                DateTime? fromDate = null;
+                DateTime? toDate = null;
 
                 var q = _ctx.HoaDons.AsQueryable();
-                q = q.Where(h => h.NgayLap >= fromDate && h.NgayLap <= toDate);
+                // apply date filter only when both from and to are provided
+                if (from != null && to != null)
+                {
+                    fromDate = from.Value.Date;
+                    toDate = to.Value.Date.AddDays(1).AddTicks(-1); // include entire 'to' day
+                    q = q.Where(h => h.NgayLap >= fromDate && h.NgayLap <= toDate);
+                }
                 if (status != null) q = q.Where(h => h.TrangThaiGiaoHang == status.Value);
 
                 // filter by invoice type: 'HD' (direct) and 'HDOL' (online)
@@ -342,13 +347,15 @@ namespace BE_QLTiemThuoc.Controllers
                         var requestedHsd = item.HanSuDung.Value;
                         if (!string.IsNullOrEmpty(donVi))
                         {
-                            var sql = "SELECT * FROM TON_KHO WITH (UPDLOCK, ROWLOCK) WHERE MaThuoc = {0} AND MaLoaiDonViTinh = {1} AND SoLuongCon > 0 AND HanSuDung >= {2} ORDER BY HanSuDung";
-                            candidateLots = await _ctx.TonKhos.FromSqlRaw(sql, maThuoc, donVi, requestedHsd).AsTracking().ToListAsync();
+                            // Include expired lots as candidates (still FIFO by HSD)
+                            var sql = "SELECT * FROM TON_KHO WITH (UPDLOCK, ROWLOCK) WHERE MaThuoc = {0} AND MaLoaiDonViTinh = {1} AND SoLuongCon > 0 ORDER BY HanSuDung";
+                            candidateLots = await _ctx.TonKhos.FromSqlRaw(sql, maThuoc, donVi).AsTracking().ToListAsync();
                         }
                         else
                         {
-                            var sql = "SELECT * FROM TON_KHO WITH (UPDLOCK, ROWLOCK) WHERE MaThuoc = {0} AND SoLuongCon > 0 AND HanSuDung >= {1} ORDER BY HanSuDung";
-                            candidateLots = await _ctx.TonKhos.FromSqlRaw(sql, maThuoc, requestedHsd).AsTracking().ToListAsync();
+                            // Include expired lots as candidates (still FIFO by HSD)
+                            var sql = "SELECT * FROM TON_KHO WITH (UPDLOCK, ROWLOCK) WHERE MaThuoc = {0} AND SoLuongCon > 0 ORDER BY HanSuDung";
+                            candidateLots = await _ctx.TonKhos.FromSqlRaw(sql, maThuoc).AsTracking().ToListAsync();
                         }
 
                         var totalAvailable = candidateLots.Sum(l => l.SoLuongCon);
@@ -372,12 +379,12 @@ namespace BE_QLTiemThuoc.Controllers
                                 MaCTHD = GenMaCtHd(),
                                 MaHD = maHd,
                                 MaLo = tk.MaLo,
-                                    SoLuong = take,
+                                SoLuong = take,
                                 DonGia = item.DonGia,
                                 ThanhTien = item.DonGia * take,
-                                    MaLD = item.MaLD,
-                                    MaLoaiDonVi = donVi,
-                                    MaThuoc = tk.MaThuoc
+                                MaLD = item.MaLD,
+                                MaLoaiDonVi = donVi,
+                                MaThuoc = tk.MaThuoc
                                             ,HanSuDung = requestedHsd
                                             ,TrangThaiXuLy = true
                             };
@@ -981,8 +988,8 @@ namespace BE_QLTiemThuoc.Controllers
         // Body: { MaHD, MaNV, Items: [{ MaThuoc, DonVi, SoLuong, DonGia, MaLD, HanSuDung }] }
         // This confirms an online order: assigns lots, decrements stock, saves requested HanSuDung and MaLD,
         // and sets TrangThaiGiaoHang = 1 (Đã xác nhận).
-        [HttpPost("ConfirmOnline")]
-        public async Task<IActionResult> ConfirmOnline([FromBody] ConfirmOnlineDto dto)
+         [HttpPost("ConfirmOnline")]        
+         public async Task<IActionResult> ConfirmOnline([FromBody] ConfirmOnlineDto dto)
         {
             var response = await ApiResponseHelper.ExecuteSafetyAsync<object>(async () =>
             {
@@ -1061,13 +1068,15 @@ namespace BE_QLTiemThuoc.Controllers
                         List<Model.Kho.TonKho> candidateLots;
                         if (!string.IsNullOrEmpty(donVi))
                         {
-                            var sql = "SELECT * FROM TON_KHO WITH (UPDLOCK, ROWLOCK) WHERE MaThuoc = {0} AND MaLoaiDonViTinh = {1} AND SoLuongCon > 0 AND HanSuDung >= {2} ORDER BY HanSuDung";
-                            candidateLots = await _ctx.TonKhos.FromSqlRaw(sql, item.MaThuoc, donVi, requestedHsd).AsTracking().ToListAsync();
+                            // Include expired lots as candidates (still FIFO by HSD)
+                            var sql = "SELECT * FROM TON_KHO WITH (UPDLOCK, ROWLOCK) WHERE MaThuoc = {0} AND MaLoaiDonViTinh = {1} AND SoLuongCon > 0 ORDER BY HanSuDung";
+                            candidateLots = await _ctx.TonKhos.FromSqlRaw(sql, item.MaThuoc, donVi).AsTracking().ToListAsync();
                         }
                         else
                         {
-                            var sql = "SELECT * FROM TON_KHO WITH (UPDLOCK, ROWLOCK) WHERE MaThuoc = {0} AND SoLuongCon > 0 AND HanSuDung >= {1} ORDER BY HanSuDung";
-                            candidateLots = await _ctx.TonKhos.FromSqlRaw(sql, item.MaThuoc, requestedHsd).AsTracking().ToListAsync();
+                            // Include expired lots as candidates (still FIFO by HSD)
+                            var sql = "SELECT * FROM TON_KHO WITH (UPDLOCK, ROWLOCK) WHERE MaThuoc = {0} AND SoLuongCon > 0 ORDER BY HanSuDung";
+                            candidateLots = await _ctx.TonKhos.FromSqlRaw(sql, item.MaThuoc).AsTracking().ToListAsync();
                         }
 
                         var totalAvailable = candidateLots.Sum(l => l.SoLuongCon);

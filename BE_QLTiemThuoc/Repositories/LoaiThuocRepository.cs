@@ -15,19 +15,43 @@ namespace BE_QLTiemThuoc.Repositories
 
         public async Task<List<LoaiThuoc>> GetAllAsync()
         {
-            return await _context.LoaiThuoc.OrderBy(x => x.TenLoaiThuoc).ToListAsync();
+            return await _context.LoaiThuoc
+                .AsNoTracking()
+                .OrderBy(x => x.TenLoaiThuoc)
+                .Select(x => new LoaiThuoc {
+                    MaLoaiThuoc = x.MaLoaiThuoc,
+                    TenLoaiThuoc = x.TenLoaiThuoc,
+                    MaNhomLoai = x.MaNhomLoai
+                })
+                .ToListAsync();
         }
 
         public async Task<LoaiThuoc?> GetByIdAsync(string ma)
         {
             if (string.IsNullOrWhiteSpace(ma)) return null;
-            return await _context.LoaiThuoc.FindAsync(ma);
+            return await _context.LoaiThuoc
+                .AsNoTracking()
+                .Where(l => l.MaLoaiThuoc == ma)
+                .Select(x => new LoaiThuoc {
+                    MaLoaiThuoc = x.MaLoaiThuoc,
+                    TenLoaiThuoc = x.TenLoaiThuoc,
+                    MaNhomLoai = x.MaNhomLoai
+                })
+                .FirstOrDefaultAsync();
         }
 
         public async Task<List<LoaiThuoc>> GetByNhomAsync(string maNhom)
         {
             if (string.IsNullOrWhiteSpace(maNhom)) return new List<LoaiThuoc>();
-            return await _context.LoaiThuoc.Where(l => l.MaNhomLoai == maNhom).ToListAsync();
+            return await _context.LoaiThuoc
+                .AsNoTracking()
+                .Where(l => l.MaNhomLoai == maNhom)
+                .Select(x => new LoaiThuoc {
+                    MaLoaiThuoc = x.MaLoaiThuoc,
+                    TenLoaiThuoc = x.TenLoaiThuoc,
+                    MaNhomLoai = x.MaNhomLoai
+                })
+                .ToListAsync();
         }
 
         public async Task CreateAsync(LoaiThuoc item)

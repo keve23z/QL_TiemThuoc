@@ -38,8 +38,8 @@ namespace BE_QLTiemThuoc.Controllers
                 if (string.IsNullOrWhiteSpace(request.CancelUrl))
                     throw new ArgumentException("cancelUrl is required in the request body.");
 
-                string clientId = Environment.GetEnvironmentVariable("PayOS__ClientId") ?? _configuration["PayOS:ClientId"] ?? "";
-                string apiKey = Environment.GetEnvironmentVariable("PayOS__ApiKey") ?? _configuration["PayOS:ApiKey"] ?? "";
+                string clientId = Environment.GetEnvironmentVariable("PayOS__ClientId") ?? _configuration["PayOS:ClientId"] ?? ""; 
+                string apiKey = Environment.GetEnvironmentVariable("PayOS__ApiKey") ?? _configuration["PayOS:ApiKey"] ?? ""; 
                 string checksumKey = Environment.GetEnvironmentVariable("PayOS__ChecksumKey") ?? _configuration["PayOS:ChecksumKey"] ?? "";
 
                 if (string.IsNullOrEmpty(clientId) || string.IsNullOrEmpty(apiKey) || string.IsNullOrEmpty(checksumKey))
@@ -47,6 +47,10 @@ namespace BE_QLTiemThuoc.Controllers
 
                 // Tạo orderCode (dạng timestamp)
                 long orderCode = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+                DateTime expireAt = DateTime.UtcNow.AddMinutes(3); // hết hiệu lực sau 3 phút
+
+                // TODO: lưu orderCode + expireAt vào DB để kiểm tra sau này
+                // SaveOrderToDatabase(orderCode, request.Amount, expireAt, ...);
 
                 var paymentBody = new
                 {
@@ -57,7 +61,6 @@ namespace BE_QLTiemThuoc.Controllers
                     cancelUrl = request.CancelUrl
                 };
 
-                // Tạo signature theo PayOS v2 docs
                 string signatureData = $"amount={paymentBody.amount}&cancelUrl={paymentBody.cancelUrl}&description={paymentBody.description}&orderCode={paymentBody.orderCode}&returnUrl={paymentBody.returnUrl}";
                 string signature = ComputeHmacSha256(signatureData, checksumKey);
 
@@ -72,7 +75,6 @@ namespace BE_QLTiemThuoc.Controllers
                 };
 
                 var jsonRequest = JsonSerializer.Serialize(requestToPayOs);
-                Console.WriteLine("[PayOS] Request: " + jsonRequest);
 
                 _httpClient.DefaultRequestHeaders.Clear();
                 _httpClient.DefaultRequestHeaders.Add("x-client-id", clientId);
@@ -82,15 +84,10 @@ namespace BE_QLTiemThuoc.Controllers
                 var httpResponse = await _httpClient.PostAsync("https://api-merchant.payos.vn/v2/payment-requests", content);
 
                 var responseContent = await httpResponse.Content.ReadAsStringAsync();
-                Console.WriteLine("[PayOS] Response: " + responseContent);
-
-                if (!httpResponse.IsSuccessStatusCode)
-                    throw new Exception("PayOS lỗi: " + responseContent);
-
                 var json = JsonSerializer.Deserialize<JsonElement>(responseContent);
 
-                if (json.GetProperty("code").GetString() != "00")
-                    throw new Exception("PayOS Error: " + json.GetProperty("desc").GetString());
+                if (!httpResponse.IsSuccessStatusCode || json.GetProperty("code").GetString() != "00")
+                    throw new Exception("PayOS lỗi: " + responseContent);
 
                 string checkoutUrl = json.GetProperty("data").GetProperty("checkoutUrl").GetString();
 
@@ -100,12 +97,13 @@ namespace BE_QLTiemThuoc.Controllers
                     OrderCode = orderCode.ToString(),
                     PaymentUrl = checkoutUrl,
                     Amount = request.Amount,
-                    Message = "Tạo giao dịch thành công"
+                    Message = "Tạo giao dịch thành công. Giao dịch chỉ có hiệu lực 3 phút."
                 };
             });
 
             return Ok(response);
         }
+
 
         // GET: api/SimplePayment/Status/{orderCode}
         [HttpGet("Status/{orderCode}")]
