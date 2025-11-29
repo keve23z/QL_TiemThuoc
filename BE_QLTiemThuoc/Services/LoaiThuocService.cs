@@ -33,7 +33,6 @@ namespace BE_QLTiemThuoc.Services
             var existing = await _repo.GetByIdAsync(ma);
             if (existing == null) return (false, "Not found");
             existing.TenLoaiThuoc = dto.TenLoaiThuoc;
-            existing.Icon = dto.Icon;
             existing.MaNhomLoai = dto.MaNhomLoai;
             await _repo.UpdateAsync(existing);
             return (true, null);

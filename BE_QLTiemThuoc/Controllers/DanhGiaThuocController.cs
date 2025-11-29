@@ -23,6 +23,9 @@ namespace BE_QLTiemThuoc.Controllers
  [HttpGet("khachhang/{maKh}")]
  public async Task<IActionResult> GetByKhachHang(string maKh) => Ok(await ApiResponseHelper.ExecuteSafetyAsync(()=> _service.GetByKhachHangAsync(maKh)));
 
+ [HttpGet("eligible/{maKh}")]
+ public async Task<IActionResult> GetEligible(string maKh) => Ok(await ApiResponseHelper.ExecuteSafetyAsync(()=> _service.GetEligibleThuocAsync(maKh)));
+
  [HttpPost]
  public async Task<IActionResult> CreateOrUpdate([FromBody] DanhGiaThuocCreateDto dto) => Ok(await ApiResponseHelper.ExecuteSafetyAsync(()=> _service.CreateOrUpdateAsync(dto)));
 

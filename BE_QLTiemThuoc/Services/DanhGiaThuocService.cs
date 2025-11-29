@@ -30,11 +30,43 @@ namespace BE_QLTiemThuoc.Services
  return list.Select(ToViewDto).ToList();
  }
 
+ public async Task<List<DanhGiaThuocEligibleDto>> GetEligibleThuocAsync(string maKh)
+ {
+ var eligible = await _repo.GetEligibleThuocByKhachAsync(maKh);
+ var existingRatings = await _repo.GetByKhachHangAsync(maKh);
+ var dict = existingRatings.ToDictionary(r => r.MaThuoc, r => r);
+ var result = new List<DanhGiaThuocEligibleDto>();
+ foreach(var item in eligible)
+ {
+ if(dict.TryGetValue(item.MaThuoc, out var r))
+ {
+ result.Add(new DanhGiaThuocEligibleDto
+ {
+ MaThuoc = item.MaThuoc,
+ TenThuoc = item.TenThuoc ?? string.Empty,
+ DaDanhGia = true,
+ MaDanhGia = r.MaDanhGia,
+ SoSao = r.SoSao
+ });
+ }
+ else
+ {
+ result.Add(new DanhGiaThuocEligibleDto
+ {
+ MaThuoc = item.MaThuoc,
+ TenThuoc = item.TenThuoc ?? string.Empty,
+ DaDanhGia = false
+ });
+ }
+ }
+ return result.OrderByDescending(x => x.DaDanhGia).ThenBy(x=>x.TenThuoc).ToList();
+ }
+
  public async Task<DanhGiaThuocViewDto> CreateOrUpdateAsync(DanhGiaThuocCreateDto dto)
  {
  // Validate completed order
  if(!await _repo.HasCompletedOrderForThuocAsync(dto.MaKH, dto.MaThuoc))
- throw new Exception("Khách ch? ???c ?ánh giá sau khi ??n hàng ?ã hoàn thành (tr?ng thái =3).");
+ throw new Exception("Khách ch?a mua ho?c ??n hàng ch?a hoàn thành cho s?n ph?m này (tr?ng thái giao hàng ph?i =3).");
 
  var existing = await _repo.GetByKhachHangAndThuocAsync(dto.MaKH, dto.MaThuoc);
  if(existing==null)
