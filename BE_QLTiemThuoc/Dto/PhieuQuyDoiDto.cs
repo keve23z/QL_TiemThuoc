@@ -22,8 +22,8 @@ namespace BE_QLTiemThuoc.Dto
     public class PhieuQuyDoiQuickByMaDto
     {
         public string MaThuoc { get; set; } = string.Empty;
-        public string MaLoaiDonViGoc { get; set; } = string.Empty;
-        public string? MaLoaiDonViMoi { get; set; }
+        public string MaLoaiDonViMoi { get; set; } = string.Empty;
+        public string? MaLoaiDonViGoc { get; set; }
         public DateTime? HanSuDungMoi { get; set; }
         public string? MaLoGoc { get; set; }
     }

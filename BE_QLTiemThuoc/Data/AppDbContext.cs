@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using BE_QLTiemThuoc.Model.Thuoc;
 using BE_QLTiemThuoc.Model;
 using BE_QLTiemThuoc.Model.Kho;
+using BE_QLTiemThuoc.Model.Ban; // Added namespace for DanhGiaThuoc
 
 namespace BE_QLTiemThuoc.Data
 {
@@ -30,6 +31,7 @@ namespace BE_QLTiemThuoc.Data
         public DbSet<LieuDung> LieuDungs { get; set; }
         public DbSet<PhieuXuLyHoanHuy> PhieuXuLyHoanHuys { get; set; }
         public DbSet<ChiTietPhieuXuLy> ChiTietPhieuXuLys { get; set; }
+        public DbSet<DanhGiaThuoc> DanhGiaThuocs { get; set; } // New DbSet
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -53,7 +55,9 @@ namespace BE_QLTiemThuoc.Data
             modelBuilder.Entity<ChiTietHoaDon>().HasKey(ct => ct.MaCTHD);
             modelBuilder.Entity<LieuDung>().ToTable("LieuDung");
             modelBuilder.Entity<ChiTietPhieuXuLy>().ToTable("ChiTietPhieuXuLy");
-
+            modelBuilder.Entity<DanhGiaThuoc>().ToTable("DanhGiaThuoc");
+            modelBuilder.Entity<DanhGiaThuoc>().HasKey(d => d.MaDanhGia);
+            modelBuilder.Entity<DanhGiaThuoc>().HasIndex(d => new { d.MaKH, d.MaThuoc }).IsUnique();
         }
     }
 
