@@ -48,7 +48,7 @@ namespace BE_QLTiemThuoc.Controllers
         }
         // POST: api/PhieuHuy/CreateByPXH
         [HttpPost("CreateByPXH")]
-        public async Task<IActionResult> CreateByPXH([FromBody] BE_QLTiemThuoc.Dto.CreateByPxhDto dto)
+        public async Task<IActionResult> CreateByPXH([FromBody] CreateByPxhDto dto)
         {
             if (dto == null) return BadRequest("Payload is required");
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
