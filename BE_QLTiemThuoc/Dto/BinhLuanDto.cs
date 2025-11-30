@@ -20,4 +20,10 @@ namespace BE_QLTiemThuoc.Dto
  public string? TraLoiChoBinhLuan { get; set; }
  public List<BinhLuanViewDto> Replies { get; set; } = new();
  }
+
+ public class AdminRootStatusDto
+ {
+ public BinhLuanViewDto Root { get; set; } = null!;
+ public int Status { get; set; } //0 = ch?a tr? l?i,1 = ?ã tr? l?i
+ }
 }

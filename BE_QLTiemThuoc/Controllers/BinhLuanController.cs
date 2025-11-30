@@ -17,6 +17,18 @@ namespace BE_QLTiemThuoc.Controllers
  [HttpGet("thuoc/{maThuoc}")]
  public async Task<IActionResult> GetByThuoc(string maThuoc) => Ok(await ApiResponseHelper.ExecuteSafetyAsync(()=> _service.GetByThuocAsync(maThuoc)));
 
+ // Admin: only root comments for a product
+ [HttpGet("thuoc/{maThuoc}/roots")]
+ public async Task<IActionResult> GetRootsByThuoc(string maThuoc) => Ok(await ApiResponseHelper.ExecuteSafetyAsync(()=> _service.GetRootByThuocAsync(maThuoc)));
+
+ // Admin: unanswered comments grouped in root->child order
+ [HttpGet("thuoc/{maThuoc}/unanswered")]
+ public async Task<IActionResult> GetUnansweredByThuoc(string maThuoc) => Ok(await ApiResponseHelper.ExecuteSafetyAsync(()=> _service.GetUnansweredByThuocAsync(maThuoc)));
+
+ // Global admin view: list all roots with status (0/1)
+ [HttpGet("roots/status")]
+ public async Task<IActionResult> GetGlobalRootStatus() => Ok(await ApiResponseHelper.ExecuteSafetyAsync(()=> _service.GetGlobalRootStatusAsync()));
+
  [HttpPost]
  public async Task<IActionResult> Create([FromBody] BinhLuanCreateDto dto) => Ok(await ApiResponseHelper.ExecuteSafetyAsync(()=> _service.CreateAsync(dto)));
 

@@ -1,8 +1,8 @@
 using BE_QLTiemThuoc.Dto;
 using BE_QLTiemThuoc.Model.Ban;
 using BE_QLTiemThuoc.Repositories;
-using Microsoft.EntityFrameworkCore; // added
-using Microsoft.Data.SqlClient; // added
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Data.SqlClient;
 
 namespace BE_QLTiemThuoc.Services
 {
@@ -25,18 +25,35 @@ namespace BE_QLTiemThuoc.Services
  return BuildForest(flat);
  }
 
+ public async Task<List<BinhLuanViewDto>> GetRootByThuocAsync(string maThuoc)
+ {
+ var roots = await _repo.GetRootByThuocAsync(maThuoc);
+ var flat = await _repo.GetAllByThuocAsync(maThuoc);
+ var map = BuildChildrenMap(flat);
+ return roots.OrderByDescending(r=>r.ThoiGian).Select(r=>ToDtoRecursive(r, map)).ToList();
+ }
+
+ // Admin: unanswered comments for product, ordered root->[child]
+ public async Task<List<BinhLuanViewDto>> GetUnansweredByThuocAsync(string maThuoc)
+ {
+ var list = await _repo.GetUnansweredByThuocAsync(maThuoc);
+ // build minimal nested context: for items returned, attach their direct children if any unanswered
+ var flat = await _repo.GetAllByThuocAsync(maThuoc);
+ var map = BuildChildrenMap(flat);
+ return list.Select(b=>ToDtoRecursive(b, map)).ToList();
+ }
+
  public async Task<BinhLuanViewDto> CreateAsync(BinhLuanCreateDto dto)
  {
  if(string.IsNullOrWhiteSpace(dto.MaThuoc)) throw new Exception("MaThuoc required");
  if(string.IsNullOrWhiteSpace(dto.NoiDung)) throw new Exception("NoiDung required");
- var hasAuthor = !string.IsNullOrWhiteSpace(dto.MaKH) ^ !string.IsNullOrWhiteSpace(dto.MaNV); // XOR
+ var hasAuthor = !string.IsNullOrWhiteSpace(dto.MaKH) ^ !string.IsNullOrWhiteSpace(dto.MaNV);
  if(!hasAuthor) throw new Exception("Provide MaKH or MaNV (exactly one)");
 
  if(!string.IsNullOrWhiteSpace(dto.TraLoiChoBinhLuan))
  {
  var parent = await _repo.GetByIdAsync(dto.TraLoiChoBinhLuan) ?? throw new Exception("Parent comment not found");
  if(parent.MaThuoc != dto.MaThuoc) throw new Exception("Parent belongs to different product");
- // Single direct reply per parent (root or reply). This allows a linear chain.
  var flat = await _repo.GetAllByThuocAsync(dto.MaThuoc);
  if(flat.Any(b=>b.TraLoiChoBinhLuan == dto.TraLoiChoBinhLuan)) throw new Exception("Bình lu?n này ?ã ???c tr? l?i. Không th? tr? l?i thêm.");
  }
@@ -48,7 +65,8 @@ namespace BE_QLTiemThuoc.Services
  MaNV = dto.MaNV,
  NoiDung = dto.NoiDung,
  TraLoiChoBinhLuan = dto.TraLoiChoBinhLuan,
- ThoiGian = DateTime.UtcNow
+ ThoiGian = DateTime.UtcNow,
+ // ignore DaTraLoi persistence; derive status dynamically
  };
  await _repo.AddAsync(e);
  try
@@ -62,7 +80,7 @@ namespace BE_QLTiemThuoc.Services
  if(sql.Number==2601 || sql.Number==2627 || sql.Message.Contains("Bình lu?n này ?ã ???c tr? l?i"))
  throw new Exception("Bình lu?n này ?ã ???c tr? l?i. Không th? tr? l?i thêm.");
  }
- throw; // rethrow other errors
+ throw;
  }
  return ToDto(e);
  }
@@ -129,5 +147,31 @@ namespace BE_QLTiemThuoc.Services
  TraLoiChoBinhLuan = e.TraLoiChoBinhLuan,
  Replies = new List<BinhLuanViewDto>()
  };
+
+ // Admin: global list of roots with status (0 = ch?a tr? l?i,1 = ?ã tr? l?i) considering subtree
+ public async Task<List<AdminRootStatusDto>> GetGlobalRootStatusAsync()
+ {
+ var flat = await _repo.GetAllAsync();
+ var childrenMap = BuildChildrenMap(flat);
+ BinhLuan GetDeepest(BinhLuan b)
+ {
+ while(childrenMap.TryGetValue(b.MaBL, out var kids) && kids.Count>0)
+ {
+ // single direct reply per design; pick the only child
+ b = kids.OrderByDescending(x=>x.ThoiGian).First();
+ }
+ return b;
+ }
+ var roots = flat.Where(b=>b.TraLoiChoBinhLuan==null).OrderByDescending(b=>b.ThoiGian);
+ var result = new List<AdminRootStatusDto>();
+ foreach(var r in roots)
+ {
+ var dto = ToDtoRecursive(r, childrenMap);
+ var deepest = GetDeepest(r);
+ var status = string.IsNullOrWhiteSpace(deepest.MaNV) ?0 :1; //0: last not staff => ch?a tr? l?i
+ result.Add(new AdminRootStatusDto{ Root = dto, Status = status });
+ }
+ return result;
+ }
  }
 }
