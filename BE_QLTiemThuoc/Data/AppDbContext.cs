@@ -5,6 +5,9 @@ using Microsoft.EntityFrameworkCore;
 using BE_QLTiemThuoc.Model.Thuoc;
 using BE_QLTiemThuoc.Model;
 using BE_QLTiemThuoc.Model.Kho;
+using BE_QLTiemThuoc.Model.Ban; // Added namespace for DanhGiaThuoc and BinhLuan
+
+
 namespace BE_QLTiemThuoc.Data
 {
     public class AppDbContext : DbContext
@@ -35,8 +38,13 @@ namespace BE_QLTiemThuoc.Data
         public DbSet<LieuDung> LieuDungs { get; set; }
         public DbSet<PhieuXuLyHoanHuy> PhieuXuLyHoanHuys { get; set; }
         public DbSet<ChiTietPhieuXuLy> ChiTietPhieuXuLys { get; set; }
+
+        public DbSet<DanhGiaThuoc> DanhGiaThuocs { get; set; } // New DbSet
+        public DbSet<BinhLuan> BinhLuans { get; set; } // Comments
+
         public DbSet<PhieuHuy> PhieuHuys { get; set; }
         public DbSet<ChiTietPhieuHuy> ChiTietPhieuHuys { get; set; }
+
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -63,6 +71,11 @@ namespace BE_QLTiemThuoc.Data
             modelBuilder.Entity<LichSuThanhToan>().HasKey(ls => ls.MaThanhToan);
             modelBuilder.Entity<LichSuThanhToan>().ToTable("LichSuThanhToan");
             modelBuilder.Entity<ChiTietPhieuXuLy>().ToTable("ChiTietPhieuXuLy");
+
+            modelBuilder.Entity<DanhGiaThuoc>().ToTable("DanhGiaThuoc");
+            modelBuilder.Entity<DanhGiaThuoc>().HasKey(d => d.MaDanhGia);
+            modelBuilder.Entity<DanhGiaThuoc>().HasIndex(d => new { d.MaKH, d.MaThuoc }).IsUnique();
+
             modelBuilder.Entity<PhieuHuy>().ToTable("PhieuHuy");
             modelBuilder.Entity<ChiTietPhieuHuy>().ToTable("ChiTietPhieuHuy");
 
@@ -77,6 +90,18 @@ namespace BE_QLTiemThuoc.Data
                 .HasForeignKey(c => c.MaPH)
                 .HasPrincipalKey(p => p.MaPH);
 
+
+            // BinhLuan mapping
+            modelBuilder.Entity<BinhLuan>().ToTable("BinhLuan");
+            modelBuilder.Entity<BinhLuan>().HasKey(b => b.MaBL);
+            modelBuilder.Entity<BinhLuan>()
+                .HasOne(b => b.Parent)
+                .WithMany(p => p.Replies)
+                .HasForeignKey(b => b.TraLoiChoBinhLuan)
+                .OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<BinhLuan>().HasIndex(b => b.MaThuoc); // for FE query by product
+            // Unique reply per parent (filtered index for non-null FK)
+            modelBuilder.Entity<BinhLuan>().HasIndex(b => b.TraLoiChoBinhLuan).IsUnique().HasFilter("[TraLoiChoBinhLuan] IS NOT NULL");
         }
     }
 
