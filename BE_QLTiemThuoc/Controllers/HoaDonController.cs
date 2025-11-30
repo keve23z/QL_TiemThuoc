@@ -74,7 +74,12 @@ namespace BE_QLTiemThuoc.Controllers
                                        TenNV = nv.HoTen,
                                        h.TongTien,
                                        h.GhiChu,
-                                       h.TrangThaiGiaoHang
+                                       h.TrangThaiGiaoHang,
+                                       h.PhuongThucTT,
+                                       PhuongThucTTName = (h.PhuongThucTT == 1) ? "Tiền mặt" : (h.PhuongThucTT == 2) ? "Chuyển khoản" : (h.PhuongThucTT == 3) ? "Online" : null,
+                                       h.TrangThai,
+                                       h.TienThanhToan,
+                                       h.OrderCode
                                    })
                     .ToListAsync();
 
@@ -98,26 +103,31 @@ namespace BE_QLTiemThuoc.Controllers
                                       from kh in khGroup.DefaultIfEmpty()
                                       join nv in _ctx.Set<NhanVien>() on h.MaNV equals nv.MaNV into nvGroup
                                       from nv in nvGroup.DefaultIfEmpty()
-                                      select new
-                                      {
-                                          h.MaHD,
-                                          h.NgayLap,
-                                          h.MaKH,
-                                          TenKH = string.IsNullOrEmpty(kh.HoTen) ? h.MaKH : kh.HoTen,
-                                          DiaChiKH = kh.DiaChi,
-                                          DienThoaiKH = kh.DienThoai,
-                                          h.MaNV,
-                                          TenNV = nv.HoTen,
-                                          h.TongTien,
-                                          h.GhiChu,
-                                          h.TrangThaiGiaoHang,
-                                          // Treat any of -1, -2, -3 as cancelled (Hủy)
-                                          TrangThaiGiaoHangName = (h.TrangThaiGiaoHang == -1 || h.TrangThaiGiaoHang == -2 || h.TrangThaiGiaoHang == -3) ? "Hủy" :
-                                                                  (h.TrangThaiGiaoHang == 0) ? "Đã đặt" :
-                                                                  (h.TrangThaiGiaoHang == 1) ? "Đã xác nhận" :
-                                                                  (h.TrangThaiGiaoHang == 2) ? "Đã giao" :
-                                                                  (h.TrangThaiGiaoHang == 3) ? "Đã nhận" : "Không xác định"
-                                      })
+                                       select new
+                                       {
+                                           h.MaHD,
+                                           h.NgayLap,
+                                           h.MaKH,
+                                           TenKH = string.IsNullOrEmpty(kh.HoTen) ? h.MaKH : kh.HoTen,
+                                           DiaChiKH = kh.DiaChi,
+                                           DienThoaiKH = kh.DienThoai,
+                                           h.MaNV,
+                                           TenNV = nv.HoTen,
+                                           h.TongTien,
+                                           h.GhiChu,
+                                           h.TrangThaiGiaoHang,
+                                           h.PhuongThucTT,
+                                           PhuongThucTTName = (h.PhuongThucTT == 1) ? "Tiền mặt" : (h.PhuongThucTT == 2) ? "Chuyển khoản" : (h.PhuongThucTT == 3) ? "Online" : null,
+                                           h.TrangThai,
+                                           h.TienThanhToan,
+                                           h.OrderCode,
+                                           // Treat any of -1, -2, -3 as cancelled (Hủy)
+                                           TrangThaiGiaoHangName = (h.TrangThaiGiaoHang == -1 || h.TrangThaiGiaoHang == -2 || h.TrangThaiGiaoHang == -3) ? "Hủy" :
+                                                                   (h.TrangThaiGiaoHang == 0) ? "Đã đặt" :
+                                                                   (h.TrangThaiGiaoHang == 1) ? "Đã xác nhận" :
+                                                                   (h.TrangThaiGiaoHang == 2) ? "Đã giao" :
+                                                                   (h.TrangThaiGiaoHang == 3) ? "Đã nhận" : "Không xác định"
+                                       })
                     .FirstOrDefaultAsync();
 
                 // Load details with product and dosage names
@@ -209,9 +219,14 @@ namespace BE_QLTiemThuoc.Controllers
                                           DienThoaiKH = kh.DienThoai,
                                           h.MaNV,
                                           TenNV = nv.HoTen,
-                                          h.TongTien,
-                                          h.GhiChu,
-                                          h.TrangThaiGiaoHang,
+                                           h.TongTien,
+                                           h.GhiChu,
+                                           h.TrangThaiGiaoHang,
+                                           h.PhuongThucTT,
+                                           PhuongThucTTName = (h.PhuongThucTT == 1) ? "Tiền mặt" : (h.PhuongThucTT == 2) ? "Chuyển khoản" : (h.PhuongThucTT == 3) ? "Online" : null,
+                                           h.TrangThai,
+                                           h.TienThanhToan,
+                                           h.OrderCode,
                                           TrangThaiGiaoHangName = (h.TrangThaiGiaoHang == -1 || h.TrangThaiGiaoHang == -2 || h.TrangThaiGiaoHang == -3) ? "Hủy" :
                                                                   (h.TrangThaiGiaoHang == 0) ? "Đã đặt" :
                                                                   (h.TrangThaiGiaoHang == 1) ? "Đã xác nhận" :
@@ -248,6 +263,11 @@ namespace BE_QLTiemThuoc.Controllers
                                          h.TongTien,
                                          h.GhiChu,
                                          h.TrangThaiGiaoHang,
+                                         h.PhuongThucTT,
+                                         PhuongThucTTName = (h.PhuongThucTT == 1) ? "Tiền mặt" : (h.PhuongThucTT == 2) ? "Chuyển khoản" : (h.PhuongThucTT == 3) ? "Online" : null,
+                                         h.TrangThai,
+                                         h.TienThanhToan,
+                                         h.OrderCode,
                                          TrangThaiGiaoHangName = (h.TrangThaiGiaoHang == -1 || h.TrangThaiGiaoHang == -2 || h.TrangThaiGiaoHang == -3) ? "Hủy" :
                                                                     (h.TrangThaiGiaoHang == 3) ? "Đã nhận" : "Không xác định",
                                          h.MaNV,
@@ -267,7 +287,11 @@ namespace BE_QLTiemThuoc.Controllers
                                          h.NgayLap,
                                          h.TongTien,
                                          h.GhiChu,
-                                         h.TrangThaiGiaoHang,
+                                        h.TrangThaiGiaoHang,
+                                        h.PhuongThucTT,
+                                        PhuongThucTTName = (h.PhuongThucTT == 1) ? "Tiền mặt" : (h.PhuongThucTT == 2) ? "Chuyển khoản" : (h.PhuongThucTT == 3) ? "Online" : null,
+                                        h.TrangThai,
+                                        h.TienThanhToan,
                                          TrangThaiGiaoHangName = (h.TrangThaiGiaoHang == 0) ? "Đã đặt" :
                                                                   (h.TrangThaiGiaoHang == 1) ? "Đã xác nhận" :
                                                                   (h.TrangThaiGiaoHang == 2) ? "Đã giao" : "Không xác định",
@@ -324,6 +348,12 @@ namespace BE_QLTiemThuoc.Controllers
                         TongTien = dto.TongTien ?? 0m,
                         TrangThaiGiaoHang = 3
                     };
+                    // payment metadata
+                    hd.PhuongThucTT = dto.PhuongThucTT ?? 1; // default to TIENMAT
+                    hd.TrangThai = true; // mark as paid on create
+                    hd.OrderCode = string.IsNullOrWhiteSpace(dto.OrderCode) ? null : dto.OrderCode;
+                    // compute TienThanhToan: if PhuongThucTT == 3 (OCD) then 0, else full amount
+                    hd.TienThanhToan = (hd.PhuongThucTT == 3) ? 0m : hd.TongTien;
                     await _ctx.Set<HoaDon>().AddAsync(hd);
                     await _ctx.SaveChangesAsync();
 
@@ -411,20 +441,25 @@ namespace BE_QLTiemThuoc.Controllers
                                           from kh in khGroup.DefaultIfEmpty()
                                           join nv in _ctx.Set<NhanVien>() on h.MaNV equals nv.MaNV into nvGroup
                                           from nv in nvGroup.DefaultIfEmpty()
-                                          select new
-                                          {
-                                              h.MaHD,
-                                              h.NgayLap,
-                                              h.MaKH,
-                                              TenKH = string.IsNullOrEmpty(kh.HoTen) ? h.MaKH : kh.HoTen,
-                                              DiaChiKH = kh.DiaChi,
-                                              DienThoaiKH = kh.DienThoai,
-                                              h.MaNV,
-                                              TenNV = nv.HoTen,
-                                              h.TongTien,
+                                        select new
+                                        {
+                                                                  h.MaHD,
+                                                                  h.NgayLap,
+                                                                  h.MaKH,
+                                                                  TenKH = string.IsNullOrEmpty(kh.HoTen) ? h.MaKH : kh.HoTen,
+                                                                  DiaChiKH = kh.DiaChi,
+                                                                  DienThoaiKH = kh.DienThoai,
+                                                                  h.MaNV,
+                                                                  TenNV = nv.HoTen,
+                                                                  h.TongTien,
                                               h.GhiChu,
-                                              h.TrangThaiGiaoHang
-                                          }).FirstOrDefaultAsync();
+                                              h.TrangThaiGiaoHang,
+                                              h.PhuongThucTT,
+                                              PhuongThucTTName = (h.PhuongThucTT == 1) ? "Tiền mặt" : (h.PhuongThucTT == 2) ? "Chuyển khoản" : (h.PhuongThucTT == 3) ? "Online" : null,
+                                              h.TrangThai,
+                                              h.TienThanhToan,
+                                              h.OrderCode,
+                                                              }).FirstOrDefaultAsync();
 
                     var details = await _ctx.ChiTietHoaDons
                         .Where(ct => ct.MaHD == hd.MaHD)
@@ -496,6 +531,12 @@ namespace BE_QLTiemThuoc.Controllers
                         TrangThaiGiaoHang = 0
                     };
 
+                    // payment metadata for online order
+                    hd.PhuongThucTT = dto.PhuongThucTT ?? 2; // default to ONLINE
+                    hd.TrangThai = true; // mark as paid on create
+                    hd.OrderCode = string.IsNullOrWhiteSpace(dto.OrderCode) ? null : dto.OrderCode;
+                    hd.TienThanhToan = (hd.PhuongThucTT == 3) ? 0m : hd.TongTien;
+
                     await _ctx.Set<HoaDon>().AddAsync(hd);
                     await _ctx.SaveChangesAsync();
 
@@ -546,20 +587,25 @@ namespace BE_QLTiemThuoc.Controllers
                                           from kh in khGroup.DefaultIfEmpty()
                                           join nv in _ctx.Set<NhanVien>() on h.MaNV equals nv.MaNV into nvGroup
                                           from nv in nvGroup.DefaultIfEmpty()
-                                          select new
-                                          {
-                                              h.MaHD,
-                                              h.NgayLap,
-                                              h.MaKH,
-                                              TenKH = string.IsNullOrEmpty(kh.HoTen) ? h.MaKH : kh.HoTen,
-                                              DiaChiKH = kh.DiaChi,
-                                              DienThoaiKH = kh.DienThoai,
-                                              h.MaNV,
-                                              TenNV = nv.HoTen,
-                                              h.TongTien,
-                                              h.GhiChu,
-                                              h.TrangThaiGiaoHang
-                                          }).FirstOrDefaultAsync();
+                                        select new
+                                        {
+                                            h.MaHD,
+                                            h.NgayLap,
+                                            h.MaKH,
+                                            TenKH = string.IsNullOrEmpty(kh.HoTen) ? h.MaKH : kh.HoTen,
+                                            DiaChiKH = kh.DiaChi,
+                                            DienThoaiKH = kh.DienThoai,
+                                            h.MaNV,
+                                            TenNV = nv.HoTen,
+                                            h.TongTien,
+                                            h.GhiChu,
+                                            h.TrangThaiGiaoHang,
+                                            h.PhuongThucTT,
+                                            PhuongThucTTName = (h.PhuongThucTT == 1) ? "Tiền mặt" : (h.PhuongThucTT == 2) ? "Chuyển khoản" : (h.PhuongThucTT == 3) ? "Online" : null,
+                                            h.TrangThai,
+                                            h.TienThanhToan,
+                                            h.OrderCode
+                                        }).FirstOrDefaultAsync();
 
                     var details = await _ctx.ChiTietHoaDons
                         .Where(ct => ct.MaHD == hd.MaHD)
@@ -1131,7 +1177,11 @@ namespace BE_QLTiemThuoc.Controllers
                             h.MaNV,
                             h.TongTien,
                             h.GhiChu,
-                            h.TrangThaiGiaoHang
+                            h.TrangThaiGiaoHang,
+                            h.PhuongThucTT,
+                            h.TrangThai,
+                            h.TienThanhToan,
+                            h.OrderCode
                         })
                         .FirstOrDefaultAsync();
 
@@ -1405,7 +1455,7 @@ namespace BE_QLTiemThuoc.Controllers
 
                 await _ctx.SaveChangesAsync();
 
-                return new { hd.MaHD, hd.TrangThaiGiaoHang };
+                return new { hd.MaHD, hd.TrangThaiGiaoHang, hd.PhuongThucTT, hd.TrangThai, hd.TienThanhToan, hd.OrderCode };
             });
 
             return Ok(response);

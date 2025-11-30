@@ -5,7 +5,6 @@ using Microsoft.EntityFrameworkCore;
 using BE_QLTiemThuoc.Model.Thuoc;
 using BE_QLTiemThuoc.Model;
 using BE_QLTiemThuoc.Model.Kho;
-
 namespace BE_QLTiemThuoc.Data
 {
     public class AppDbContext : DbContext
@@ -28,6 +27,11 @@ namespace BE_QLTiemThuoc.Data
         public DbSet<HoaDon> HoaDons { get; set; }
         public DbSet<ChiTietHoaDon> ChiTietHoaDons { get; set; }
         public DbSet<LichSuThanhToan> LichSuThanhToans { get; set; }
+        // compatibility: some code expects singular property name
+        public DbSet<LichSuThanhToan> LichSuThanhToan {
+            get => LichSuThanhToans;
+            set => LichSuThanhToans = value;
+        }
         public DbSet<LieuDung> LieuDungs { get; set; }
         public DbSet<PhieuXuLyHoanHuy> PhieuXuLyHoanHuys { get; set; }
         public DbSet<ChiTietPhieuXuLy> ChiTietPhieuXuLys { get; set; }

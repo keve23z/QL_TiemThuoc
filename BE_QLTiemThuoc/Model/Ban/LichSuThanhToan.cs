@@ -13,7 +13,7 @@ namespace BE_QLTiemThuoc.Model
 
         [Required]
         [StringLength(20)]
-        public string MaHD { get; set; } = string.Empty;
+        public string? MaHD { get; set; } = string.Empty;
 
         [Required]
         [Column(TypeName = "decimal(18,2)")]
