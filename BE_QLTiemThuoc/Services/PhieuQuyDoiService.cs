@@ -290,13 +290,18 @@ namespace BE_QLTiemThuoc.Services
             var thuoc = await ctx.Set<Model.Thuoc.Thuoc>().AsNoTracking().FirstOrDefaultAsync(t => t.MaThuoc == maThuoc);
             if (thuoc == null) throw new KeyNotFoundException("Thuoc not found by code");
 
-            int unitsPerPackage;
+            // determine a sensible default for unitsPerPackage but do NOT fail here.
+            // The precise conversion ratio will be computed from GiaThuoc entries for the given MaThuoc
+            // after resolving the source/target unit codes (see below). This avoids forcing callers to
+            // provide maLoaiDonViMoi when a ratio can be computed from GiaThuoc for the same medicine.
+            int unitsPerPackage = 1;
             if (unitsPerPackageOverride.HasValue && unitsPerPackageOverride.Value > 0)
             {
                 unitsPerPackage = unitsPerPackageOverride.Value;
             }
             else
             {
+                // try to use GiaThuoc if caller provided the target unit code
                 if (!string.IsNullOrEmpty(maLoaiDonViMoi))
                 {
                     var gia = await ctx.GiaThuocs.AsNoTracking().FirstOrDefaultAsync(g => g.MaThuoc == maThuoc && g.MaLoaiDonVi == maLoaiDonViMoi);
@@ -304,14 +309,12 @@ namespace BE_QLTiemThuoc.Services
                     {
                         unitsPerPackage = gia.SoLuong;
                     }
-                    else
-                    {
-                        throw new InvalidOperationException("Units per package must be provided or present in GiaThuoc for the given MaLoaiDonVi.");
-                    }
                 }
-                else
+
+                // otherwise fallback to a safe default of 1
+                if (unitsPerPackage <= 0)
                 {
-                    throw new InvalidOperationException("Units per package must be provided or present in GiaThuoc for the given MaLoaiDonVi.");
+                    unitsPerPackage = 1;
                 }
             }
 
@@ -327,11 +330,24 @@ namespace BE_QLTiemThuoc.Services
             }
             else
             {
-                // If ignoreTrangThaiSeal is true, allow selecting lots that are already marked as split.
-                candidateLot = await ctx.TonKhos
-                    .Where(t => t.MaThuoc == maThuoc && (ignoreTrangThaiSeal || !t.TrangThaiSeal) && t.SoLuongCon >= 1)
-                    .OrderBy(t => t.HanSuDung)
-                    .FirstOrDefaultAsync();
+                // If a source unit code was provided, prefer selecting a lot that has the same MaLoaiDonViTinh
+                // so we consume from the lot that is in the original unit (e.g., consume from 'LDV003' lots when
+                // converting from LDV003 -> LDV001). If none found, fall back to earliest expiry lot for the MaThuoc.
+                if (!string.IsNullOrWhiteSpace(maLoaiDonViGoc))
+                {
+                    candidateLot = await ctx.TonKhos
+                        .Where(t => t.MaThuoc == maThuoc && t.MaLoaiDonViTinh == maLoaiDonViGoc && (ignoreTrangThaiSeal || !t.TrangThaiSeal) && t.SoLuongCon >= 1)
+                        .OrderBy(t => t.HanSuDung)
+                        .FirstOrDefaultAsync();
+                }
+
+                if (candidateLot == null)
+                {
+                    candidateLot = await ctx.TonKhos
+                        .Where(t => t.MaThuoc == maThuoc && (ignoreTrangThaiSeal || !t.TrangThaiSeal) && t.SoLuongCon >= 1)
+                        .OrderBy(t => t.HanSuDung)
+                        .FirstOrDefaultAsync();
+                }
             }
             if (candidateLot == null) throw new InvalidOperationException("No sealed lot with sufficient quantity found");
 
@@ -372,20 +388,22 @@ namespace BE_QLTiemThuoc.Services
                 var sizeGoc = (giaGoc?.SoLuong > 0) ? giaGoc.SoLuong : 1;
                 var sizeMoi = (giaMoi?.SoLuong > 0) ? giaMoi.SoLuong : unitsPerPackage; // fallback to unitsPerPackage
 
-                // TyLeQuyDoi = number of target units produced per 1 source unit
+                // Validation: reject conversions where the target unit's SoLuong is less than the source unit's SoLuong.
+                // Example: GiaThuoc[MaLoaiDonViMoi = 'HOP'].SoLuong = 1 and GiaThuoc[MaLoaiDonViGoc = 'VIEN'].SoLuong = 100
+                // means converting from VIEN -> HOP would be invalid because 100 VIEN == 1 HOP.
+                if (sizeMoi < sizeGoc)
+                {
+                    throw new InvalidOperationException($"Invalid conversion: target unit '{maLoaiDonViMoiResolved}' has SoLuong {sizeMoi} which is less than source unit '{maLoaiDonViGocResolved}' SoLuong {sizeGoc}. Conversion from smaller unit to larger packaging is not allowed.");
+                }
+                if (sizeGoc <= 0) sizeGoc = 1; // guard against divide-by-zero
+                double ratio = (double)sizeMoi / (double)sizeGoc;
                 int tyLeQuyDoi;
-                try { checked { tyLeQuyDoi = (int)((long)sizeGoc / (long)sizeMoi); } }
+                try { checked { tyLeQuyDoi = (int)Math.Round(ratio); } }
                 catch { tyLeQuyDoi = 1; }
                 if (tyLeQuyDoi <= 0) tyLeQuyDoi = 1;
-
-                // number of source units consumed (we take 1)
                 int soLuongGoc = 1;
                 int soLuongQuyDoi = soLuongGoc * tyLeQuyDoi;
-
-                // determine which expiry date the new lot should have (explicit override or source lot's HSD)
                 var targetHanSuDung = hanSuDungMoi ?? tk.HanSuDung;
-
-                // check for existing aggregated lot (same MaThuoc, HanSuDung, MaLoaiDonViTinh)
                 var existing = await ctx2.TonKhos
                     .Where(t => t.MaThuoc == tk.MaThuoc && t.HanSuDung == targetHanSuDung && t.MaLoaiDonViTinh == maLoaiDonViMoiResolved)
                     .FirstOrDefaultAsync();

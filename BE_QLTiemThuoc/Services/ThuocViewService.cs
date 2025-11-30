@@ -24,11 +24,18 @@ namespace BE_QLTiemThuoc.Services
             // status: null => return all (both SoLuongCon == 0 and >0)
             // status: 0 => return only SoLuongCon == 0
             // status: 1 => return only SoLuongCon > 0
+            var today = DateTime.Now.Date;
             var q = from tk in _context.TonKhos
-                    join t in _context.Thuoc on tk.MaThuoc equals t.MaThuoc
-                    where tk.TrangThaiSeal == false &&
-                          (status == null ? true : (status == 1 ? tk.SoLuongCon > 0 : tk.SoLuongCon == 0))
-                    orderby tk.HanSuDung
+                  join t in _context.Thuoc on tk.MaThuoc equals t.MaThuoc
+                  // When status == 0 (empty), include expired lots as well.
+                  // For status == 1 keep only non-expired lots with SoLuongCon > 0.
+                  // When status is not provided, keep previous behavior (exclude expired lots).
+                  where tk.TrangThaiSeal == false && (
+                      status == null ? tk.HanSuDung > today
+                      : (status == 1 ? (tk.HanSuDung > today && tk.SoLuongCon > 0)
+                      : (/* status == 0 */ tk.SoLuongCon == 0 || tk.HanSuDung <= today))
+                  )
+                  orderby tk.HanSuDung
                     select new
                     {
                         tk.MaLo,
@@ -54,11 +61,18 @@ namespace BE_QLTiemThuoc.Services
             // status: null => return all (both SoLuongCon == 0 and >0)
             // status: 0 => return only SoLuongCon == 0
             // status: 1 => return only SoLuongCon > 0
+            var today = DateTime.Now.Date;
             var q = from tk in _context.TonKhos
-                    join t in _context.Thuoc on tk.MaThuoc equals t.MaThuoc
-                    where tk.TrangThaiSeal == true &&
-                          (status == null ? true : (status == 1 ? tk.SoLuongCon > 0 : tk.SoLuongCon == 0))
-                    orderby tk.HanSuDung
+                  join t in _context.Thuoc on tk.MaThuoc equals t.MaThuoc
+                  // When status == 0 (empty), include expired lots as well.
+                  // For status == 1 keep only non-expired lots with SoLuongCon > 0.
+                  // When status is not provided, keep previous behavior (exclude expired lots).
+                  where tk.TrangThaiSeal == true && (
+                      status == null ? tk.HanSuDung > today
+                      : (status == 1 ? (tk.HanSuDung > today && tk.SoLuongCon > 0)
+                      : (/* status == 0 */ tk.SoLuongCon == 0 || tk.HanSuDung <= today))
+                  )
+                  orderby tk.HanSuDung
                     select new
                     {
                         tk.MaLo,
@@ -77,6 +91,8 @@ namespace BE_QLTiemThuoc.Services
 
             return await q.ToListAsync<dynamic>();
         }
+
+        
 
         public async Task<List<dynamic>> GetTongSoLuongConAsync()
         {
@@ -134,9 +150,14 @@ namespace BE_QLTiemThuoc.Services
                 end = now.AddDays(7);
             }
 
-            var q = from tk in _context.TonKhos
+                // include both upcoming expiries within the requested range AND any already-expired lots (HanSuDung < today)
+                var today = DateTime.Now.Date;
+                var q = from tk in _context.TonKhos
                     join t in _context.Thuoc on tk.MaThuoc equals t.MaThuoc
-                    where tk.SoLuongCon > 0 && tk.HanSuDung >= start && tk.HanSuDung <= end
+                    where tk.SoLuongCon > 0 && (
+                      (tk.HanSuDung >= start && tk.HanSuDung <= end)  // upcoming within range
+                      || (tk.HanSuDung < today)                         // already expired
+                    )
                     orderby tk.HanSuDung
                     select new
                     {
@@ -151,6 +172,32 @@ namespace BE_QLTiemThuoc.Services
                         tk.GhiChu,
                         NgayConLai = EF.Functions.DateDiffDay(now, tk.HanSuDung),
                         ThangConLai = EF.Functions.DateDiffMonth(now, tk.HanSuDung)
+                    };
+
+            return await q.ToListAsync<dynamic>();
+        }
+
+        // GET: LoDaHet - expired lots
+        public async Task<List<dynamic>> GetLoDaHetAsync()
+        {
+            var today = DateTime.Now.Date;
+
+            var q = from tk in _context.TonKhos
+                    join t in _context.Thuoc on tk.MaThuoc equals t.MaThuoc
+                    where tk.HanSuDung <= today
+                    orderby tk.HanSuDung
+                    select new
+                    {
+                        tk.MaLo,
+                        tk.MaThuoc,
+                        TenThuoc = t.TenThuoc,
+                        DonViGoc = tk.MaLoaiDonViTinh,
+                        TenLoaiDonViGoc = _context.Set<LoaiDonVi>().Where(d => d.MaLoaiDonVi == tk.MaLoaiDonViTinh).Select(d => d.TenLoaiDonVi).FirstOrDefault(),
+                        tk.SoLuongCon,
+                        tk.HanSuDung,
+                        tk.TrangThaiSeal,
+                        tk.GhiChu,
+                        Status = 0
                     };
 
             return await q.ToListAsync<dynamic>();

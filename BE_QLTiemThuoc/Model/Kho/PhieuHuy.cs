@@ -11,6 +11,9 @@ namespace BE_QLTiemThuoc.Model.Kho
         [StringLength(20)]
         public string MaPH { get; set; } = null!;
 
+        [StringLength(20)]
+        public string? MaPXH { get; set; } // Liên kết với PXH
+
         [Required]
         public DateTime NgayHuy { get; set; }
 
@@ -18,25 +21,7 @@ namespace BE_QLTiemThuoc.Model.Kho
         [StringLength(10)]
         public string MaNV { get; set; } = null!;
 
-        [Required]
-        public bool? LoaiHuy { get; set; } // bit: 0 = KHO, 1 = HOADON
-
-        [StringLength(20)]
-        public string? MaHD { get; set; } // Mã hóa đơn (nếu hủy từ hóa đơn)
-
-        public int? TongMatHangHuy { get; set; }
-        public int? TongSoLuongHuy { get; set; }
-
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal? TongTienHuy { get; set; }
-
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal? TongTienKho { get; set; }
-
-        [Column(TypeName = "decimal(18,2)")]
-        public decimal? TongTien { get; set; }
-
-        public string? LyDoHuy { get; set; }
+        // Database only has: MaPH, MaPXH, NgayHuy, MaNV, GhiChu
 
         [StringLength(255)]
         public string? GhiChu { get; set; }

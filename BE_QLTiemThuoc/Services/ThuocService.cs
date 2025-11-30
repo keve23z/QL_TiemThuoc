@@ -64,7 +64,9 @@ namespace BE_QLTiemThuoc.Services
                 })
                 .ToListAsync();
 
-            var loaiThuocList = await ctx.LoaiThuoc.ToListAsync();
+            var loaiThuocList = await ctx.LoaiThuoc
+                .Select(l => new { l.MaLoaiThuoc, l.TenLoaiThuoc, l.MaNhomLoai })
+                .ToListAsync();
             var nhomList = await ctx.NhomLoai.ToListAsync();
 
             var thongKeList = loaiThuocList
@@ -275,6 +277,7 @@ namespace BE_QLTiemThuoc.Services
         public async Task<object> GetGiaThuocsByMaThuocAsync(string maThuoc)
         {
             var ctx = _repo.Context;
+            var today = DateTime.Now.Date;
 
             // Fetch all GiaThuoc rows for the MaThuoc
             var giaEntities = await ctx.GiaThuocs
@@ -283,7 +286,7 @@ namespace BE_QLTiemThuoc.Services
 
             // Precompute nearest HanSuDung per MaLoaiDonViTinh among available lots (SoLuongCon>0)
             var nearestByUnit = await ctx.TonKhos
-                .Where(tk => tk.MaThuoc == maThuoc && tk.SoLuongCon > 0)
+                .Where(tk => tk.MaThuoc == maThuoc && tk.SoLuongCon > 0 && tk.HanSuDung > today)
                 .GroupBy(tk => tk.MaLoaiDonViTinh)
                 .Select(g => new { MaLoaiDonVi = g.Key, Nearest = g.Min(tk => (DateTime?)tk.HanSuDung) })
                 .ToListAsync();
@@ -296,7 +299,7 @@ namespace BE_QLTiemThuoc.Services
                 x.SoLuong,
                 x.DonGia,
                 x.TrangThai,
-                SoLuongCon = ctx.TonKhos.Where(tk => tk.MaThuoc == x.MaThuoc && tk.MaLoaiDonViTinh == x.MaLoaiDonVi && tk.SoLuongCon > 0).Sum(tk => (int?)tk.SoLuongCon) ?? 0,
+                SoLuongCon = ctx.TonKhos.Where(tk => tk.MaThuoc == x.MaThuoc && tk.MaLoaiDonViTinh == x.MaLoaiDonVi && tk.SoLuongCon > 0 && tk.HanSuDung > today).Sum(tk => (int?)tk.SoLuongCon) ?? 0,
                 NearestHanSuDung = nearestByUnit.FirstOrDefault(n => n.MaLoaiDonVi == x.MaLoaiDonVi)?.Nearest
             }).ToList();
 

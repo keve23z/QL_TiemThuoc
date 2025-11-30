@@ -10,8 +10,7 @@ namespace BE_QLTiemThuoc.Model.Kho
         [StringLength(20)]
         public string MaCTPH { get; set; } = null!;
         
-        [Required]
-        public bool LoaiHuy { get; set; }
+        // LoaiHuy column does not exist in DB
 
         [Required]
         [StringLength(20)]
@@ -22,7 +21,15 @@ namespace BE_QLTiemThuoc.Model.Kho
         public string MaLo { get; set; } = null!;
 
         [Required]
-        public int SoLuongHuy { get; set; }
+        [StringLength(10)]
+        public string MaThuoc { get; set; } = null!;
+
+        [Required]
+        [StringLength(10)]
+        public string MaLoaiDonVi { get; set; } = null!;
+
+        [Required]
+        public int SoLuong { get; set; }
 
         [Required]
         [Column(TypeName = "decimal(18,2)")]
@@ -35,8 +42,6 @@ namespace BE_QLTiemThuoc.Model.Kho
         [StringLength(1000)]
         public string? GhiChu { get; set; }
 
-        // Navigation to TonKho (the lot being referenced by MaLo)
-        [ForeignKey("MaLo")]
-        public virtual TonKho? TonKho { get; set; }
+        // Navigation properties can be added later if needed
     }
 }
