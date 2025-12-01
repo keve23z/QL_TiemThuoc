@@ -79,6 +79,8 @@ builder.Services.AddScoped<DanhGiaThuocRepository>();
 builder.Services.AddScoped<DanhGiaThuocService>();
 builder.Services.AddScoped<BinhLuanRepository>();
 builder.Services.AddScoped<BinhLuanService>();
+builder.Services.AddScoped<ChatRepository>();
+builder.Services.AddScoped<ChatService>();
 
 // =========================================================
 // !!! KHỐI CẤU HÌNH CLOUDINARY ĐÃ ĐƯỢC DI CHUYỂN LÊN TRƯỚC builder.Build() !!!
