@@ -76,7 +76,7 @@ namespace BE_QLTiemThuoc.Controllers
                                        h.GhiChu,
                                        h.TrangThaiGiaoHang,
                                        h.PhuongThucTT,
-                                       PhuongThucTTName = (h.PhuongThucTT == 1) ? "Tiền mặt" : (h.PhuongThucTT == 2) ? "Chuyển khoản" : (h.PhuongThucTT == 3) ? "Online" : null,
+                                       PhuongThucTTName = (h.PhuongThucTT == 1) ? "Tiền mặt" : (h.PhuongThucTT == 2) ? "Chuyển khoản" : (h.PhuongThucTT == 3) ? "COD" : null,
                                        h.TrangThai,
                                        h.TienThanhToan,
                                        h.OrderCode
@@ -117,7 +117,7 @@ namespace BE_QLTiemThuoc.Controllers
                                            h.GhiChu,
                                            h.TrangThaiGiaoHang,
                                            h.PhuongThucTT,
-                                           PhuongThucTTName = (h.PhuongThucTT == 1) ? "Tiền mặt" : (h.PhuongThucTT == 2) ? "Chuyển khoản" : (h.PhuongThucTT == 3) ? "Online" : null,
+                                           PhuongThucTTName = (h.PhuongThucTT == 1) ? "Tiền mặt" : (h.PhuongThucTT == 2) ? "Chuyển khoản" : (h.PhuongThucTT == 3) ? "COD" : null,
                                            h.TrangThai,
                                            h.TienThanhToan,
                                            h.OrderCode,
@@ -135,7 +135,7 @@ namespace BE_QLTiemThuoc.Controllers
                                    where ct.MaHD == maHd
                                    join ton in _ctx.TonKhos on ct.MaLo equals ton.MaLo into tonGroup
                                    from ton in tonGroup.DefaultIfEmpty()
-                                   join thuoc in _ctx.Thuoc on ton.MaThuoc equals thuoc.MaThuoc into thuocGroup
+                                   join thuoc in _ctx.Thuoc on (ct.MaThuoc ?? (ton != null ? ton.MaThuoc : null)) equals thuoc.MaThuoc into thuocGroup
                                    from thuoc in thuocGroup.DefaultIfEmpty()
                                    join lieu in _ctx.Set<LieuDung>() on ct.MaLD equals lieu.MaLD into lieuGroup
                                    from lieu in lieuGroup.DefaultIfEmpty()
@@ -223,7 +223,7 @@ namespace BE_QLTiemThuoc.Controllers
                                            h.GhiChu,
                                            h.TrangThaiGiaoHang,
                                            h.PhuongThucTT,
-                                           PhuongThucTTName = (h.PhuongThucTT == 1) ? "Tiền mặt" : (h.PhuongThucTT == 2) ? "Chuyển khoản" : (h.PhuongThucTT == 3) ? "Online" : null,
+                                           PhuongThucTTName = (h.PhuongThucTT == 1) ? "Tiền mặt" : (h.PhuongThucTT == 2) ? "Chuyển khoản" : (h.PhuongThucTT == 3) ? "COD" : null,
                                            h.TrangThai,
                                            h.TienThanhToan,
                                            h.OrderCode,
@@ -1451,6 +1451,19 @@ namespace BE_QLTiemThuoc.Controllers
                             _ctx.Set<ChiTietHoaDon>().UpdateRange(detailsToUpdate);
                         }
                     }
+                }
+
+                // If caller provided a MaNV, update the invoice's assigned employee
+                if (!string.IsNullOrWhiteSpace(dto.MaNV))
+                {
+                    hd.MaNV = dto.MaNV.Trim();
+                }
+
+                // If the invoice is marked as 'received' and payment method is COD (3),
+                // mark the payment amount as fully paid.
+                if (hd.TrangThaiGiaoHang == 3 && hd.PhuongThucTT == 3)
+                {
+                    hd.TienThanhToan = hd.TongTien;
                 }
 
                 await _ctx.SaveChangesAsync();
