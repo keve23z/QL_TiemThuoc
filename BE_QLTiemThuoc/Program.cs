@@ -1,14 +1,13 @@
+﻿using Microsoft.EntityFrameworkCore;
 using BE_QLTiemThuoc.Data;
-using CloudinaryDotNet;
-using Microsoft.EntityFrameworkCore;
 using System;
 using BE_QLTiemThuoc.Repositories;
 using BE_QLTiemThuoc.Services;
 using DotNetEnv;
 
+
 var builder = WebApplication.CreateBuilder(args);
 
-var configuration = builder.Configuration; // Biến này đã có sẵn thông qua builder
 
 // Load environment variables first so they can override appsettings when configuring services
 Env.Load();
@@ -16,7 +15,9 @@ Env.Load();
 // Register DbContext after environment variables are loaded so connection string
 // injected via environment (e.g., DOTNET or .env) is available here.
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
+
+options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
+
 // Cấu hình CORS
 var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
 
@@ -71,7 +72,20 @@ builder.Services.AddScoped<NhanVienRepository>();
 builder.Services.AddScoped<NhanVienService>();
 builder.Services.AddScoped<LoaiDonViRepository>();
 builder.Services.AddScoped<LoaiDonViService>();
+<<<<<<< HEAD
 builder.Services.AddScoped<IThongKeService, ThongKeService>();
+=======
+builder.Services.AddScoped<PhieuHuyRepository>();
+builder.Services.AddScoped<PhieuHuyService>();
+builder.Services.AddScoped<PhieuXuLyHoanHuyRepository>();
+builder.Services.AddScoped<PhieuXuLyHoanHuyService>();
+builder.Services.AddScoped<DanhGiaThuocRepository>();
+builder.Services.AddScoped<DanhGiaThuocService>();
+builder.Services.AddScoped<BinhLuanRepository>();
+builder.Services.AddScoped<BinhLuanService>();
+builder.Services.AddScoped<ChatRepository>();
+builder.Services.AddScoped<ChatService>();
+>>>>>>> origin/main
 
 var account = new Account(
     // Prefer environment-loaded values (via Env.Load()) with fallback to appsettings
@@ -89,6 +103,7 @@ builder.Services.AddSingleton(new Cloudinary(account));
 
 var app = builder.Build(); // Service collection bị khóa tại đây
 
+
 // Swagger UI
 if (app.Environment.IsDevelopment())
 {
@@ -97,7 +112,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseCors(MyAllowSpecificOrigins);
+app.UseCors(MyAllowSpecificOrigins); // <- CHÈN Ở ĐÂY
 app.UseAuthorization();
 
 app.MapControllers();

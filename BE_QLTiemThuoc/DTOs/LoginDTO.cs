@@ -24,3 +24,4 @@ namespace BE_QLTiemThuoc.DTOs
         public bool IsAdmin { get; set; }
     }
 }
+
