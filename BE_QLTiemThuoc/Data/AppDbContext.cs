@@ -6,6 +6,7 @@ using BE_QLTiemThuoc.Model.Thuoc;
 using BE_QLTiemThuoc.Model;
 using BE_QLTiemThuoc.Model.Kho;
 using BE_QLTiemThuoc.Model.Ban; // Added namespace for DanhGiaThuoc and BinhLuan
+using BE_QLTiemThuoc.Model.Chat;
 
 
 namespace BE_QLTiemThuoc.Data
@@ -40,6 +41,10 @@ namespace BE_QLTiemThuoc.Data
 
         public DbSet<PhieuHuy> PhieuHuys { get; set; }
         public DbSet<ChiTietPhieuHuy> ChiTietPhieuHuys { get; set; }
+
+        // Chat
+        public DbSet<CuocTroChuyen> CuocTroChuyens { get; set; }
+        public DbSet<TinNhan> TinNhans { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -95,6 +100,32 @@ namespace BE_QLTiemThuoc.Data
             modelBuilder.Entity<BinhLuan>().HasIndex(b => b.MaThuoc); // for FE query by product
             // Unique reply per parent (filtered index for non-null FK)
             modelBuilder.Entity<BinhLuan>().HasIndex(b => b.TraLoiChoBinhLuan).IsUnique().HasFilter("[TraLoiChoBinhLuan] IS NOT NULL");
+
+            // Chat mapping
+            modelBuilder.Entity<CuocTroChuyen>().ToTable("CuocTroChuyen");
+            modelBuilder.Entity<CuocTroChuyen>().HasKey(c => c.MaCuocTroChuyen);
+            modelBuilder.Entity<CuocTroChuyen>()
+                .HasOne<KhachHang>()
+                .WithMany()
+                .HasForeignKey(c => c.MaKH)
+                .HasPrincipalKey(k => k.MAKH);
+
+            modelBuilder.Entity<TinNhan>().ToTable("TinNhan");
+            modelBuilder.Entity<TinNhan>().HasKey(t => t.MaTN);
+            modelBuilder.Entity<TinNhan>()
+                .HasOne(t => t.CuocTroChuyen)
+                .WithMany(c => c.TinNhans)
+                .HasForeignKey(t => t.MaCuocTroChuyen)
+                .HasPrincipalKey(c => c.MaCuocTroChuyen);
+
+            modelBuilder.Entity<TinNhan>()
+                .HasOne<NhanVien>()
+                .WithMany()
+                .HasForeignKey(t => t.MaNV)
+                .HasPrincipalKey(n => n.MaNV);
+
+            modelBuilder.Entity<TinNhan>().Property(t => t.ThoiGian).HasColumnType("datetime2");
+            modelBuilder.Entity<TinNhan>().HasIndex(t => new { t.MaCuocTroChuyen, t.ThoiGian });
         }
     }
 
