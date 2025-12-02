@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Reflection.Emit;
 using Microsoft.EntityFrameworkCore;
 
@@ -47,7 +47,6 @@ namespace BE_QLTiemThuoc.Data
         public DbSet<CuocTroChuyen> CuocTroChuyens { get; set; }
         public DbSet<TinNhan> TinNhans { get; set; }
 
-        public DbSet<LoaiThuoc> LoaiThuoc { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

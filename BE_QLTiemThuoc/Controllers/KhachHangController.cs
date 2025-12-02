@@ -63,10 +63,19 @@ namespace BE_QLTiemThuoc.Controllers
         {
             if (string.IsNullOrWhiteSpace(maKhachHang)) return BadRequest("maKhachHang is required");
 
-            var updated = await _service.UpdateAsync(maKhachHang, dto);
-            if (updated == null) return NotFound("Không tìm thấy khách hàng để cập nhật.");
+            var existing = await _context.KhachHangs.FindAsync(maKhachHang);
+            if (existing == null) return NotFound("Không tìm thấy khách hàng để cập nhật.");
 
-            return Ok(updated);
+            existing.HoTen = dto.HoTen;
+            existing.DienThoai = dto.DienThoai;
+            existing.DiaChi = dto.DiaChi;
+            existing.NgaySinh = dto.NgaySinh;
+            existing.GioiTinh = dto.GioiTinh;
+
+            _context.KhachHangs.Update(existing);
+            await _context.SaveChangesAsync();
+
+            return Ok(existing);
         }
     }
 

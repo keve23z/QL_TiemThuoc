@@ -1,4 +1,4 @@
-﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using BE_QLTiemThuoc.Data;
 using BE_QLTiemThuoc.Model.Thuoc;
@@ -49,7 +49,6 @@ namespace BE_QLTiemThuoc.Controllers
                         {
                             MaLoaiThuoc = x.MaLoaiThuoc,
                             TenLoaiThuoc = loai?.TenLoaiThuoc ?? "",
-                            Icon = loai?.Icon ?? "",
                             SoLuongThuoc = x.SoLuongThuoc
                         };
                     })
@@ -131,10 +130,10 @@ namespace BE_QLTiemThuoc.Controllers
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
                 if (!ModelState.IsValid)
-                    throw new Exception("Dữ liệu không hợp lệ.");
+                    throw new Exception("D? li?u kh�ng h?p l?.");
 
                 if (await _context.Thuoc.AnyAsync(t => t.MaThuoc == thuoc.MaThuoc))
-                    throw new Exception("Mã thuốc đã tồn tại.");
+                    throw new Exception("M� thu?c d� t?n t?i.");
 
                 _context.Thuoc.Add(thuoc);
                 await _context.SaveChangesAsync();
@@ -152,17 +151,17 @@ namespace BE_QLTiemThuoc.Controllers
             var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
             {
                 if (id != thuoc.MaThuoc)
-                    throw new Exception("Mã thuốc không khớp.");
+                    throw new Exception("M� thu?c kh�ng kh?p.");
 
                 var entity = await _context.Thuoc.FindAsync(id);
                 if (entity == null)
-                    throw new Exception("Không tìm thấy thuốc.");
+                    throw new Exception("Kh�ng t�m th?y thu?c.");
 
-                // Cập nhật các trường
+                // C?p nh?t c�c tru?ng
                 _context.Entry(entity).CurrentValues.SetValues(thuoc);
                 await _context.SaveChangesAsync();
 
-                return true; // hoặc return entity nếu muốn trả về dữ liệu sau cập nhật
+                return true; // ho?c return entity n?u mu?n tr? v? d? li?u sau c?p nh?t
             });
 
             return Ok(response);
@@ -176,7 +175,7 @@ namespace BE_QLTiemThuoc.Controllers
             {
                 var thuoc = await _context.Thuoc.FindAsync(id);
                 if (thuoc == null)
-                    throw new Exception("Không tìm thấy thuốc.");
+                    throw new Exception("Kh�ng t�m th?y thu?c.");
 
                 _context.Thuoc.Remove(thuoc);
                 await _context.SaveChangesAsync();

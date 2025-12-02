@@ -4,32 +4,32 @@ using System;
 using BE_QLTiemThuoc.Repositories;
 using BE_QLTiemThuoc.Services;
 using DotNetEnv;
-
+using CloudinaryDotNet;
 
 var builder = WebApplication.CreateBuilder(args);
-
 
 // Load environment variables first so they can override appsettings when configuring services
 Env.Load();
 
-// Register DbContext after environment variables are loaded so connection string
-// injected via environment (e.g., DOTNET or .env) is available here.
-builder.Services.AddDbContext<AppDbContext>(options =>
+// Read Cloudinary settings directly from environment variables or fallback to IConfiguration
+var cloudinaryCloudName = Environment.GetEnvironmentVariable("Cloudinary__CloudName") ?? builder.Configuration["Cloudinary:CloudName"];
+var cloudinaryApiKey = Environment.GetEnvironmentVariable("Cloudinary__ApiKey") ?? builder.Configuration["Cloudinary:ApiKey"];
+var cloudinaryApiSecret = Environment.GetEnvironmentVariable("Cloudinary__ApiSecret") ?? builder.Configuration["Cloudinary:ApiSecret"];
 
-options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
+// Read PayOS settings directly from environment variables or fallback to IConfiguration
+var payosClientId = Environment.GetEnvironmentVariable("PayOS__ClientId") ?? builder.Configuration["PayOS:ClientId"];
+var payosApiKey = Environment.GetEnvironmentVariable("PayOS__ApiKey") ?? builder.Configuration["PayOS:ApiKey"];
+var payosChecksumKey = Environment.GetEnvironmentVariable("PayOS__ChecksumKey") ?? builder.Configuration["PayOS:ChecksumKey"];
+
+// Register DbContext after environment variables are loaded so connection string is available
+var defaultConnection = Environment.GetEnvironmentVariable("Default__Connection")
+    ?? builder.Configuration.GetConnectionString("DefaultConnection");
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(defaultConnection));
 
 // Cấu hình CORS
 var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
-
-// Read Cloudinary settings directly from environment variables or fallback to IConfiguration
-var cloudinaryCloudName = Environment.GetEnvironmentVariable("Cloudinary__CloudName") ?? configuration["Cloudinary:CloudName"];
-var cloudinaryApiKey = Environment.GetEnvironmentVariable("Cloudinary__ApiKey") ?? configuration["Cloudinary:ApiKey"];
-var cloudinaryApiSecret = Environment.GetEnvironmentVariable("Cloudinary__ApiSecret") ?? configuration["Cloudinary:ApiSecret"];
-
-// Read PayOS settings directly from environment variables or fallback to IConfiguration
-var payosClientId = Environment.GetEnvironmentVariable("PayOS__ClientId") ?? configuration["PayOS:ClientId"];
-var payosApiKey = Environment.GetEnvironmentVariable("PayOS__ApiKey") ?? configuration["PayOS:ApiKey"];
-var payosChecksumKey = Environment.GetEnvironmentVariable("PayOS__ChecksumKey") ?? configuration["PayOS:ChecksumKey"];
 
 builder.Services.AddCors(options =>
 {
@@ -72,9 +72,7 @@ builder.Services.AddScoped<NhanVienRepository>();
 builder.Services.AddScoped<NhanVienService>();
 builder.Services.AddScoped<LoaiDonViRepository>();
 builder.Services.AddScoped<LoaiDonViService>();
-<<<<<<< HEAD
 builder.Services.AddScoped<IThongKeService, ThongKeService>();
-=======
 builder.Services.AddScoped<PhieuHuyRepository>();
 builder.Services.AddScoped<PhieuHuyService>();
 builder.Services.AddScoped<PhieuXuLyHoanHuyRepository>();
@@ -85,7 +83,7 @@ builder.Services.AddScoped<BinhLuanRepository>();
 builder.Services.AddScoped<BinhLuanService>();
 builder.Services.AddScoped<ChatRepository>();
 builder.Services.AddScoped<ChatService>();
->>>>>>> origin/main
+
 
 var account = new Account(
     // Prefer environment-loaded values (via Env.Load()) with fallback to appsettings
