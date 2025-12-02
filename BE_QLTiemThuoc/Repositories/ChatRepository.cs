@@ -38,9 +38,8 @@ namespace BE_QLTiemThuoc.Repositories
 
  public async Task<ConversationWithMessagesDto?> GetConversationWithMessagesAsync(string maKH, int take)
  {
- var convo = await GetLatestConversationByKhAsync(maKH);
- if (convo == null) return null;
- var msgs = await _ctx.TinNhans
+    var convo = await GetOrCreateConversationAsync(maKH);
+var msgs = await _ctx.TinNhans
  .Where(m => m.MaCuocTroChuyen == convo.MaCuocTroChuyen)
  .OrderByDescending(m => m.ThoiGian)
  .Take(take)
