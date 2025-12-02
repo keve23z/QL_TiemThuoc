@@ -33,6 +33,12 @@ namespace BE_QLTiemThuoc.Repositories
             await _context.SaveChangesAsync();
         }
 
+        public async Task AddAsync(NhanVien nv)
+        {
+            _context.NhanViens.Add(nv);
+            await _context.SaveChangesAsync();
+        }
+
         public async Task UpdateAsync(NhanVien nv)
         {
             var entity = await _context.NhanViens.FindAsync(nv.MaNV);

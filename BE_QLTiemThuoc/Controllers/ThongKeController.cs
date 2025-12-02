@@ -35,5 +35,12 @@ namespace BE_QLTiemThuoc.Controllers
             var result = await _thongKeService.GetTopSellingMedicinesAsync(year, topCount);
             return Ok(result);
         }
+
+        [HttpGet("top-selling/{month}/{year}")]
+        public async Task<ActionResult<List<TopSellingMedicineDto>>> GetTopSellingMedicinesByMonth(int month, int year, [FromQuery] int topCount = 10)
+        {
+            var result = await _thongKeService.GetTopSellingMedicinesByMonthAsync(month, year, topCount);
+            return Ok(result);
+        }
     }
 }

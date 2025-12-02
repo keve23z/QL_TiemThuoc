@@ -42,19 +42,19 @@ namespace BE_QLTiemThuoc.Controllers
                 }
                 if (status != null) q = q.Where(h => h.TrangThaiGiaoHang == status.Value);
 
-                // filter by invoice type: 'HD' (direct) and 'HDOL' (online)
-                if (!string.IsNullOrEmpty(loai))
-                {
-                    if (loai.Equals("HDOL", StringComparison.OrdinalIgnoreCase))
-                    {
-                        q = q.Where(h => EF.Functions.Like(h.MaHD, "HDOL%"));
-                    }
-                    else if (loai.Equals("HD", StringComparison.OrdinalIgnoreCase))
-                    {
-                        // starts with HD but exclude HDOL which is online
-                        q = q.Where(h => EF.Functions.Like(h.MaHD, "HD%") && !EF.Functions.Like(h.MaHD, "HDOL%"));
-                    }
-                }
+        // filter by invoice type: 'HD' (direct) and 'HDOL' (online)
+        if (!string.IsNullOrEmpty(loai))
+        {
+            if (loai.Equals("HDOL", StringComparison.OrdinalIgnoreCase))
+            {
+                q = q.Where(h => EF.Functions.Like(h.MaHD, "HDOL%"));
+            }
+            else if (loai.Equals("HD", StringComparison.OrdinalIgnoreCase))
+            {
+                // starts with HD but exclude HDOL which is online
+                q = q.Where(h => EF.Functions.Like(h.MaHD, "HD%") && !EF.Functions.Like(h.MaHD, "HDOL%"));
+            }
+        }
 
                 var list = await (from h in q
                                    join kh in _ctx.KhachHangs on h.MaKH equals kh.MAKH into khGroup
@@ -96,39 +96,44 @@ namespace BE_QLTiemThuoc.Controllers
         {
             var response = await ApiResponseHelper.ExecuteSafetyAsync<object>(async () =>
             {
+                if (string.IsNullOrWhiteSpace(maHd)) throw new ArgumentException("maHd is required");
+
                 // Load invoice header with customer and employee details
                 var invoice = await (from h in _ctx.HoaDons
-                                      where h.MaHD == maHd
-                                      join kh in _ctx.KhachHangs on h.MaKH equals kh.MAKH into khGroup
-                                      from kh in khGroup.DefaultIfEmpty()
-                                      join nv in _ctx.Set<NhanVien>() on h.MaNV equals nv.MaNV into nvGroup
-                                      from nv in nvGroup.DefaultIfEmpty()
-                                       select new
-                                       {
-                                           h.MaHD,
-                                           h.NgayLap,
-                                           h.MaKH,
-                                           TenKH = string.IsNullOrEmpty(kh.HoTen) ? h.MaKH : kh.HoTen,
-                                           DiaChiKH = kh.DiaChi,
-                                           DienThoaiKH = kh.DienThoai,
-                                           h.MaNV,
-                                           TenNV = nv.HoTen,
-                                           h.TongTien,
-                                           h.GhiChu,
-                                           h.TrangThaiGiaoHang,
-                                           h.PhuongThucTT,
-                                           PhuongThucTTName = (h.PhuongThucTT == 1) ? "Tiền mặt" : (h.PhuongThucTT == 2) ? "Chuyển khoản" : (h.PhuongThucTT == 3) ? "COD" : null,
-                                           h.TrangThai,
-                                           h.TienThanhToan,
-                                           h.OrderCode,
-                                           // Treat any of -1, -2, -3 as cancelled (Hủy)
-                                           TrangThaiGiaoHangName = (h.TrangThaiGiaoHang == -1 || h.TrangThaiGiaoHang == -2 || h.TrangThaiGiaoHang == -3) ? "Hủy" :
-                                                                   (h.TrangThaiGiaoHang == 0) ? "Đã đặt" :
-                                                                   (h.TrangThaiGiaoHang == 1) ? "Đã xác nhận" :
-                                                                   (h.TrangThaiGiaoHang == 2) ? "Đã giao" :
-                                                                   (h.TrangThaiGiaoHang == 3) ? "Đã nhận" : "Không xác định"
-                                       })
-                    .FirstOrDefaultAsync();
+                                     where h.MaHD == maHd
+                                     join kh in _ctx.KhachHangs on h.MaKH equals kh.MAKH into khGroup
+                                     from kh in khGroup.DefaultIfEmpty()
+                                     join nv in _ctx.Set<NhanVien>() on h.MaNV equals nv.MaNV into nvGroup
+                                     from nv in nvGroup.DefaultIfEmpty()
+                                     orderby h.NgayLap descending
+                                     select new
+                                     {
+                                         h.MaHD,
+                                         h.NgayLap,
+                                         h.MaKH,
+                                         TenKH = string.IsNullOrEmpty(kh.HoTen) ? h.MaKH : kh.HoTen,
+                                         DiaChiKH = kh.DiaChi,
+                                         DienThoaiKH = kh.DienThoai,
+                                         h.MaNV,
+                                         TenNV = nv.HoTen,
+                                         h.TongTien,
+                                         h.GhiChu,
+                                         h.TrangThaiGiaoHang,
+                                         h.PhuongThucTT,
+                                         PhuongThucTTName = (h.PhuongThucTT == 1) ? "Tiền mặt" : (h.PhuongThucTT == 2) ? "Chuyển khoản" : (h.PhuongThucTT == 3) ? "COD" : null,
+                                         h.TrangThai,
+                                         h.TienThanhToan,
+                                         h.OrderCode,
+                                         // Treat any of -1, -2, -3 as cancelled (Hủy)
+                                         TrangThaiGiaoHangName = (h.TrangThaiGiaoHang == -1 || h.TrangThaiGiaoHang == -2 || h.TrangThaiGiaoHang == -3) ? "Hủy" :
+                                                                 (h.TrangThaiGiaoHang == 0) ? "Đã đặt" :
+                                                                 (h.TrangThaiGiaoHang == 1) ? "Đã xác nhận" :
+                                                                 (h.TrangThaiGiaoHang == 2) ? "Đã giao" :
+                                                                 (h.TrangThaiGiaoHang == 3) ? "Đã nhận" : "Không xác định"
+                                     })
+                                    .FirstOrDefaultAsync();
+
+                if (invoice == null) throw new KeyNotFoundException($"Hoá đơn '{maHd}' không tồn tại.");
 
                 // Load details with product and dosage names
                 var items = await (from ct in _ctx.ChiTietHoaDons
@@ -139,7 +144,7 @@ namespace BE_QLTiemThuoc.Controllers
                                    from thuoc in thuocGroup.DefaultIfEmpty()
                                    join lieu in _ctx.Set<LieuDung>() on ct.MaLD equals lieu.MaLD into lieuGroup
                                    from lieu in lieuGroup.DefaultIfEmpty()
-                                   join ldv in _ctx.Set<LoaiDonVi>() on (ct.MaLoaiDonVi ?? ton.MaLoaiDonViTinh) equals ldv.MaLoaiDonVi into ldvGroup
+                                   join ldv in _ctx.Set<LoaiDonVi>() on (ct.MaLoaiDonVi ?? (ton != null ? ton.MaLoaiDonViTinh : null)) equals ldv.MaLoaiDonVi into ldvGroup
                                    from ldv in ldvGroup.DefaultIfEmpty()
                                    select new
                                    {
@@ -166,6 +171,25 @@ namespace BE_QLTiemThuoc.Controllers
 
             return Ok(response);
         }
+
+        // GET: api/HoaDon/nhanvien/{maNV}
+        [HttpGet("nhanvien/{maNV}")]
+        public async Task<ActionResult<IEnumerable<HoaDon>>> GetHoaDonByNhanVien(string maNV)
+        {
+            try
+            {
+                var hoaDons = await _ctx.HoaDons
+                    .Where(h => h.MaNV == maNV)
+                    .OrderByDescending(h => h.NgayLap)
+                    .ToListAsync();
+                return Ok(hoaDons);
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
         // chi tiết tóm tắt hoá đơn
         // GET: api/HoaDon/ChiTiet/Summary/{maHd}
         // Returns grouped summary per MaThuoc and MaLD for a given invoice

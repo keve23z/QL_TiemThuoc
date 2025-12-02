@@ -325,5 +325,41 @@ namespace BE_QLTiemThuoc.Controllers
             return Ok(new ResetPasswordResponse { Message = "Đổi mật khẩu thành công. Vui lòng đăng nhập lại." });
         }
 
+        [HttpPost("reset-password/{maNV}")]
+        public async Task<IActionResult> ResetPasswordByAdmin(string maNV, [FromBody] ResetPasswordByAdminRequest request)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(maNV))
+                    return BadRequest("Mã nhân viên không hợp lệ.");
+
+                if (string.IsNullOrWhiteSpace(request.NewPassword))
+                    return BadRequest("Mật khẩu mới không được để trống.");
+
+                // Tìm nhân viên
+                var nhanVien = await _context.NhanViens.FirstOrDefaultAsync(n => n.MaNV == maNV);
+                if (nhanVien == null)
+                    return NotFound("Không tìm thấy nhân viên.");
+
+                // Tìm tài khoản liên kết
+                var taiKhoan = await _context.TaiKhoans
+                    .FirstOrDefaultAsync(t => t.TenDangNhap == nhanVien.MaNV);
+
+                if (taiKhoan == null)
+                    return NotFound("Không tìm thấy tài khoản cho nhân viên này.");
+
+                // Cập nhật mật khẩu
+                taiKhoan.MatKhau = request.NewPassword;
+                _context.TaiKhoans.Update(taiKhoan);
+                await _context.SaveChangesAsync();
+
+                return Ok(new { message = "Reset mật khẩu thành công.", newPassword = request.NewPassword });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { message = "Lỗi khi reset mật khẩu.", error = ex.Message });
+            }
+        }
+
     }
 }
