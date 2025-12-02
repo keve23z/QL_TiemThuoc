@@ -1,34 +1,35 @@
+﻿using Microsoft.EntityFrameworkCore;
 using BE_QLTiemThuoc.Data;
-using CloudinaryDotNet;
-using Microsoft.EntityFrameworkCore;
 using System;
 using BE_QLTiemThuoc.Repositories;
 using BE_QLTiemThuoc.Services;
 using DotNetEnv;
+using CloudinaryDotNet;
 
 var builder = WebApplication.CreateBuilder(args);
-
-var configuration = builder.Configuration; // Biến này đã có sẵn thông qua builder
 
 // Load environment variables first so they can override appsettings when configuring services
 Env.Load();
 
-// Register DbContext after environment variables are loaded so connection string
-// injected via environment (e.g., DOTNET or .env) is available here.
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(configuration.GetConnectionString("DefaultConnection")));
-// Cấu hình CORS
-var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
-
 // Read Cloudinary settings directly from environment variables or fallback to IConfiguration
-var cloudinaryCloudName = Environment.GetEnvironmentVariable("Cloudinary__CloudName") ?? configuration["Cloudinary:CloudName"];
-var cloudinaryApiKey = Environment.GetEnvironmentVariable("Cloudinary__ApiKey") ?? configuration["Cloudinary:ApiKey"];
-var cloudinaryApiSecret = Environment.GetEnvironmentVariable("Cloudinary__ApiSecret") ?? configuration["Cloudinary:ApiSecret"];
+var cloudinaryCloudName = Environment.GetEnvironmentVariable("Cloudinary__CloudName") ?? builder.Configuration["Cloudinary:CloudName"];
+var cloudinaryApiKey = Environment.GetEnvironmentVariable("Cloudinary__ApiKey") ?? builder.Configuration["Cloudinary:ApiKey"];
+var cloudinaryApiSecret = Environment.GetEnvironmentVariable("Cloudinary__ApiSecret") ?? builder.Configuration["Cloudinary:ApiSecret"];
 
 // Read PayOS settings directly from environment variables or fallback to IConfiguration
-var payosClientId = Environment.GetEnvironmentVariable("PayOS__ClientId") ?? configuration["PayOS:ClientId"];
-var payosApiKey = Environment.GetEnvironmentVariable("PayOS__ApiKey") ?? configuration["PayOS:ApiKey"];
-var payosChecksumKey = Environment.GetEnvironmentVariable("PayOS__ChecksumKey") ?? configuration["PayOS:ChecksumKey"];
+var payosClientId = Environment.GetEnvironmentVariable("PayOS__ClientId") ?? builder.Configuration["PayOS:ClientId"];
+var payosApiKey = Environment.GetEnvironmentVariable("PayOS__ApiKey") ?? builder.Configuration["PayOS:ApiKey"];
+var payosChecksumKey = Environment.GetEnvironmentVariable("PayOS__ChecksumKey") ?? builder.Configuration["PayOS:ChecksumKey"];
+
+// Register DbContext after environment variables are loaded so connection string is available
+var defaultConnection = Environment.GetEnvironmentVariable("Default__Connection")
+    ?? builder.Configuration.GetConnectionString("DefaultConnection");
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(defaultConnection));
+
+// Cấu hình CORS
+var MyAllowSpecificOrigins = "_myAllowSpecificOrigins";
 
 builder.Services.AddCors(options =>
 {
@@ -71,6 +72,7 @@ builder.Services.AddScoped<NhanVienRepository>();
 builder.Services.AddScoped<NhanVienService>();
 builder.Services.AddScoped<LoaiDonViRepository>();
 builder.Services.AddScoped<LoaiDonViService>();
+builder.Services.AddScoped<IThongKeService, ThongKeService>();
 builder.Services.AddScoped<PhieuHuyRepository>();
 builder.Services.AddScoped<PhieuHuyService>();
 builder.Services.AddScoped<PhieuXuLyHoanHuyRepository>();
@@ -82,11 +84,7 @@ builder.Services.AddScoped<BinhLuanService>();
 builder.Services.AddScoped<ChatRepository>();
 builder.Services.AddScoped<ChatService>();
 
-// =========================================================
-// !!! KHỐI CẤU HÌNH CLOUDINARY ĐÃ ĐƯỢC DI CHUYỂN LÊN TRƯỚC builder.Build() !!!
-// =========================================================
 
-// Khai báo Account và cấu hình Cloudinary
 var account = new Account(
     // Prefer environment-loaded values (via Env.Load()) with fallback to appsettings
     cloudinaryCloudName,
@@ -103,6 +101,7 @@ builder.Services.AddSingleton(new Cloudinary(account));
 
 var app = builder.Build(); // Service collection bị khóa tại đây
 
+
 // Swagger UI
 if (app.Environment.IsDevelopment())
 {
@@ -111,7 +110,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
-app.UseCors(MyAllowSpecificOrigins);
+app.UseCors(MyAllowSpecificOrigins); // <- CHÈN Ở ĐÂY
 app.UseAuthorization();
 
 app.MapControllers();

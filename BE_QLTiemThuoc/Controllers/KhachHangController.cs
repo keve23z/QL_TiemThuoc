@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using BE_QLTiemThuoc.Data;
 using BE_QLTiemThuoc.Model;
-using BE_QLTiemThuoc.Services;
+using Microsoft.EntityFrameworkCore;
 
 namespace BE_QLTiemThuoc.Controllers
 {
@@ -8,38 +9,52 @@ namespace BE_QLTiemThuoc.Controllers
     [Route("api/[controller]")]
     public class KhachHangController : ControllerBase
     {
-        private readonly KhachHangService _service;
+        private readonly AppDbContext _context;
 
-        public KhachHangController(KhachHangService service)
+        public KhachHangController(AppDbContext context)
         {
-            _service = service;
+            _context = context;
         }
 
         [HttpGet]
         public async Task<ActionResult<IEnumerable<KhachHang>>> GetAll()
         {
-            var list = await _service.GetAllAsync();
-            return Ok(list);
+            return await _context.KhachHangs.ToListAsync();
         }
 
-        // GET: api/KhachHang/{maKhachHang}
-        [HttpGet("{maKhachHang}")]
-        public async Task<ActionResult<KhachHang>> GetById(string maKhachHang)
-        {
-            if (string.IsNullOrWhiteSpace(maKhachHang)) return BadRequest("maKhachHang is required");
-
-            var kh = await _service.GetByIdAsync(maKhachHang);
-            if (kh == null) return NotFound("Không tìm thấy khách hàng.");
-
-            return Ok(kh);
-        }
 
 
         [HttpPost]
         public async Task<ActionResult<KhachHang>> CreateKhachHang(KhachHang dto)
         {
-            var created = await _service.CreateAsync(dto);
-            return CreatedAtAction(nameof(GetAll), new { id = created.MAKH }, created);
+            var newMaKH = GenerateAccountCode();
+
+            var kh = new KhachHang
+            {
+                MAKH = newMaKH,
+                HoTen = dto.HoTen,
+                NgaySinh = dto.NgaySinh,
+                DienThoai = dto.DienThoai,
+                GioiTinh = dto.GioiTinh,
+                DiaChi = dto.DiaChi
+            };
+
+            _context.KhachHangs.Add(kh);
+            await _context.SaveChangesAsync();
+
+            return CreatedAtAction(nameof(GetAll), new { id = kh.MAKH }, kh);
+        }
+
+        // Hàm tạo mã khách hàng tự động
+        private string GenerateAccountCode()
+        {
+            var lastAccount = _context.KhachHangs
+                .OrderByDescending(t => t.MAKH)
+                .FirstOrDefault();
+
+            string lastCode = lastAccount?.MAKH ?? "KH0000";
+            int number = int.Parse(lastCode.Substring(2)) + 1;
+            return "KH" + number.ToString("D4");
         }
 
         // PUT: api/KhachHang/{maKhachHang}
@@ -48,10 +63,19 @@ namespace BE_QLTiemThuoc.Controllers
         {
             if (string.IsNullOrWhiteSpace(maKhachHang)) return BadRequest("maKhachHang is required");
 
-            var updated = await _service.UpdateAsync(maKhachHang, dto);
-            if (updated == null) return NotFound("Không tìm thấy khách hàng để cập nhật.");
+            var existing = await _context.KhachHangs.FindAsync(maKhachHang);
+            if (existing == null) return NotFound("Không tìm thấy khách hàng để cập nhật.");
 
-            return Ok(updated);
+            existing.HoTen = dto.HoTen;
+            existing.DienThoai = dto.DienThoai;
+            existing.DiaChi = dto.DiaChi;
+            existing.NgaySinh = dto.NgaySinh;
+            existing.GioiTinh = dto.GioiTinh;
+
+            _context.KhachHangs.Update(existing);
+            await _context.SaveChangesAsync();
+
+            return Ok(existing);
         }
     }
 

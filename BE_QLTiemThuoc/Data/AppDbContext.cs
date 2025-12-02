@@ -5,8 +5,9 @@ using Microsoft.EntityFrameworkCore;
 using BE_QLTiemThuoc.Model.Thuoc;
 using BE_QLTiemThuoc.Model;
 using BE_QLTiemThuoc.Model.Kho;
-using BE_QLTiemThuoc.Model.Ban; // Added namespace for DanhGiaThuoc and BinhLuan
+using BE_QLTiemThuoc.Model.Ban; 
 using BE_QLTiemThuoc.Model.Chat;
+
 
 
 namespace BE_QLTiemThuoc.Data
@@ -53,6 +54,7 @@ namespace BE_QLTiemThuoc.Data
 
             modelBuilder.Entity<TaiKhoan>().ToTable("TaiKhoan");
             modelBuilder.Entity<KhachHang>().ToTable("KhachHang");   
+
             modelBuilder.Entity<Thuoc>().ToTable("Thuoc");
             modelBuilder.Entity<NhaCungCap>().ToTable("NhaCungCap");
             modelBuilder.Entity<NhanVien>().ToTable("NhanVien");
@@ -87,6 +89,22 @@ namespace BE_QLTiemThuoc.Data
                 .WithMany(p => p.ChiTietPhieuHuys)
                 .HasForeignKey(c => c.MaPH)
                 .HasPrincipalKey(p => p.MaPH);
+
+            // PhieuHuy -> PhieuXuLyHoanHuy (optional)
+            modelBuilder.Entity<PhieuHuy>()
+                .HasOne<PhieuXuLyHoanHuy>()
+                .WithMany()
+                .HasForeignKey(p => p.MaPXH)
+                .HasPrincipalKey(px => px.MaPXH)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // PhieuHuy -> NhanVien (creator)
+            modelBuilder.Entity<PhieuHuy>()
+                .HasOne<NhanVien>()
+                .WithMany()
+                .HasForeignKey(p => p.MaNV)
+                .HasPrincipalKey(n => n.MaNV)
+                .OnDelete(DeleteBehavior.Restrict);
 
 
             // BinhLuan mapping

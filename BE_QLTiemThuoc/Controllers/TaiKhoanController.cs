@@ -161,7 +161,6 @@ namespace BE_QLTiemThuoc.Controllers
 
             if (user.ISEMAILCONFIRMED == 0)
                 return BadRequest("Tài khoản chưa xác thực email.");
-
             // Kiểm tra vai trò: Nếu có MaNV thì là Admin (Nhân viên)
             bool isAdmin = !string.IsNullOrEmpty(user.MaNV);
             bool hasCustomerInfo = false;
@@ -220,7 +219,6 @@ namespace BE_QLTiemThuoc.Controllers
                     }
                 }
             }
-
             return Ok(new LoginResponse
             {
                 Message = "Đăng nhập thành công",
@@ -232,6 +230,7 @@ namespace BE_QLTiemThuoc.Controllers
                 VaiTro = vaiTro,
                 HasCustomerInfo = hasCustomerInfo,
                 IsAdmin = isAdmin
+
             });
         }
 
@@ -275,7 +274,6 @@ namespace BE_QLTiemThuoc.Controllers
                 EnableSsl = true,
                 Port = 587
             };
-
             var mail = new MailMessage("khangtuong040@gmail.com", user.EMAIL)
             {
                 Subject = "Mã OTP đặt lại mật khẩu - Medion",
@@ -287,7 +285,7 @@ namespace BE_QLTiemThuoc.Controllers
                         <div style='background: #f8f9fa; padding: 20px; text-align: center; margin: 20px 0;'>
                             <h1 style='color: #17a2b8; margin: 0; font-size: 36px; letter-spacing: 5px;'>{otp}</h1>
                         </div>
-<p>Mã OTP có hiệu lực trong 5 phút.</p>
+                        <p>Mã OTP có hiệu lực trong 5 phút.</p>
                         <p>Nếu bạn không yêu cầu đặt lại mật khẩu, vui lòng bỏ qua email này.</p>
                         <hr style='margin: 30px 0; border: none; border-top: 1px solid #ddd;'>
                         <p style='color: #6c757d; font-size: 12px;'>Đây là email tự động, vui lòng không trả lời.</p>
@@ -295,7 +293,6 @@ namespace BE_QLTiemThuoc.Controllers
                 ",
                 IsBodyHtml = true
             };
-
             await smtp.SendMailAsync(mail);
 
             return Ok(new SendOtpResponse { Message = "OTP đã được gửi về email của bạn." });
@@ -324,6 +321,5 @@ namespace BE_QLTiemThuoc.Controllers
 
             return Ok(new ResetPasswordResponse { Message = "Đổi mật khẩu thành công. Vui lòng đăng nhập lại." });
         }
-
     }
 }
