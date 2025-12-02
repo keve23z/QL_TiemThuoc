@@ -87,7 +87,7 @@ namespace BE_QLTiemThuoc.Controllers
                         t.MaLoaiThuoc,
                         t.TenThuoc,
                         t.UrlAnh,
-                        t.DonGiaSi
+                        t.MaNCC
                     })
 
                     .ToListAsync();
@@ -112,7 +112,7 @@ namespace BE_QLTiemThuoc.Controllers
                         t.MaLoaiThuoc,
                         t.TenThuoc,
                         t.UrlAnh,
-                        t.DonGiaSi
+                        t.MaNCC
                     })
                     .ToListAsync();
 
@@ -181,6 +181,19 @@ namespace BE_QLTiemThuoc.Controllers
                 await _context.SaveChangesAsync();
 
                 return true;
+            });
+
+            return Ok(response);
+        }
+
+        // GET: api/Thuoc/LoaiDonVi
+        [HttpGet("LoaiDonVi")]
+        public async Task<IActionResult> GetLoaiDonVi()
+        {
+            var response = await ApiResponseHelper.ExecuteSafetyAsync(async () =>
+            {
+                var result = await _context.LoaiDonVi.ToListAsync();
+                return result;
             });
 
             return Ok(response);
