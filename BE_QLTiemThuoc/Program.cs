@@ -71,20 +71,8 @@ builder.Services.AddScoped<NhanVienRepository>();
 builder.Services.AddScoped<NhanVienService>();
 builder.Services.AddScoped<LoaiDonViRepository>();
 builder.Services.AddScoped<LoaiDonViService>();
-builder.Services.AddScoped<PhieuHuyRepository>();
-builder.Services.AddScoped<PhieuHuyService>();
-builder.Services.AddScoped<PhieuXuLyHoanHuyRepository>();
-builder.Services.AddScoped<PhieuXuLyHoanHuyService>();
-builder.Services.AddScoped<DanhGiaThuocRepository>();
-builder.Services.AddScoped<DanhGiaThuocService>();
-builder.Services.AddScoped<BinhLuanRepository>();
-builder.Services.AddScoped<BinhLuanService>();
+builder.Services.AddScoped<IThongKeService, ThongKeService>();
 
-// =========================================================
-// !!! KHỐI CẤU HÌNH CLOUDINARY ĐÃ ĐƯỢC DI CHUYỂN LÊN TRƯỚC builder.Build() !!!
-// =========================================================
-
-// Khai báo Account và cấu hình Cloudinary
 var account = new Account(
     // Prefer environment-loaded values (via Env.Load()) with fallback to appsettings
     cloudinaryCloudName,

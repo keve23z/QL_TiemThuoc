@@ -83,6 +83,22 @@ namespace BE_QLTiemThuoc.Data
                 .HasForeignKey(c => c.MaPH)
                 .HasPrincipalKey(p => p.MaPH);
 
+            // PhieuHuy -> PhieuXuLyHoanHuy (optional)
+            modelBuilder.Entity<PhieuHuy>()
+                .HasOne<PhieuXuLyHoanHuy>()
+                .WithMany()
+                .HasForeignKey(p => p.MaPXH)
+                .HasPrincipalKey(px => px.MaPXH)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // PhieuHuy -> NhanVien (creator)
+            modelBuilder.Entity<PhieuHuy>()
+                .HasOne<NhanVien>()
+                .WithMany()
+                .HasForeignKey(p => p.MaNV)
+                .HasPrincipalKey(n => n.MaNV)
+                .OnDelete(DeleteBehavior.Restrict);
+
 
             // BinhLuan mapping
             modelBuilder.Entity<BinhLuan>().ToTable("BinhLuan");

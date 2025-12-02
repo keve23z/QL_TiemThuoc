@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using BE_QLTiemThuoc.Model.Thuoc;
+using System.Dynamic;
 namespace BE_QLTiemThuoc.Repositories
 {
     public class PhieuXuLyHoanHuyRepository
@@ -127,9 +128,36 @@ namespace BE_QLTiemThuoc.Repositories
                 .OrderBy(r => r.MaCTPXH)
                 .ToListAsync();
 
-            dynamic outObj = new System.Dynamic.ExpandoObject();
+            // enrich header with human-readable names for creator, approver and source type
+            string? tenTao = null;
+            string? tenDuyet = null;
+            if (!string.IsNullOrWhiteSpace(header.MaNV_Tao))
+            {
+                tenTao = await _context.NhanViens.AsNoTracking().Where(n => n.MaNV == header.MaNV_Tao).Select(n => n.HoTen).FirstOrDefaultAsync();
+            }
+            if (!string.IsNullOrWhiteSpace(header.MaNV_Duyet))
+            {
+                tenDuyet = await _context.NhanViens.AsNoTracking().Where(n => n.MaNV == header.MaNV_Duyet).Select(n => n.HoTen).FirstOrDefaultAsync();
+            }
+
+            var phieuObj = new
+            {
+                MaPXH = header.MaPXH,
+                NgayTao = header.NgayTao,
+                MaNV_Tao = header.MaNV_Tao,
+                NhanVienTaoName = tenTao ?? string.Empty,
+                MaNV_Duyet = header.MaNV_Duyet,
+                NhanVienDuyetName = tenDuyet ?? string.Empty,
+                MaHD = header.MaHD,
+                LoaiNguon = header.LoaiNguon,
+                LoaiNguonName = (header.LoaiNguon.HasValue && header.LoaiNguon.Value) ? "Hóa đơn" : "Kho",
+                TrangThai = header.TrangThai,
+                GhiChu = header.GhiChu
+            };
+
+            dynamic outObj = new ExpandoObject();
             var od = (IDictionary<string, object>)outObj;
-            od["Phieu"] = header;
+            od["Phieu"] = phieuObj;
             od["ChiTiets"] = ctList;
             return outObj;
         }

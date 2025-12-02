@@ -3,15 +3,19 @@ using BE_QLTiemThuoc.Model.Kho;
 using BE_QLTiemThuoc.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
+using BE_QLTiemThuoc.Model.Thuoc;
+using BE_QLTiemThuoc.Data;
+using System.Data;
+using System.Dynamic;
 
 namespace BE_QLTiemThuoc.Services
 {
     public class PhieuHuyService
     {
         private readonly PhieuHuyRepository _repo;
-        private readonly BE_QLTiemThuoc.Data.AppDbContext _context;
+        private readonly AppDbContext _context;
 
-        public PhieuHuyService(PhieuHuyRepository repo, BE_QLTiemThuoc.Data.AppDbContext context)
+        public PhieuHuyService(PhieuHuyRepository repo, AppDbContext context)
         {
             _repo = repo;
             _context = context;
@@ -132,7 +136,6 @@ namespace BE_QLTiemThuoc.Services
 
         private string GenerateMaChiTietPhieuHuy()
         {
-            // Fit within VARCHAR(20): prefix(4) + yyMMddHHmmssfff(15) = 19 chars
             return "CTPH" + DateTime.Now.ToString("yyMMddHHmmssfff");
         }
 
@@ -165,10 +168,9 @@ namespace BE_QLTiemThuoc.Services
             }
             else
             {
-                // Lookup conversion to find source lot using the existing EF connection
                 var conn = _context.Database.GetDbConnection();
                 var openedHere = false;
-                if (conn.State != System.Data.ConnectionState.Open)
+                if (conn.State != ConnectionState.Open)
                 {
                     await conn.OpenAsync();
                     openedHere = true;
@@ -176,7 +178,6 @@ namespace BE_QLTiemThuoc.Services
                 try
                 {
                     using var cmd = conn.CreateCommand();
-                    // Attach to ambient EF transaction if present to satisfy SQL Server requirements
                     var efTx = _context.Database.CurrentTransaction;
                     if (efTx != null)
                     {
@@ -224,7 +225,6 @@ namespace BE_QLTiemThuoc.Services
                 return donGiaGoc;
             }
 
-            // Unit conversion via GiaThuoc ratios
             var maThuocForRatio = string.IsNullOrWhiteSpace(maThuocGoc) ? maThuoc : maThuocGoc;
             var giaList = await _context.GiaThuocs.AsNoTracking()
                 .Where(g => g.MaThuoc == maThuocForRatio)
@@ -235,7 +235,7 @@ namespace BE_QLTiemThuoc.Services
 
             if (soLuongGoc <= 0 || soLuongHienTai <= 0)
             {
-                return donGiaGoc; // fallback: cannot convert without ratios
+                return donGiaGoc; 
             }
 
             var donGiaQuyDoi = donGiaGoc * ((decimal)soLuongGoc / (decimal)soLuongHienTai);
@@ -260,7 +260,6 @@ namespace BE_QLTiemThuoc.Services
 
             var list = await query.OrderByDescending(p => p.NgayHuy).ToListAsync();
 
-            // map NV name
             var maSet = list.Select(p => p.MaNV).Where(s => !string.IsNullOrWhiteSpace(s)).Distinct().ToList();
             var nvNames = await _context.NhanViens.AsNoTracking()
                 .Where(n => maSet.Contains(n.MaNV))
@@ -277,7 +276,7 @@ namespace BE_QLTiemThuoc.Services
                 d["MaNV"] = p.MaNV ?? string.Empty;
                 d["NhanVienName"] = (p.MaNV != null && nvNames.ContainsKey(p.MaNV)) ? (nvNames[p.MaNV] ?? string.Empty) : string.Empty;
                 d["GhiChu"] = p.GhiChu ?? string.Empty;
-                // Totals not stored in DB schema provided; omit
+                d["TongTien"] = p.TongTien ?? 0m;
                 outList.Add(item);
             }
 
@@ -291,7 +290,6 @@ namespace BE_QLTiemThuoc.Services
             var header = await _context.PhieuHuys.AsNoTracking().FirstOrDefaultAsync(p => p.MaPH == maPH);
             if (header == null) return null;
 
-            // Enrich details with MaThuoc and TenThuoc via TonKho -> Thuoc
             var details = await _context.ChiTietPhieuHuys.AsNoTracking()
                 .Where(ct => ct.MaPH == maPH)
                 .GroupJoin(
@@ -302,14 +300,14 @@ namespace BE_QLTiemThuoc.Services
                 )
                 .SelectMany(x => x.tks.DefaultIfEmpty(), (x, tk) => new { x.ct, tk })
                 .GroupJoin(
-                    _context.Set<BE_QLTiemThuoc.Model.Thuoc.Thuoc>().AsNoTracking(),
+                    _context.Set<Thuoc>().AsNoTracking(),
                     x => x.tk != null ? x.tk.MaThuoc : null,
                     th => th.MaThuoc,
                     (x, ths) => new { x.ct, x.tk, ths }
                 )
                 .SelectMany(x => x.ths.DefaultIfEmpty(), (x, th) => new { x.ct, x.tk, th })
                 .GroupJoin(
-                    _context.Set<BE_QLTiemThuoc.Model.Thuoc.LoaiDonVi>().AsNoTracking(),
+                    _context.Set<LoaiDonVi>().AsNoTracking(),
                     x => x.tk != null ? x.tk.MaLoaiDonViTinh : null,
                     ldv => ldv.MaLoaiDonVi,
                     (x, ldvs) => new { x.ct, x.tk, x.th, ldvs }
@@ -331,7 +329,6 @@ namespace BE_QLTiemThuoc.Services
                 .OrderBy(r => r.MaCTPH)
                 .ToListAsync();
 
-            // map NV name
             string? nvName = null;
             if (!string.IsNullOrWhiteSpace(header.MaNV))
             {
@@ -341,7 +338,7 @@ namespace BE_QLTiemThuoc.Services
                     .FirstOrDefaultAsync();
             }
 
-            dynamic result = new System.Dynamic.ExpandoObject();
+            dynamic result = new ExpandoObject();
             var d = (IDictionary<string, object>)result;
             d["MaPH"] = header.MaPH;
             d["MaPXH"] = header.MaPXH ?? string.Empty;
@@ -349,7 +346,7 @@ namespace BE_QLTiemThuoc.Services
             d["MaNV"] = header.MaNV;
             d["NhanVienName"] = nvName ?? string.Empty;
             d["GhiChu"] = header.GhiChu ?? string.Empty;
-            // Totals/LyDoHuy not present in DB; omit
+            d["TongTien"] = header.TongTien ?? 0m;
             d["ChiTiets"] = details;
 
             return result;
@@ -385,6 +382,7 @@ namespace BE_QLTiemThuoc.Services
             };
 
             var createdDetails = new List<object>();
+            decimal totalThanhTien = 0m;
 
             await using var tx = await _context.Database.BeginTransactionAsync();
             try
@@ -426,6 +424,7 @@ namespace BE_QLTiemThuoc.Services
                         };
                         await _context.ChiTietPhieuHuys.AddAsync(ctPh);
                         createdDetails.Add(new { ctPh.MaCTPH, ctPh.MaLo, SoLuong = ctPh.SoLuong });
+                        totalThanhTien += ctPh.ThanhTien;
                     }
                 }
 
@@ -440,6 +439,9 @@ namespace BE_QLTiemThuoc.Services
                     }
                 }
 
+                // Persist computed total on PhieuHuy
+                ph.TongTien = totalThanhTien;
+                _context.PhieuHuys.Update(ph);
                 await _context.SaveChangesAsync();
                 await tx.CommitAsync();
 
