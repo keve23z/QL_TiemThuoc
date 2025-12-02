@@ -5,8 +5,9 @@ using Microsoft.EntityFrameworkCore;
 using BE_QLTiemThuoc.Model.Thuoc;
 using BE_QLTiemThuoc.Model;
 using BE_QLTiemThuoc.Model.Kho;
-using BE_QLTiemThuoc.Model.Ban; // Added namespace for DanhGiaThuoc and BinhLuan
+using BE_QLTiemThuoc.Model.Ban; 
 using BE_QLTiemThuoc.Model.Chat;
+
 
 
 namespace BE_QLTiemThuoc.Data
@@ -46,6 +47,7 @@ namespace BE_QLTiemThuoc.Data
         public DbSet<CuocTroChuyen> CuocTroChuyens { get; set; }
         public DbSet<TinNhan> TinNhans { get; set; }
 
+        public DbSet<LoaiThuoc> LoaiThuoc { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -53,6 +55,7 @@ namespace BE_QLTiemThuoc.Data
 
             modelBuilder.Entity<TaiKhoan>().ToTable("TaiKhoan");
             modelBuilder.Entity<KhachHang>().ToTable("KhachHang");   
+
             modelBuilder.Entity<Thuoc>().ToTable("Thuoc");
             modelBuilder.Entity<NhaCungCap>().ToTable("NhaCungCap");
             modelBuilder.Entity<NhanVien>().ToTable("NhanVien");
