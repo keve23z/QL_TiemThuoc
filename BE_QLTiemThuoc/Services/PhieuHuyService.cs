@@ -3,17 +3,15 @@ using BE_QLTiemThuoc.Model.Kho;
 using BE_QLTiemThuoc.Repositories;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Storage;
-
+using BE_QLTiemThuoc.Data;
 namespace BE_QLTiemThuoc.Services
 {
     public class PhieuHuyService
     {
-        private readonly PhieuHuyRepository _repo;
-        private readonly BE_QLTiemThuoc.Data.AppDbContext _context;
+        private readonly AppDbContext _context;
 
-        public PhieuHuyService(PhieuHuyRepository repo, BE_QLTiemThuoc.Data.AppDbContext context)
+        public PhieuHuyService(AppDbContext context)
         {
-            _repo = repo;
             _context = context;
         }
 

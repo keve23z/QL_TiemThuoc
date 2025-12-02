@@ -30,6 +30,12 @@ var payosClientId = Environment.GetEnvironmentVariable("PayOS__ClientId") ?? con
 var payosApiKey = Environment.GetEnvironmentVariable("PayOS__ApiKey") ?? configuration["PayOS:ApiKey"];
 var payosChecksumKey = Environment.GetEnvironmentVariable("PayOS__ChecksumKey") ?? configuration["PayOS:ChecksumKey"];
 
+var defaultConnection = Environment.GetEnvironmentVariable("Default__Connection")
+    ?? builder.Configuration.GetConnectionString("DefaultConnection");
+
+builder.Services.AddDbContext<AppDbContext>(options =>
+    options.UseSqlServer(defaultConnection));
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy(name: MyAllowSpecificOrigins,
@@ -71,7 +77,6 @@ builder.Services.AddScoped<NhanVienRepository>();
 builder.Services.AddScoped<NhanVienService>();
 builder.Services.AddScoped<LoaiDonViRepository>();
 builder.Services.AddScoped<LoaiDonViService>();
-builder.Services.AddScoped<PhieuHuyRepository>();
 builder.Services.AddScoped<PhieuHuyService>();
 builder.Services.AddScoped<PhieuXuLyHoanHuyRepository>();
 builder.Services.AddScoped<PhieuXuLyHoanHuyService>();
@@ -81,6 +86,7 @@ builder.Services.AddScoped<BinhLuanRepository>();
 builder.Services.AddScoped<BinhLuanService>();
 builder.Services.AddScoped<ChatRepository>();
 builder.Services.AddScoped<ChatService>();
+builder.Services.AddScoped<IThongKeService, ThongKeService>();
 
 // =========================================================
 // !!! KHỐI CẤU HÌNH CLOUDINARY ĐÃ ĐƯỢC DI CHUYỂN LÊN TRƯỚC builder.Build() !!!

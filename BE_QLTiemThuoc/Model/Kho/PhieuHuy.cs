@@ -26,6 +26,9 @@ namespace BE_QLTiemThuoc.Model.Kho
         [StringLength(255)]
         public string? GhiChu { get; set; }
 
+        [Column(TypeName = "decimal(18,2)")]
+        public decimal? TongTien { get; set; }
+
         // Navigation properties
         public virtual ICollection<ChiTietPhieuHuy> ChiTietPhieuHuys { get; set; } = new List<ChiTietPhieuHuy>();
     }
