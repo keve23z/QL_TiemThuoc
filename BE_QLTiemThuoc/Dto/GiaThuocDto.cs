@@ -4,14 +4,10 @@ namespace BE_QLTiemThuoc.Dto
 {
     public class GiaThuocDto
     {
-        // Optional for create (service can generate if missing)
-        public string? MaGiaThuoc { get; set; }
-
-        // MaThuoc is optional on create (server will assign Thuoc.MaThuoc when missing)
-        public string? MaThuoc { get; set; }
+        public string? MaGiaThuoc { get; set; } = null!;
 
         [Required]
-        public string MaLoaiDonVi { get; set; }
+        public string MaLoaiDonVi { get; set; } = null!;
 
         // number of base units (e.g. 1)
         public int SoLuong { get; set; } = 1;

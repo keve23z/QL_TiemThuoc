@@ -7,13 +7,12 @@ namespace BE_QLTiemThuoc.Model.Thuoc
     public class Thuoc
     {
         [Key]
-        public string MaThuoc { get; set; }
+        public string MaThuoc { get; set; } = null!;
 
-        public string MaLoaiThuoc { get; set; }
+        public string? MaLoaiThuoc { get; set; }
 
         [Required]
-        public string TenThuoc { get; set; }
-
+        public string TenThuoc { get; set; } = null!;
         public string ThanhPhan { get; set; }
         public string MoTa { get; set; }
         public string MaLoaiDonVi { get; set; }
@@ -25,5 +24,6 @@ namespace BE_QLTiemThuoc.Model.Thuoc
         public string MaNCC { get; set; }
         public decimal DonGiaSi { get; set; }
         public decimal DonGiaLe { get; set; }
+
     }
 }

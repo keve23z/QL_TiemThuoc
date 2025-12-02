@@ -56,27 +56,18 @@ namespace BE_QLTiemThuoc.Controllers
             int number = int.Parse(lastCode.Substring(2)) + 1;
             return "KH" + number.ToString("D4");
         }
-        //[HttpPut("UpdateThongTin/{maKH}")]
-        //public async Task<IActionResult> UpdateThongTin(string maKH, [FromBody] KhachHangUpdateDto dto)
-        //{
-        //    if (string.IsNullOrWhiteSpace(maKH) || dto == null)
-        //        return BadRequest("Thông tin không hợp lệ.");
 
-        //    var khachHang = await _context.KhachHangs.FirstOrDefaultAsync(kh => kh.MAKH == maKH);
-        //    if (khachHang == null)
-        //        return NotFound("Không tìm thấy khách hàng.");
+        // PUT: api/KhachHang/{maKhachHang}
+        [HttpPut("{maKhachHang}")]
+        public async Task<IActionResult> UpdateKhachHang(string maKhachHang, KhachHang dto)
+        {
+            if (string.IsNullOrWhiteSpace(maKhachHang)) return BadRequest("maKhachHang is required");
 
-        //    // Cập nhật các thông tin cho phép thay đổi
-        //    khachHang.HOTEN = dto.HOTEN ?? khachHang.HOTEN;
-        //    khachHang.NGAYSINH = dto.NGAYSINH ?? khachHang.NGAYSINH;
-        //    khachHang.SODT = dto.SODT ?? khachHang.SODT;
+            var updated = await _service.UpdateAsync(maKhachHang, dto);
+            if (updated == null) return NotFound("Không tìm thấy khách hàng để cập nhật.");
 
-        //    await _context.SaveChangesAsync();
-
-        //    return Ok(new { message = "Cập nhật thông tin khách hàng thành công." });
-        //}
-
-
+            return Ok(updated);
+        }
     }
 
 }

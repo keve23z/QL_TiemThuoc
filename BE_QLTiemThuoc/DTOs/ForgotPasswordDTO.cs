@@ -39,3 +39,4 @@ namespace BE_QLTiemThuoc.DTOs
         public string Message { get; set; }
     }
 }
+

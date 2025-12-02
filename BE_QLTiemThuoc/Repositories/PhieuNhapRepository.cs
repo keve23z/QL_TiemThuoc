@@ -62,6 +62,27 @@ namespace BE_QLTiemThuoc.Repositories
             await _context.SaveChangesAsync();
         }
 
+        public async Task<PhieuNhap?> GetByIdAsync(string maPN)
+        {
+            return await _context.PhieuNhaps.FirstOrDefaultAsync(p => p.MaPN == maPN);
+        }
+
+        public async Task UpdatePhieuNhapAsync(PhieuNhap pn)
+        {
+            _context.PhieuNhaps.Update(pn);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task DeletePhieuNhapAsync(string maPN)
+        {
+            var phieuNhap = await _context.PhieuNhaps.FindAsync(maPN);
+            if (phieuNhap != null)
+            {
+                _context.PhieuNhaps.Remove(phieuNhap);
+                await _context.SaveChangesAsync();
+            }
+        }
+
         public async Task<IDbContextTransaction> BeginTransactionAsync()
         {
             return await _context.Database.BeginTransactionAsync();

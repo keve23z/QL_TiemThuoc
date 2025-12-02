@@ -4,9 +4,9 @@ namespace BE_QLTiemThuoc.Dto
 {
     public class ThuocDto
     {
-        public string? MaThuoc { get; set; }
         public string MaLoaiThuoc { get; set; }
-        public string TenThuoc { get; set; }
+        public string? MaThuoc { get; set; }
+        public string? TenThuoc { get; set; }
         public string? ThanhPhan { get; set; }
         public string? MoTa { get; set; }
         public string? CongDung { get; set; }

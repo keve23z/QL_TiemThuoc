@@ -17,5 +17,8 @@ namespace BE_QLTiemThuoc.Model
     public string? MaLoaiDonVi { get; set; }
     [StringLength(10)]
     public string? MaThuoc { get; set; }
+    public DateTime? HanSuDung { get; set; }
+    // Indicates whether the line has been processed/allocated (BIT in DB). Default 0 in DB.
+    public bool TrangThaiXuLy { get; set; } = false;
     }
 }

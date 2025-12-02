@@ -6,7 +6,6 @@ namespace BE_QLTiemThuoc.Dto
     {
         public string? MaLoaiThuoc { get; set; }
         public string? TenLoaiThuoc { get; set; }
-        public string? Icon { get; set; }
     }
 
     public class GroupWithLoaiDto

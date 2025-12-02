@@ -15,6 +15,8 @@ namespace BE_QLTiemThuoc.Repositories
             _context = context;
         }
 
+        public AppDbContext Context => _context;
+
         public async Task<List<NhaCungCap>> GetAllAsync()
         {
             return await _context.NhaCungCaps.ToListAsync();
@@ -34,9 +36,18 @@ namespace BE_QLTiemThuoc.Repositories
         public async Task UpdateAsync(NhaCungCap ncc)
         {
             var entity = await _context.NhaCungCaps.FindAsync(ncc.MaNCC);
-            if (entity == null) throw new System.Exception("Không tìm thấy nhà cung cấp.");
+            if (entity == null) throw new Exception("Không tìm thấy nhà cung cấp.");
             _context.Entry(entity).CurrentValues.SetValues(ncc);
             await _context.SaveChangesAsync();
+        }
+
+        public async Task<bool> DeleteAsync(string id)
+        {
+            var entity = await _context.NhaCungCaps.FindAsync(id);
+            if (entity == null) throw new Exception("Không tìm thấy nhà cung cấp.");
+            _context.NhaCungCaps.Remove(entity);
+            await _context.SaveChangesAsync();
+            return true;
         }
     }
 }

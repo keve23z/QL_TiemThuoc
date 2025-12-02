@@ -30,5 +30,27 @@ namespace BE_QLTiemThuoc.Repositories
         {
             return await _context.LoaiThuoc.Where(l => l.MaNhomLoai == maNhom).ToListAsync();
         }
+
+        public async Task AddAsync(NhomLoai nhom)
+        {
+            await _context.NhomLoai.AddAsync(nhom);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task UpdateAsync(NhomLoai nhom)
+        {
+            _context.NhomLoai.Update(nhom);
+            await _context.SaveChangesAsync();
+        }
+
+        public async Task DeleteAsync(string maNhom)
+        {
+            var item = await _context.NhomLoai.FindAsync(maNhom);
+            if (item != null)
+            {
+                _context.NhomLoai.Remove(item);
+                await _context.SaveChangesAsync();
+            }
+        }
     }
 }
