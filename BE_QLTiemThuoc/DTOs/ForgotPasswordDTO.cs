@@ -38,4 +38,10 @@ namespace BE_QLTiemThuoc.DTOs
     {
         public string Message { get; set; }
     }
+
+    public class ResetPasswordByAdminRequest
+    {
+        [Required(ErrorMessage = "Mật khẩu mới không được để trống")]
+        public string NewPassword { get; set; }
+    }
 }
